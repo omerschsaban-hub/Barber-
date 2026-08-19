@@ -29,7 +29,7 @@ async def main() -> None:
                                 "nominal_mm": 10.0,
                                 "measured_mm": 10.0,
                                 "tolerance_mm": 0.1,
-                                "_mcp_smoke_test": True,
+                                "mcp_smoke_test": True,
                             },
                         )
                     else:
