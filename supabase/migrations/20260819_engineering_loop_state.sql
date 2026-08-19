@@ -17,15 +17,17 @@ create index if not exists engineering_loop_state_activity_idx on public.enginee
 create index if not exists engineering_loop_state_project_idx on public.engineering_loop_state(project_id);
 
 alter table public.engineering_loop_state enable row level security;
+grant select, insert, update, delete on public.engineering_loop_state to authenticated;
+revoke all on public.engineering_loop_state from anon;
 
 drop policy if exists "users can read own engineering loop" on public.engineering_loop_state;
 drop policy if exists "users can insert own engineering loop" on public.engineering_loop_state;
 drop policy if exists "users can update own engineering loop" on public.engineering_loop_state;
 drop policy if exists "users can delete own engineering loop" on public.engineering_loop_state;
-create policy "users can read own engineering loop" on public.engineering_loop_state for select using (auth.uid() = user_id);
-create policy "users can insert own engineering loop" on public.engineering_loop_state for insert with check (auth.uid() = user_id);
-create policy "users can update own engineering loop" on public.engineering_loop_state for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "users can delete own engineering loop" on public.engineering_loop_state for delete using (auth.uid() = user_id);
+create policy "users can read own engineering loop" on public.engineering_loop_state for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users can insert own engineering loop" on public.engineering_loop_state for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "users can update own engineering loop" on public.engineering_loop_state for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "users can delete own engineering loop" on public.engineering_loop_state for delete to authenticated using ((select auth.uid()) = user_id);
 
 create or replace function public.touch_engineering_loop_state()
 returns trigger language plpgsql security invoker as $$
