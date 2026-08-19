@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 from typing import Any
 import httpx
@@ -6,27 +7,130 @@ from mcp.server.fastmcp import FastMCP
 
 ENGINEERING_API = os.getenv("FABRIENT_ENGINEERING_API", "http://localhost:8000").rstrip("/")
 MCP_AUTH_TOKEN = os.getenv("FABRIENT_MCP_AUTH_TOKEN", "").strip()
+
 mcp = FastMCP("Fabrient Engineering")
 
-async def _request(method: str, path: str, *, json: Any = None, files: Any = None, params: Any = None, timeout: float = 120.0) -> Any:
-    if not path.startswith("/") or path.startswith("//") or (not path.startswith("/v1/") and path not in {"/health", "/openapi.json"}):
-        raise ValueError("Only Fabrient engineering API paths are permitted")
+async def _request(method: str, path: str, *, payload: dict[str, Any] | None = None, timeout: float = 120.0) -> Any:
+    if not path.startswith("/") or path.startswith("//") or not path.startswith("/v1/"):
+        raise ValueError("Only Fabrient /v1 API paths are permitted")
     headers = {"Authorization": f"Bearer {MCP_AUTH_TOKEN}"} if MCP_AUTH_TOKEN else {}
     async with httpx.AsyncClient(timeout=timeout) as client:
-        r = await client.request(method.upper(), f"{ENGINEERING_API}{path}", json=json, files=files, params=params, headers=headers)
-        try: data = r.json()
-        except Exception: data = {"text": r.text}
-        if r.status_code >= 400: raise RuntimeError(f"Engineering API {r.status_code}: {data}")
+        r = await client.request(method.upper(), f"{ENGINEERING_API}{path}", json=payload or {}, headers=headers)
+        try:
+            data = r.json()
+        except Exception:
+            data = {"text": r.text}
+        if r.status_code >= 400:
+            raise RuntimeError(f"Engineering API {r.status_code}: {data}")
         return data
 
-TOOL_DESCRIPTIONS={"generate_manufacturing_package":"Generate a verified Fabrient manufacturing package.","generate_physical_build_guide":"Generate a simple step-by-step physical build guide.","release_manufacturing_package":"Release a manufacturing package only after required gates pass.","inspect_part":"Inspect a part.","analyze_dfm":"Analyze deterministic DFM constraints.","auto_fix_dfm":"Apply allowed deterministic DFM fixes.","verify_fixes":"Re-run verification after fixes."}
-async def _toolbox(name:str,payload:dict[str,Any])->Any:return await _request("POST",f"/v1/toolbox/{name}",json={"operation":name,"payload":payload})
+# Canonical Fabrient capability registry.  Every capability is exposed as a
+# first-class MCP tool so MCP clients can discover and call the complete
+# engineering surface instead of receiving a small hand-picked subset.
+CAPABILITIES: dict[str, tuple[str, str]] = {
+    # Core engineering / physics
+    "predict_dimension": ("/v1/predict", "Deterministic dimension prediction with provenance and uncertainty."),
+    "simulate_dimension": ("/v1/simulate", "Run bounded domain-randomized dimension simulation."),
+    "calibrate_from_measurements": ("/v1/calibrate", "Fit residual calibration using real observations and held-out validation."),
+    "calculate_uncertainty": ("/v1/uncertainty", "Combine physics, measurement, and model uncertainty."),
+    "run_acceptance_gate": ("/v1/acceptance", "Run the deterministic acceptance/refusal gate."),
+    "calculate_reverification": ("/v1/reverification", "Calculate a bounded re-verification interval from observed drift and wear."),
+    "select_next_experiment": ("/v1/next-experiment", "Select the highest-information real experiment."),
 
-for _name in TOOL_DESCRIPTIONS:
-    def _make_tool(name:str):
-        async def _tool(payload:dict[str,Any])->Any:return await _toolbox(name,payload)
-        _tool.__name__=name
-        return _tool
-    mcp.tool(name=_name,description=TOOL_DESCRIPTIONS[_name])(_make_tool(_name))
+    # Geometry / inspection
+    "preview_inspection_import": ("/v1/import/preview", "Preview and map a messy inspection CSV before ingestion."),
+    "extract_step_geometry": ("/v1/geometry/step", "Extract supported geometry information from STEP/STP."),
+    "measure_from_image": ("/v1/cv/measure", "Run computer-vision measurement on an uploaded image."),
+    "inspect_part": ("/v1/toolbox/inspect_part", "Inspect a part and return structured engineering findings."),
+    "analyze_geometry": ("/v1/toolbox/analyze_geometry", "Analyze geometry features and engineering risks."),
+    "extract_features": ("/v1/toolbox/extract_features", "Extract manufacturability and geometry features."),
+    "calculate_bounding_box": ("/v1/toolbox/calculate_bounding_box", "Calculate and report the geometry bounding box."),
+    "analyze_tolerances": ("/v1/toolbox/analyze_tolerances", "Analyze tolerance requirements and risk."),
+    "analyze_clearances": ("/v1/toolbox/analyze_clearances", "Analyze fit and clearance risks."),
+    "analyze_wall_thickness": ("/v1/toolbox/analyze_wall_thickness", "Analyze minimum wall and manufacturability risk."),
+    "analyze_overhangs": ("/v1/toolbox/analyze_overhangs", "Analyze overhang and support risk."),
+    "analyze_bridges": ("/v1/toolbox/analyze_bridges", "Analyze bridge-length manufacturing risk."),
+    "analyze_holes": ("/v1/toolbox/analyze_holes", "Analyze holes and feature manufacturability."),
+    "analyze_threads": ("/v1/toolbox/analyze_threads", "Analyze threaded-feature manufacturability."),
 
-if __name__=="__main__":mcp.run(transport="streamable-http")
+    # DFM / fixing
+    "analyze_dfm": ("/v1/toolbox/analyze_dfm", "Run deterministic DFM analysis."),
+    "auto_fix_dfm": ("/v1/toolbox/auto_fix_dfm", "Apply only allowed deterministic DFM fixes."),
+    "verify_fixes": ("/v1/toolbox/verify_fixes", "Re-run verification after engineering fixes."),
+    "score_manufacturability": ("/v1/toolbox/score_manufacturability", "Score manufacturability using engineering checks."),
+    "find_manufacturing_risks": ("/v1/toolbox/find_manufacturing_risks", "Identify manufacturing risks and evidence."),
+    "suggest_orientation": ("/v1/toolbox/suggest_orientation", "Suggest bounded manufacturing orientation options."),
+    "analyze_support_strategy": ("/v1/toolbox/analyze_support_strategy", "Analyze support strategy for FDM manufacturing."),
+    "analyze_shrinkage_risk": ("/v1/toolbox/analyze_shrinkage_risk", "Analyze shrinkage-driven dimensional risk."),
+    "analyze_warp_risk": ("/v1/toolbox/analyze_warp_risk", "Analyze thermal warping risk."),
+
+    # Machine / process
+    "identify_machine": ("/v1/toolbox/identify_machine", "Identify the machine/process context for an engineering operation."),
+    "identify_process": ("/v1/toolbox/identify_process", "Identify manufacturing process parameters."),
+    "system_identification": ("/v1/toolbox/system_identification", "Estimate machine/process behavior from real measurements."),
+    "analyze_machine_drift": ("/v1/toolbox/analyze_machine_drift", "Analyze production drift for a machine."),
+    "analyze_service_wear": ("/v1/toolbox/analyze_service_wear", "Analyze service wear from observed history."),
+    "compare_machines": ("/v1/toolbox/compare_machines", "Compare measured machine/process behavior."),
+    "compare_revisions": ("/v1/toolbox/compare_revisions", "Compare engineering revisions and measured outcomes."),
+
+    # ML / evidence
+    "fit_residual_model": ("/v1/toolbox/fit_residual_model", "Fit a residual model only from permitted real observations."),
+    "validate_residual_model": ("/v1/toolbox/validate_residual_model", "Run held-out validation for a residual model."),
+    "calibrate_model_uncertainty": ("/v1/toolbox/calibrate_model_uncertainty", "Calibrate residual-model uncertainty."),
+    "run_model_diagnostics": ("/v1/toolbox/run_model_diagnostics", "Inspect residual-model diagnostics and failure modes."),
+    "estimate_prediction_interval": ("/v1/toolbox/estimate_prediction_interval", "Estimate a bounded prediction interval."),
+    "detect_distribution_shift": ("/v1/toolbox/detect_distribution_shift", "Detect production distribution shift from evidence."),
+    "check_data_quality": ("/v1/toolbox/check_data_quality", "Check measurement and inspection data quality."),
+    "audit_training_data": ("/v1/toolbox/audit_training_data", "Audit provenance and eligibility of model-training observations."),
+
+    # Simulation / experiments
+    "run_domain_randomization": ("/v1/toolbox/run_domain_randomization", "Run bounded simulation/domain randomization."),
+    "run_sensitivity_analysis": ("/v1/toolbox/run_sensitivity_analysis", "Quantify sensitivity to engineering parameters."),
+    "rank_experiments": ("/v1/toolbox/rank_experiments", "Rank candidate physical experiments by information value."),
+    "compare_experiments": ("/v1/toolbox/compare_experiments", "Compare measured experiment outcomes."),
+    "record_experiment": ("/v1/toolbox/record_experiment", "Record a real physical experiment and provenance."),
+    "approve_experiment": ("/v1/toolbox/approve_experiment", "Record human approval before physical execution."),
+    "refuse_experiment": ("/v1/toolbox/refuse_experiment", "Record why a physical experiment is refused."),
+
+    # Manufacturing / release
+    "generate_manufacturing_package": ("/v1/toolbox/generate_manufacturing_package", "Generate the verified manufacturing package."),
+    "generate_physical_build_guide": ("/v1/toolbox/generate_physical_build_guide", "Generate a simple step-by-step physical build guide."),
+    "validate_manufacturing_package": ("/v1/toolbox/validate_manufacturing_package", "Validate every manufacturing-package gate."),
+    "release_manufacturing_package": ("/v1/toolbox/release_manufacturing_package", "Release a package only after required gates pass."),
+    "generate_inspection_record": ("/v1/toolbox/generate_inspection_record", "Generate a structured inspection record."),
+    "export_inspection_csv": ("/v1/toolbox/export_inspection_csv", "Export inspection data as CSV."),
+    "generate_report_pdf": ("/v1/toolbox/generate_report_pdf", "Generate the engineering report PDF."),
+    "verify_release_provenance": ("/v1/toolbox/verify_release_provenance", "Verify provenance and release evidence."),
+
+    # Workspace / lifecycle / audit
+    "get_project_state": ("/v1/toolbox/get_project_state", "Retrieve persistent Fabrient engineering state."),
+    "save_project_state": ("/v1/toolbox/save_project_state", "Persist Fabrient engineering state."),
+    "get_next_best_action": ("/v1/toolbox/get_next_best_action", "Return the next engineering action in the project loop."),
+    "record_activity": ("/v1/toolbox/record_activity", "Record an engineering lifecycle activity."),
+    "get_project_history": ("/v1/toolbox/get_project_history", "Retrieve project engineering history."),
+    "create_review_share": ("/v1/toolbox/create_review_share", "Create a shareable engineering review context."),
+    "get_review_share": ("/v1/toolbox/get_review_share", "Retrieve a shared engineering review context."),
+    "write_audit_record": ("/v1/toolbox/write_audit_record", "Write an immutable engineering provenance/audit record."),
+    "get_audit_trail": ("/v1/toolbox/get_audit_trail", "Retrieve engineering provenance and audit history."),
+    "run_engineering_agent": ("/v1/toolbox/run_engineering_agent", "Run bounded engineering-agent orchestration with explicit limits."),
+}
+
+async def _call_capability(name: str, path: str, payload: dict[str, Any]) -> Any:
+    # Real API endpoints are called directly. Toolbox capabilities are routed
+    # through the canonical toolbox boundary so the MCP never invents an
+    # independent implementation of engineering logic.
+    return await _request("POST", path, payload=payload)
+
+
+def _register(name: str, path: str, description: str) -> None:
+    async def tool(payload: dict[str, Any] | None = None) -> Any:
+        return await _call_capability(name, path, payload or {})
+    tool.__name__ = name
+    tool.__doc__ = description
+    mcp.tool(name=name, description=description)(tool)
+
+for _name, (_path, _description) in CAPABILITIES.items():
+    _register(_name, _path, _description)
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
