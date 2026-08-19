@@ -2,49 +2,73 @@
 
 Fabrient is engineering software for machine-specific dimensional drift in FDM production.
 
-## v1 loop
+## v1 product loop
 
-Plain-English engineering input / STEP context
-→ structured engineering problem
+Engineering input / STEP context
 → deterministic physics baseline
-→ uncertainty/domain perturbations
+→ domain randomization around explicitly declared parameters
 → existing inspection records + real measurements
-→ CV when an image contains a usable reference
+→ CV only when physical scale is evidenced
 → machine/process system identification
-→ residual ML
-→ calibrated uncertainty
+→ interpretable residual ML with held-out validation
+→ combined uncertainty
+→ tolerance/refusal gate
+→ defensible re-verification interval
 → next physical experiment
 → new evidence.
 
-## Product boundaries
+## Walt/Jaegertech changes
 
-LLMs may parse, orchestrate and explain. They do not generate engineering numbers, pass/fail decisions, confidence, or measurements. Real observations are ground truth. Unsupported extrapolation is refused.
+- Existing inspection records are the primary onboarding path.
+- Serialized gauge/fixture instances are first-class records.
+- Production drift and service wear are separate data domains.
+- Re-verification interval is an output, not a user-entered magic number.
+- Outputs are expressed as acceptance consequences with dimensional values underneath.
+- Every value carries provenance.
+- Tight tolerances are refused when measured variation cannot support them.
+- Inspection records export to auditable CSV/PDF.
 
-Production drift and in-service wear are separate clocks. Every imported or displayed number keeps provenance. When the observed variation cannot support a requested tolerance, Fabrient should refuse a confident recommendation.
-
-## Stack
+## Architecture
 
 - Next.js + TypeScript frontend
 - Supabase/Postgres + Google OAuth
 - Python/FastAPI engineering service
-- deterministic physics and validation
-- scikit-learn residual models
-- OpenCV measurement primitives
+- deterministic FDM physics and validation
+- Monte Carlo/domain randomization with explicit seeds
+- OpenCV measurement primitives with scale refusal
+- scikit-learn residual/system-identification models
+- bounded engineering agent graph
+- provenance/audit records and RLS
 - GitHub Actions CI
-
-## Run locally
-
-1. Configure `.env` from `.env.example`.
-2. Enable **Google** as the only sign-in provider in Supabase Auth and set the callback URL to `/auth/callback` for the deployed site.
-3. `npm install && npm run dev`
-4. `cd engineering && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000`
 
 ## Engineering honesty
 
-No fake calibration data. No fake confidence. No synthetic observations presented as measurements. Prediction records must carry algorithm/physics/model provenance and validation state.
+LLMs may parse natural language, coordinate bounded agents, and explain results. They do not generate engineering numbers, pass/fail decisions, confidence, measurements, or calibration evidence.
 
-## Current vertical slice
+Real observations are ground truth. Synthetic data is never stored or presented as calibration evidence. Literature values must retain their source and applicability context. Unsupported extrapolation is refused.
 
-Projects + Google sign-in, inspection-record evidence import, deterministic shrinkage baseline, explicit uncertainty, residual calibration endpoint, CV feature detection with scale refusal, conservative next-experiment selection, graph/agent view, Supabase provenance, RLS ownership, and CI.
+## Important geometry limitation
 
-Future v1 increments: STEP geometry extraction/visualization, full inspection-column mapping into serialized gauges/features, production/service-wear separation, interval recommendation, auditable inspection-record PDF/CSV export, calibrated residual model evaluation, and deployment.
+STEP input currently extracts Cartesian-point geometry and a bounding box without pretending to have a full CAD-kernel BREP/topology interpretation. The API labels this state `extracted_limited`. A CAD-kernel adapter can be added without changing the provenance contract.
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+cd engineering
+pip install -r requirements.txt
+uvicorn app.composed:app --reload --port 8000
+```
+
+Set `NEXT_PUBLIC_ENGINEERING_API` when the engineering service is not on `http://localhost:8000`.
+
+## Key routes
+
+- `/workspace` — integrated prediction/import/re-verification workspace
+- `/geometry` — STEP geometry extraction and computed 3D view
+- `/records` — auditable inspection-record export
+- `/graph` — engineering agent graph
+- `/projects` — Supabase-backed projects
+
+No payments, purchasing, fulfillment, spam, or generic autonomous-business engine are part of Fabrient v1.
