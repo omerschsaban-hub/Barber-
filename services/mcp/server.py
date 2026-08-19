@@ -150,8 +150,8 @@ async def _post(path: str, payload: dict[str, Any] | None = None, timeout: float
 
 def _register(name: str, description: str, path: str) -> None:
     if name == "validate_dimension":
-        async def tool(nominal_mm: float, measured_mm: float, tolerance_mm: float, _mcp_smoke_test: bool = False) -> Any:
-            if _mcp_smoke_test:
+        async def tool(nominal_mm: float, measured_mm: float, tolerance_mm: float, mcp_smoke_test: bool = False) -> Any:
+            if mcp_smoke_test:
                 return {"ok": True, "tool": name, "route": path, "smoke_test": True}
             return await _post(path, {
                 "nominal_mm": nominal_mm,
