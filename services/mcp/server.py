@@ -138,8 +138,16 @@ async def _post(path: str, payload: dict[str, Any] | None = None, timeout: float
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(f"{ENGINE_URL}{path}", files={"file": (filename, raw, "application/octet-stream")}, data=extra)
     else:
+        # Toolbox endpoints use a stable envelope: {operation, payload}.
+        # The MCP tool name is the operation; the public MCP payload should not
+        # force callers to repeat that routing key.
+        if path.startswith("/v1/toolbox/"):
+            operation = path.rsplit("/", 1)[-1]
+            request_body = {"operation": operation, "payload": payload}
+        else:
+            request_body = payload
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(f"{ENGINE_URL}{path}", json=payload)
+            response = await client.post(f"{ENGINE_URL}{path}", json=request_body)
     try:
         data = response.json()
     except Exception:
