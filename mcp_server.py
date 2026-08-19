@@ -26,8 +26,6 @@ async def _request(method: str, path: str, *, payload: dict[str, Any] | None = N
             raise RuntimeError(f"Engineering API {r.status_code}: {data}")
         return data
 
-# Canonical Fabrient capability registry. Every capability is a first-class
-# MCP tool so clients can discover and call the complete engineering surface.
 CAPABILITIES: dict[str, tuple[str, str]] = {
     "predict_dimension": ("/v1/predict", "Deterministic dimension prediction with provenance and uncertainty."),
     "simulate_dimension": ("/v1/simulate", "Run bounded domain-randomized dimension simulation."),
@@ -39,6 +37,11 @@ CAPABILITIES: dict[str, tuple[str, str]] = {
     "preview_inspection_import": ("/v1/import/preview", "Preview and map a messy inspection CSV before ingestion."),
     "extract_step_geometry": ("/v1/geometry/step", "Extract supported geometry information from STEP/STP."),
     "measure_from_image": ("/v1/cv/measure", "Run computer-vision measurement on an uploaded image."),
+    "measure_real_cv": ("/v1/cv/measure-real-json", "Measure a real object from an image using an explicit physical reference and return uncertainty/provenance."),
+    "detect_real_cv_lines": ("/v1/cv/detect-line-candidates-json", "Detect CV line candidates from a base64 image for human-selected physical measurement."),
+    "run_calibrated_sim2real": ("/v1/sim2real/calibrate-and-run", "Run sim-to-real only when real observations pass the validation gate."),
+    "compare_sim_to_real": ("/v1/sim2real/compare", "Compare simulated predictions against real observations."),
+    "run_real_engineering_fleet": ("/v1/agents/fleet", "Run the evidence-gated CV/physics/system-identification/residual-ML/sim-to-real fleet."),
     "inspect_part": ("/v1/toolbox/inspect_part", "Inspect a part and return structured engineering findings."),
     "analyze_geometry": ("/v1/toolbox/analyze_geometry", "Analyze geometry features and engineering risks."),
     "extract_features": ("/v1/toolbox/extract_features", "Extract manufacturability and geometry features."),
@@ -101,19 +104,13 @@ CAPABILITIES: dict[str, tuple[str, str]] = {
     "run_engineering_agent": ("/v1/agents/run", "Run bounded engineering-agent orchestration."),
 }
 
-# Add every existing manufacturing capability as a first-class MCP tool.
-# The MCP remains an adapter layer; the engineering service remains the source
-# of truth for deterministic algorithms, ML validation, and release gates.
 for _name, _description in TOOLBOX_CAPABILITIES.items():
     CAPABILITIES.setdefault(_name, (f"/v1/toolbox/{_name}", _description))
-
-# Direct API mappings supersede older toolbox aliases.
 for _name, (_path, _description) in DIRECT_CAPABILITIES.items():
     CAPABILITIES[_name] = (_path, _description)
 
 async def _call_capability(name: str, path: str, payload: dict[str, Any]) -> Any:
     return await _request("POST", path, payload=payload)
-
 
 def _register(name: str, path: str, description: str) -> None:
     async def tool(payload: dict[str, Any] | None = None) -> Any:
