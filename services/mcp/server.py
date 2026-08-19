@@ -13,7 +13,6 @@ from starlette.responses import JSONResponse
 ENGINE_URL = os.getenv("FABRIENT_ENGINE_URL", "https://fabrient-engineering.onrender.com").rstrip("/")
 mcp = MCPServer("Fabrient Engineering", instructions="Fabrient MCP: deterministic engineering algorithms + measured-evidence ML + bounded engineering/LLM orchestration. Never invent measurements or confidence.")
 
-# Single authoritative registry. tools/list and tools/call are generated from this exact table.
 CAPABILITY_REGISTRY: tuple[tuple[str, str, str], ...] = (
     ("inspect_part", "Inspect a part.", "/v1/toolbox/inspect_part"),
     ("analyze_dfm", "Analyze DFM.", "/v1/toolbox/analyze_dfm"),
@@ -91,12 +90,12 @@ CAPABILITY_REGISTRY: tuple[tuple[str, str, str], ...] = (
     ("cv_measure", "Measure geometry with computer vision.", "/v1/cv/measure"),
     ("inspection_preview", "Preview inspection import.", "/v1/import/preview"),
     ("inspection_confirm", "Confirm inspection import.", "/v1/final/import/confirm"),
-    ("physics_interval", "Return physics prediction interval.", "/v1/predict"),
-    ("physics_provenance", "Return physics prediction provenance.", "/v1/predict"),
-    ("simulation_domain_randomization", "Run simulation domain randomization.", "/v1/simulate"),
-    ("ml_residual_fit", "Fit ML residual model.", "/v1/calibrate"),
-    ("ml_residual_validation", "Validate ML residual model.", "/v1/calibrate"),
-    ("ml_prediction_uncertainty", "Estimate ML prediction uncertainty.", "/v1/residual-uncertainty"),
+    ("cv_measure_real", "Measure real millimetres from an image using an explicit physical reference and selected pixel lines.", "/v1/cv/measure-real"),
+    ("cv_detect_line_candidates", "Detect candidate image lines for physical measurement selection.", "/v1/cv/detect-line-candidates"),
+    ("sim2real_run", "Run physics simulation calibrated by real-observation residual ML.", "/v1/sim2real/run"),
+    ("sim2real_compare", "Compare simulated predictions with real residual evidence.", "/v1/sim2real/compare"),
+    ("agent_fleet_run", "Run the bounded evidence, physics, CV, ML, sim-to-real and critic agent fleet.", "/v1/agents/fleet"),
+    ("llm_engineering_critic", "Run the optional LLM orchestration critic without allowing it to invent engineering values.", "/v1/agents/fleet"),
     ("ml_machine_system_id", "Run ML machine system identification.", "/v1/system-identification"),
     ("deterministic_acceptance", "Run deterministic acceptance.", "/v1/acceptance"),
     ("deterministic_reverification", "Run deterministic reverification.", "/v1/reverification"),
@@ -125,7 +124,7 @@ if TOOL_COUNT != 100 or len(set(CAPABILITY_NAMES)) != 100:
 
 async def _post(path: str, payload: dict[str, Any] | None = None, timeout: float = 120) -> Any:
     payload = payload or {}
-    upload_paths = {"/v1/geometry/step", "/v1/cv/measure", "/v1/import/preview"}
+    upload_paths = {"/v1/geometry/step", "/v1/cv/measure", "/v1/import/preview", "/v1/cv/measure-real", "/v1/cv/detect-line-candidates"}
     if path in upload_paths and payload.get("file_base64"):
         try:
             raw = base64.b64decode(payload["file_base64"], validate=True)
@@ -134,13 +133,10 @@ async def _post(path: str, payload: dict[str, Any] | None = None, timeout: float
         if len(raw) > 25_000_000:
             raise ValueError("uploaded file exceeds 25 MB")
         filename = str(payload.get("filename") or "upload.bin")
-        extra = {k: v for k, v in payload.items() if k not in {"file_base64", "filename"}}
+        file_fields = {k: v for k, v in payload.items() if k not in {"file_base64", "filename"}}
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(f"{ENGINE_URL}{path}", files={"file": (filename, raw, "application/octet-stream")}, data=extra)
+            response = await client.post(f"{ENGINE_URL}{path}", files={"file": (filename, raw, "application/octet-stream")}, data=file_fields)
     else:
-        # Toolbox endpoints use a stable envelope: {operation, payload}.
-        # The MCP tool name is the operation; the public MCP payload should not
-        # force callers to repeat that routing key.
         if path.startswith("/v1/toolbox/"):
             operation = path.rsplit("/", 1)[-1]
             request_body = {"operation": operation, "payload": payload}
@@ -161,11 +157,12 @@ def _register(name: str, description: str, path: str) -> None:
         async def tool(nominal_mm: float, measured_mm: float, tolerance_mm: float, mcp_smoke_test: bool = False) -> Any:
             if mcp_smoke_test:
                 return {"ok": True, "tool": name, "route": path, "smoke_test": True}
-            return await _post(path, {
-                "nominal_mm": nominal_mm,
-                "measured_mm": measured_mm,
-                "tolerance_mm": tolerance_mm,
-            })
+            return await _post(path, {"nominal_mm": nominal_mm, "measured_mm": measured_mm, "tolerance_mm": tolerance_mm})
+    elif name == "llm_engineering_critic":
+        async def tool(payload: dict[str, Any] | None = None) -> Any:
+            payload = dict(payload or {})
+            payload["llm_model"] = payload.get("llm_model") or os.getenv("OPENROUTER_MODEL")
+            return await _post(path, payload)
     else:
         async def tool(payload: dict[str, Any] | None = None) -> Any:
             payload = payload or {}
