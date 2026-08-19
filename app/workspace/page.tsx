@@ -1,0 +1,51 @@
+'use client';
+
+import {useMemo, useState} from 'react';
+import * as THREE from 'three';
+import {Canvas, useFrame} from '@react-three/fiber';
+import {OrbitControls} from '@react-three/drei';
+
+const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || 'http://localhost:8000';
+
+type Prediction={prediction_mm:number;interval_95_mm:number[];physics_uncertainty_mm:number;status:string;provenance:any};
+
+function Part({size,deviation}:{size:number[];deviation:number}){
+  const ref=useMemo(()=>new THREE.MeshStandardMaterial({wireframe:true}),[]);
+  const [x,y,z]=size.map(v=>Math.max(v/20,.1));
+  return <mesh scale={[x,y,z]} material={ref}><boxGeometry args={[1,1,1]}/></mesh>;
+}
+
+function View3D({size,deviation}:{size:number[];deviation:number}){
+  return <div className="viewer"><Canvas camera={{position:[3,3,3],fov:45}}><ambientLight intensity={1}/><directionalLight position={[3,4,5]}/><Part size={size} deviation={deviation}/><OrbitControls/></Canvas><div className="viewer-label">COMPUTED GEOMETRY · DEVIATION {deviation.toFixed(3)} mm</div></div>;
+}
+
+export default function Workspace(){
+ const [nominal,setNominal]=useState(40); const [shrink,setShrink]=useState(.5); const [sigma,setSigma]=useState(.15);
+ const [material,setMaterial]=useState('PETG'); const [machine,setMachine]=useState('Machine 01'); const [temp,setTemp]=useState(245);
+ const [pred,setPred]=useState<Prediction|null>(null); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+ const [file,setFile]=useState<File|null>(null); const [importResult,setImportResult]=useState<any>(null);
+ const [tolerance,setTolerance]=useState(0.4); const [observedSigma,setObservedSigma]=useState(0.05); const [nObs,setNObs]=useState(0);
+ const [interval,setIntervalResult]=useState<any>(null);
+ const [reverify,setReverify]=useState({uses:20,environment:.2,drift:.002,consequence:.5,measurement:.01});
+ const [size,setSize]=useState([40,20,10]);
+ async function predict(){setBusy(true);setError('');try{const r=await fetch(`${ENGINE}/v1/predict`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({nominal_mm:nominal,material,machine,process_temperature_c:temp,nominal_shrinkage_pct:shrink,shrinkage_uncertainty_pct:sigma,tolerance_lower_mm:-tolerance/2,tolerance_upper_mm:tolerance/2})});if(!r.ok)throw new Error(await r.text());setPred(await r.json())}catch(e:any){setError(e.message||'Engineering service unavailable')}finally{setBusy(false)}}
+ async function previewImport(){if(!file)return;setBusy(true);setError('');try{const fd=new FormData();fd.append('file',file);const r=await fetch(`${ENGINE}/v1/import/preview`,{method:'POST',body:fd});if(!r.ok)throw new Error(await r.text());setImportResult(await r.json())}catch(e:any){setError(e.message||'Import failed')}finally{setBusy(false)}}
+ async function recommend(){setBusy(true);try{const r=await fetch(`${ENGINE}/v1/reverification`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tolerance_band_mm:tolerance,uses_per_week:reverify.uses,environment_severity:reverify.environment,observed_drift_mm_per_day:reverify.drift,consequence_severity:reverify.consequence,measurement_uncertainty_mm:reverify.measurement})});setIntervalResult(await r.json())}finally{setBusy(false)}}
+ const deviation=pred?pred.prediction_mm-nominal:0;
+ const reportRows=useMemo(()=>importResult?.rows||[],[importResult]);
+ function downloadCsv(){if(!reportRows.length)return;const headers=Object.keys(reportRows[0]);const body=[headers.join(','),...reportRows.map((r:any)=>headers.map(h=>JSON.stringify(r[h]??'')).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([body],{type:'text/csv'}));a.download='fabrient-inspection-record.csv';a.click()}
+ return <main className="page wide">
+  <div className="workspace-head"><div><div className="eyebrow">FABRIENT / ENGINEERING WORKSPACE</div><h1 className="title">Dimensional drift, with evidence.</h1><p className="muted">Physics is the baseline. Real inspection records are ground truth. Every unsupported conclusion is refused.</p></div><a className="button" href="/projects">Projects</a></div>
+  <div className="workspace-grid">
+   <section className="panel"><h2>01 / ENGINEERING INPUT</h2><p className="muted">Natural language can be parsed upstream; these are the authoritative editable engineering values.</p><div className="formgrid">
+    <label>Nominal mm<input type="number" value={nominal} onChange={e=>setNominal(+e.target.value)}/></label><label>Material<input value={material} onChange={e=>setMaterial(e.target.value)}/></label><label>Machine<input value={machine} onChange={e=>setMachine(e.target.value)}/></label><label>Process °C<input type="number" value={temp} onChange={e=>setTemp(+e.target.value)}/></label><label>Shrinkage %<input type="number" step=".01" value={shrink} onChange={e=>setShrink(+e.target.value)}/></label><label>Shrinkage σ %<input type="number" step=".01" value={sigma} onChange={e=>setSigma(+e.target.value)}/></label><label>Tolerance band mm<input type="number" step=".01" value={tolerance} onChange={e=>setTolerance(+e.target.value)}/></label>
+   </div><button className="button primary" onClick={predict} disabled={busy}>{busy?'Computing…':'Run deterministic prediction'}</button>{error&&<p className="error">{error}</p>}</section>
+   <section className="panel"><h2>02 / COMPUTED MODEL</h2>{pred?<><div className="result-row"><div><span className="muted">PREDICTED</span><strong>{pred.prediction_mm.toFixed(4)} mm</strong></div><div><span className="muted">95% INTERVAL</span><strong>{pred.interval_95_mm[0].toFixed(3)} — {pred.interval_95_mm[1].toFixed(3)}</strong></div><span className={`status ${pred.status==='validated'?'ok':'warn'}`}>{pred.status}</span></div><View3D size={size} deviation={deviation}/><pre className="provenance">{JSON.stringify(pred.provenance,null,2)}</pre></>:<p className="muted">No prediction yet. Nothing is displayed as a fabricated result.</p>}</section>
+  </div>
+  <div className="workspace-grid">
+   <section className="panel"><h2>03 / EXISTING INSPECTION RECORDS</h2><p className="muted">Drop the CSV you already use. Messy columns are suggested, then require confirmation before ingestion.</p><input type="file" accept=".csv,text/csv" onChange={e=>setFile(e.target.files?.[0]||null)}/><button className="button" onClick={previewImport} disabled={!file||busy}>Preview and map columns</button>{importResult&&<div className="mapping"><div className="status ok">{importResult.row_count_preview} rows read · SHA-256 {importResult.content_sha256.slice(0,12)}…</div>{importResult.columns.map((c:any)=><div className="mapping-row" key={c.source_column}><b>{c.source_column}</b><span>→</span><span>{c.candidates.join(', ')||'No safe suggestion'}</span><span>{c.status}</span></div>)}<button className="button" onClick={downloadCsv}>Export inspected rows CSV</button></div>}</section>
+   <section className="panel"><h2>04 / RE-VERIFICATION</h2><p className="muted">Output is computed from tolerance, usage, environment, observed production drift, consequence, and measurement uncertainty.</p><div className="formgrid"><label>Uses/week<input type="number" value={reverify.uses} onChange={e=>setReverify({...reverify,uses:+e.target.value})}/></label><label>Environment 0–1<input type="number" step=".1" value={reverify.environment} onChange={e=>setReverify({...reverify,environment:+e.target.value})}/></label><label>Observed drift mm/day<input type="number" step=".001" value={reverify.drift} onChange={e=>setReverify({...reverify,drift:+e.target.value})}/></label><label>Consequence 0–1<input type="number" step=".1" value={reverify.consequence} onChange={e=>setReverify({...reverify,consequence:+e.target.value})}/></label><label>Measurement σ mm<input type="number" step=".001" value={reverify.measurement} onChange={e=>setReverify({...reverify,measurement:+e.target.value})}/></label></div><button className="button" onClick={recommend}>Calculate interval</button>{interval&&<div className={`decision ${interval.status==='supported'?'good':'bad'}`}><strong>{interval.interval_days?`${interval.interval_days} days`:'NO DEFENSIBLE INTERVAL'}</strong><p>{interval.reason||interval.rationale}</p></div>}</section>
+  </div>
+  <section className="panel"><h2>05 / ENGINEERING LOOP</h2><div className="pipeline"><span>PHYSICS</span><i>→</i><span>DETERMINISTIC CHECKS</span><i>→</i><span>DOMAIN RANDOMIZATION</span><i>→</i><span>REAL MEASUREMENTS</span><i>→</i><span>CV</span><i>→</i><span>SYSTEM ID</span><i>→</i><span>RESIDUAL ML</span><i>→</i><span>UNCERTAINTY</span><i>→</i><span>NEXT EXPERIMENT</span></div><p className="muted small">Production drift and service wear are intentionally separate. Literature values never silently become user-specific measurements.</p></section>
+ </main>
+}
