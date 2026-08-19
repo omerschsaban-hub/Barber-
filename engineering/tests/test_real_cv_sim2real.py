@@ -8,7 +8,6 @@ client = TestClient(app)
 
 def test_real_cv_measurement_uses_explicit_physical_reference():
     image = np.zeros((200, 300), dtype=np.uint8)
-    # The image is only decoded; selected pixel endpoints are explicit evidence.
     import cv2
     ok, encoded = cv2.imencode('.png', image)
     assert ok
@@ -43,7 +42,7 @@ def test_sim2real_requires_real_data_before_ml_claim():
     body = response.json()
     assert body['status'] == 'physics_only'
     assert body['sim_to_real']['real_observations'] == 0
-    assert body['sim_to_real']['residual_coupling'] == 'not_identified'
+    assert body['sim_to_real']['residual_coupling'] == 'physics_only'
 
 
 def test_sim2real_calibrates_from_real_observations_only():
@@ -77,7 +76,7 @@ def test_sim2real_calibrates_from_real_observations_only():
     assert body['status'] == 'real_calibrated'
     assert body['sim_to_real']['model']['n_real'] == 10
     assert body['sim_to_real']['model']['held_out_mae_mm'] >= 0
-    assert body['sim_to_real']['residual_coupling'] == 'learned_from_real_observations'
+    assert body['sim_to_real']['residual_coupling'] == 'validated_real_residual_model'
 
 
 def test_agent_fleet_is_bounded_and_critic_blocks_without_real_data():
