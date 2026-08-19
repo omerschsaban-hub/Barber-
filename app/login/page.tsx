@@ -1,0 +1,3 @@
+'use client';
+import {createBrowserSupabase} from '@/lib/supabase-browser';
+export default function Login(){const supabase=createBrowserSupabase();async function signIn(){await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:`${window.location.origin}/auth/callback`}})}return <main className="page" style={{maxWidth:560}}><div className="eyebrow">FABRIENT / ACCESS</div><h1 className="title">Engineering workspace</h1><p className="muted">Sign in with Google. No password is stored by Fabrient.</p><button className="button" onClick={signIn}>Continue with Google</button></main>}
