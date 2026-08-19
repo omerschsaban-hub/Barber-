@@ -4,5 +4,11 @@
       "maxDuration": 60,
       "memory": 1024
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/engine/:path*",
+      "destination": "/api/index.py"
+    }
+  ]
 }
