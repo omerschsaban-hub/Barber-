@@ -22,7 +22,18 @@ async def main() -> None:
             failures: list[str] = []
             for name in CAPABILITY_NAMES:
                 try:
-                    result = await session.call_tool(name, arguments={"_mcp_smoke_test": True})
+                    if name == "validate_dimension":
+                        result = await session.call_tool(
+                            name,
+                            arguments={
+                                "nominal_mm": 10.0,
+                                "measured_mm": 10.0,
+                                "tolerance_mm": 0.1,
+                                "_mcp_smoke_test": True,
+                            },
+                        )
+                    else:
+                        result = await session.call_tool(name, arguments={"_mcp_smoke_test": True})
                     if not result.content:
                         failures.append(f"{name}: empty result")
                 except Exception as exc:
