@@ -33,7 +33,10 @@ async def main() -> None:
                             },
                         )
                     else:
-                        result = await session.call_tool(name, arguments={"_mcp_smoke_test": True})
+                        result = await session.call_tool(
+                            name,
+                            arguments={"payload": {"_mcp_smoke_test": True}},
+                        )
                     if not result.content:
                         failures.append(f"{name}: empty result")
                 except Exception as exc:
