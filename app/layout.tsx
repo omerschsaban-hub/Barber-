@@ -1,4 +1,5 @@
 import './globals.css';
+import './fabrient-effects.css';
 import Link from 'next/link';
 import { createServerSupabase } from '@/lib/supabase-server';
 import EngineeringLoopTracker from '@/components/engineering-loop-tracker';
