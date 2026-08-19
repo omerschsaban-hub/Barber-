@@ -1,27 +1,8 @@
 {
-  "services": {
-    "frontend": {
-      "root": ".",
-      "framework": "nextjs"
-    },
-    "engine": {
-      "root": "services/engine"
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "memory": 1024
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/engine(/.*)?",
-      "destination": {
-        "type": "service",
-        "service": "engine"
-      }
-    },
-    {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
-    }
-  ]
+  }
 }
