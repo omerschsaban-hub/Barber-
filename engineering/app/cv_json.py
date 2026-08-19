@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+import base64
+import binascii
+import hashlib
+import math
+
+import cv2
+import numpy as np
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from .real_cv_sim2real import _line, _px, REAL_CV_VERSION
+
+router = APIRouter(prefix="/v1/cv", tags=["cv-json"])
+
+class RealCVJsonRequest(BaseModel):
+    image_base64: str = Field(min_length=1)
+    reference_length_mm: float = Field(gt=0)
+    reference_line: str
+    target_line: str
+    reference_uncertainty_mm: float = Field(default=0.0, ge=0)
+
+
+def _decode_image(value: str) -> bytes:
+    try:
+        raw = base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(422, "image_base64 must be valid base64") from exc
+    if len(raw) > 10_000_000:
+        raise HTTPException(413, "Image exceeds 10 MB")
+    return raw
+
+
+@router.post("/measure-real-json")
+def measure_real_json(x: RealCVJsonRequest):
+    raw = _decode_image(x.image_base64)
+    image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise HTTPException(415, "Unsupported image format")
+    ref, target = _line(x.reference_line, "reference_line"), _line(x.target_line, "target_line")
+    ref_px, target_px = _px(ref), _px(target)
+    if ref_px < 2 or target_px < 2:
+        raise HTTPException(422, "Reference and target lines must be at least 2 pixels long")
+    mm_per_px = x.reference_length_mm / ref_px
+    px_sigma = math.sqrt(0.5**2 + 0.5**2)
+    measurement_mm = target_px * mm_per_px
+    sigma = math.sqrt((measurement_mm * math.sqrt((px_sigma / ref_px) ** 2 + (px_sigma / target_px) ** 2)) ** 2 + x.reference_uncertainty_mm** ** 2)
+    return {"status": "measured", "measurement_mm": measurement_mm, "uncertainty_1sigma_mm": sigma, "interval_95_mm": [measurement_mm - 1.96 * sigma, measurement_mm + 1.96 * sigma], "scale": {"reference_length_mm": x.reference_length_mm, "reference_pixels": ref_px, "mm_per_pixel": mm_per_px, "perspective_corrected": False}, "image": {"width_px": int(image.shape[1]), "height_px": int(image.shape[0]), "sha256": hashlib.sha256(raw).hexdigest()}, "provenance": {"source": "user_image", "algorithm": "explicit-reference-pixel-scale", "cv_version": REAL_CV_VERSION, "ground_truth_mm": False, "claim_boundary": "Physical reference establishes scale; CV measurement is evidence, not final physical acceptance."}}
+
+
+@router.post("/detect-line-candidates-json")
+def detect_line_candidates_json(payload: dict):
+    raw = _decode_image(str(payload.get("image_base64", "")))
+    image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise HTTPException(415, "Unsupported image format")
+    edges = cv2.Canny(image, 50, 150)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=max(20, image.shape[1] // 10), maxLineGap=8)
+    candidates = []
+    if lines is not None:
+        for row in lines[:200]:
+            p1, p2 = [int(row[0][0]), int(row[0][1])], [int(row[0][2]), int(row[0][3])]
+            candidates.append({"p1": p1, "p2": p2, "length_px": float(math.dist(p1, p2))})
+    candidates.sort(key=lambda item: item["length_px"], reverse=True)
+    return {"status": "candidates", "candidates": candidates[:50], "requires_user_selection": True, "provenance": {"algorithm": "opencv-canny-hough", "cv_version": REAL_CV_VERSION, "ground_truth_mm": False}}
