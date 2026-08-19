@@ -2,6 +2,19 @@
 
 Fabrient is engineering software for machine-specific dimensional drift in FDM production.
 
+## Authentication
+
+Fabrient uses passwordless Gmail OTP authentication. Users enter a Gmail address, receive a one-time six-digit code, can open Gmail with one tap, paste/type the code, and are sent directly to the Workspace. Fabrient does not request Gmail inbox access.
+
+### Supabase OTP configuration
+
+1. Enable Email/OTP authentication in Supabase.
+2. Configure SMTP (Resend can be used as the SMTP provider).
+3. In Authentication → Email Templates → Magic Link, send the numeric OTP with `{{ .Token }}` rather than `{{ .ConfirmationURL }}`.
+4. Keep the production Site URL and redirect configuration aligned with the Fabrient deployment.
+
+The app uses `signInWithOtp()` followed by `verifyOtp({ email, token, type: 'email' })`. The repository never stores or handles SMTP credentials.
+
 ## v1 product loop
 
 Engineering input / STEP context
@@ -17,21 +30,10 @@ Engineering input / STEP context
 → next physical experiment
 → new evidence.
 
-## Walt/Jaegertech changes
-
-- Existing inspection records are the primary onboarding path.
-- Serialized gauge/fixture instances are first-class records.
-- Production drift and service wear are separate data domains.
-- Re-verification interval is an output, not a user-entered magic number.
-- Outputs are expressed as acceptance consequences with dimensional values underneath.
-- Every value carries provenance.
-- Tight tolerances are refused when measured variation cannot support them.
-- Inspection records export to auditable CSV/PDF.
-
 ## Architecture
 
 - Next.js + TypeScript frontend
-- Supabase/Postgres + Google OAuth
+- Supabase/Postgres + passwordless email OTP
 - Python/FastAPI engineering service
 - deterministic FDM physics and validation
 - Monte Carlo/domain randomization with explicit seeds
@@ -40,16 +42,21 @@ Engineering input / STEP context
 - bounded engineering agent graph
 - provenance/audit records and RLS
 - GitHub Actions CI
+- MCP engineering tools with the same authenticated workspace model
+
+## Manufacturing lifecycle
+
+The primary user journey is deliberately short:
+
+**Define → Analyze → Fix → Verify → Build → Release**
+
+A successful release produces a manufacturing package and a simple physical build guide. Deterministic fixes are shown to the user; geometry/topology changes remain human-gated.
 
 ## Engineering honesty
 
 LLMs may parse natural language, coordinate bounded agents, and explain results. They do not generate engineering numbers, pass/fail decisions, confidence, measurements, or calibration evidence.
 
-Real observations are ground truth. Synthetic data is never stored or presented as calibration evidence. Literature values must retain their source and applicability context. Unsupported extrapolation is refused.
-
-## Important geometry limitation
-
-STEP input currently extracts Cartesian-point geometry and a bounding box without pretending to have a full CAD-kernel BREP/topology interpretation. The API labels this state `extracted_limited`. A CAD-kernel adapter can be added without changing the provenance contract.
+Real observations are ground truth. Synthetic data is never stored or presented as calibration evidence. Literature values retain their source and applicability context. Unsupported extrapolation is refused.
 
 ## Run locally
 
@@ -65,10 +72,12 @@ Set `NEXT_PUBLIC_ENGINEERING_API` when the engineering service is not on `http:/
 
 ## Key routes
 
-- `/workspace` — integrated prediction/import/re-verification workspace
+- `/login` — passwordless Gmail OTP access
+- `/workspace` — integrated engineering workspace
+- `/manufacturing` — DFM, self-fix, physical build guide and manufacturing package
 - `/geometry` — STEP geometry extraction and computed 3D view
 - `/records` — auditable inspection-record export
 - `/graph` — engineering agent graph
 - `/projects` — Supabase-backed projects
 
-No payments, purchasing, fulfillment, spam, or generic autonomous-business engine are part of Fabrient v1.
+No Gmail inbox access, passwords, payments, purchasing, fulfillment, spam, or generic autonomous-business engine are part of Fabrient v1.
