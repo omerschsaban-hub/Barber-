@@ -138,16 +138,8 @@ async def _post(path: str, payload: dict[str, Any] | None = None, timeout: float
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(f"{ENGINE_URL}{path}", files={"file": (filename, raw, "application/octet-stream")}, data=extra)
     else:
-        # Toolbox endpoints use a stable envelope: {operation, payload}.
-        # The MCP tool name is the operation; the public MCP payload should not
-        # force callers to repeat that routing key.
-        if path.startswith("/v1/toolbox/"):
-            operation = path.rsplit("/", 1)[-1]
-            request_body = {"operation": operation, "payload": payload}
-        else:
-            request_body = payload
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(f"{ENGINE_URL}{path}", json=request_body)
+            response = await client.post(f"{ENGINE_URL}{path}", json=payload)
     try:
         data = response.json()
     except Exception:
@@ -168,9 +160,11 @@ def _register(name: str, description: str, path: str) -> None:
             })
     else:
         async def tool(payload: dict[str, Any] | None = None) -> Any:
-            payload = payload or {}
-            if payload.get("_mcp_smoke_test") is True:
-                return {"ok": True, "tool": name, "route": path, "smoke_test": True}
+            payload = dict(payload or {})
+            if path.startswith("/v1/toolbox/"):
+                operation = payload.pop("operation", None) or path.rsplit("/", 1)[-1]
+                inner = payload.pop("payload", None) if isinstance(payload.get("payload"), dict) else payload
+                return await _post(path, {"operation": operation, "payload": inner})
             return await _post(path, payload)
     tool.__name__ = name
     tool.__doc__ = description

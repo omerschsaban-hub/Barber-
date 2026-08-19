@@ -216,6 +216,8 @@ TOOL_METADATA: dict[str, str] = {
     "calculate_reverification": "Calculate a bounded re-verification interval from observed drift and wear.",
     "propose_next_experiment": "Select the next information-gaining physical experiment; execution remains human-gated.",
     "run_bounded_engineering_review": "Run a bounded lifecycle review with explicit evidence and release gates.",
+    "check_data_quality": "Review ML data quality and identify missing evidence.",
+    "audit_training_data": "Audit ML training data for provenance and validation gaps.",
 }
 
 @router.post("/v1/toolbox/{operation}")
