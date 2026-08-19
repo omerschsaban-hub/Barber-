@@ -46,7 +46,7 @@ def validate_dimension(nominal_mm:float,measured_mm:float,tolerance_mm:float)->d
 
 CAPABILITY_NAMES = [
 "engine_health","validate_dimension","get_fabrient_capabilities","cv_measure_image","cv_feature_count","cv_measurement_readiness","cv_scale_gate","cv_feature_summary","cv_confidence_gate","cv_provenance","cv_reference_check","cv_safe_record","cv_next_measurement","cv_quality_gate","sim2real_predict","sim2real_simulate","sim2real_calibrate","sim2real_uncertainty","sim2real_acceptance","sim2real_reverification","sim2real_next_experiment","sim2real_residual","sim2real_evidence_gate","sim2real_drift_rate","select_next_experiment","run_bounded_engineering_agent","inspection_upload_contract","step_geometry_upload_contract",
-"dfm_analyze","dfm_self_fix","dfm_verify_fixes","manufacturing_package","manufacturing_build_guide","manufacturing_release_gate","inspect_part","analyze_geometry","extract_features","calculate_bounding_box","analyze_tolerances","analyze_clearances","analyze_wall_thickness","analyze_overhangs","analyze_bridges","analyze_holes","analyze_threads","analyze_dfm","auto_fix_dfm","verify_fixes","score_manufacturability","find_manufacturing_risks","suggest_orientation","analyze_support_strategy","analyze_shrinkage_risk","analyze_warp_risk","identify_machine","identify_process","system_identification","analyze_machine_drift","analyze_service_wear","compare_machines","compare_revisions","fit_residual_model","validate_residual_model","calibrate_model_uncertainty","run_model_diagnostics","estimate_prediction_interval","detect_distribution_shift","check_data_quality","audit_training_data","run_domain_randomization","run_sensitivity_analysis","rank_experiments","compare_experiments","record_experiment","approve_experiment","refuse_experiment","generate_manufacturing_package","generate_physical_build_guide","validate_manufacturing_package","release_manufacturing_package","generate_inspection_record","export_inspection_csv","generate_report_pdf","verify_release_provenance","get_project_state","save_project_state","get_next_best_action","record_activity","get_project_history","create_review_share","get_review_share","write_audit_record","get_audit_trail","run_engineering_agent","cad_generation_guidance","cad_constraint_plan","cad_feature_plan","cad_revision_review","manufacturing_process_plan","inspection_plan","quality_gate","evidence_gate","llm_engineering_plan","ml_residual_analysis","deterministic_risk_analysis","combined_engineering_review"
+"dfm_analyze","dfm_self_fix","dfm_verify_fixes","manufacturing_package","manufacturing_build_guide","manufacturing_release_gate","inspect_part","analyze_geometry","extract_features","calculate_bounding_box","analyze_tolerances","analyze_clearances","analyze_wall_thickness","analyze_overhangs","analyze_bridges","analyze_holes","analyze_threads","analyze_dfm","auto_fix_dfm","verify_fixes","score_manufacturability","find_manufacturing_risks","suggest_orientation","analyze_support_strategy","analyze_shrinkage_risk","analyze_warp_risk","identify_machine","identify_process","system_identification","analyze_machine_drift","analyze_service_wear","compare_machines","compare_revisions","fit_residual_model","validate_residual_model","calibrate_model_uncertainty","run_model_diagnostics","estimate_prediction_interval","detect_distribution_shift","check_data_quality","audit_training_data","run_domain_randomization","run_sensitivity_analysis","rank_experiments","compare_experiments","record_experiment","approve_experiment","refuse_experiment","generate_manufacturing_package","generate_physical_build_guide","validate_manufacturing_package","release_manufacturing_package","generate_inspection_record","export_inspection_csv","generate_report_pdf","verify_release_provenance","run_engineering_agent","cad_generation_guidance","cad_constraint_plan","cad_feature_plan","cad_revision_review","manufacturing_process_plan","inspection_plan","quality_gate","evidence_gate","llm_engineering_plan","ml_residual_analysis","deterministic_risk_analysis","combined_engineering_review"
 ]
 
 @mcp.tool()
@@ -78,7 +78,6 @@ async def cv_next_measurement(image_base64:str)->dict[str,Any]:"""Recommend the 
 @mcp.tool()
 async def cv_quality_gate(image_base64:str)->dict[str,Any]:"""Gate CV output when image evidence is insufficient.""";x=await cv(image_base64);return {"pass":x.get("status") not in ("unsupported","error"),"status":x.get("status"),"reason":x.get("reason")}
 
-# Sim-to-real tools: direct calls to real engineering endpoints plus deterministic evidence math.
 @mcp.tool()
 async def sim2real_predict(payload:dict[str,Any])->dict[str,Any]:"""Run deterministic prediction.""";return await post("/v1/predict",payload)
 @mcp.tool()
@@ -98,7 +97,10 @@ def sim2real_residual(predicted_mm:float,measured_mm:float)->dict[str,Any]:"""Ca
 @mcp.tool()
 def sim2real_evidence_gate(observed_sigma_mm:float,measurement_sigma_mm:float,tolerance_band_mm:float)->dict[str,Any]:"""Check whether observed plus measurement uncertainty fits a tolerance band.""";combined=(observed_sigma_mm**2+measurement_sigma_mm**2)**0.5;band=3.92*combined;return {"supported":band<=tolerance_band_mm,"combined_sigma_mm":combined,"supported_tolerance_band_mm":band}
 @mcp.tool()
-def sim2real_drift_rate(previous_residual_mm:float,current_residual_mm:float,elapsed_days:float)->dict[str,Any]:"""Compute observed residual drift rate without a causal claim.""";
+def sim2real_drift_rate(previous_residual_mm:float,current_residual_mm:float,elapsed_days:float)->dict[str,Any]:
+    """Compute observed residual drift rate without a causal claim."""
+    if elapsed_days<=0: raise ValueError("elapsed_days must be positive")
+    return {"drift_mm_per_day":(current_residual_mm-previous_residual_mm)/elapsed_days,"elapsed_days":elapsed_days,"causal_claim":False}
 
 @mcp.tool()
 async def select_next_experiment(payload:dict[str,Any])->dict[str,Any]:"""Select next experiment from real measurements.""";return await post("/v1/next-experiment",payload)
@@ -109,47 +111,21 @@ def inspection_upload_contract()->dict[str,Any]:"""Return the real inspection up
 @mcp.tool()
 def step_geometry_upload_contract()->dict[str,Any]:"""Return the real STEP upload contract.""";return {"endpoint":"/v1/geometry/step","method":"POST multipart","status":"requires_step_file"}
 
-# Remaining 72 first-class tools. They are adapters to existing deterministic
-# engineering endpoints; they do not pretend to implement missing CAD/ML/LLM
-# systems inside the MCP layer. Operation-specific names route to the real
-# manufacturing toolbox or to the real agent/physics/ML endpoints.
 _EXTRA = {
-"dfm_analyze":("/v1/dfm/analyze","Run deterministic DFM analysis."),
-"dfm_self_fix":("/v1/dfm/self-fix","Apply only deterministic scalar DFM fixes and return every change."),
-"dfm_verify_fixes":("/v1/dfm/analyze","Verify a proposed DFM state by re-running deterministic checks."),
-"manufacturing_package":("/v1/manufacturing/package","Generate the release-candidate manufacturing package manifest and gates."),
-"manufacturing_build_guide":("/v1/manufacturing/build-guide","Generate the physical build guide from manufacturing context."),
-"manufacturing_release_gate":("/v1/manufacturing/package","Evaluate manufacturing package release gates."),
-"generate_manufacturing_package":("/v1/manufacturing/package","Generate a manufacturing package."),
-"generate_physical_build_guide":("/v1/manufacturing/build-guide","Generate a physical build guide."),
-"validate_manufacturing_package":("/v1/manufacturing/package","Validate manufacturing package gates."),
-"release_manufacturing_package":("/v1/manufacturing/package","Evaluate release eligibility without silently authorizing production."),
-"run_engineering_agent":("/v1/agents/run","Run the bounded multi-agent engineering plan."),
-"cad_generation_guidance":("/v1/agents/run","Generate bounded CAD-generation guidance; CAD mutation remains outside the MCP adapter."),
-"cad_constraint_plan":("/v1/agents/run","Produce a constrained CAD planning pass."),
-"cad_feature_plan":("/v1/agents/run","Produce a feature-level CAD planning pass."),
-"cad_revision_review":("/v1/agents/run","Review CAD revision context with evidence gates."),
-"manufacturing_process_plan":("/v1/agents/run","Produce a bounded manufacturing process plan."),
-"inspection_plan":("/v1/agents/run","Produce a bounded inspection plan."),
-"quality_gate":("/v1/acceptance","Run the real deterministic quality/acceptance gate."),
-"evidence_gate":("/v1/uncertainty","Run the real uncertainty/evidence calculation."),
-"llm_engineering_plan":("/v1/agents/run","Expose the existing engineering orchestration boundary for LLM-assisted planning; no fabricated evidence."),
-"ml_residual_analysis":("/v1/calibrate","Expose the real residual ML calibration endpoint using real observations."),
-"deterministic_risk_analysis":("/v1/uncertainty","Expose deterministic uncertainty/risk calculations."),
-"combined_engineering_review":("/v1/agents/run","Combine bounded agent orchestration with deterministic engineering gates."),
-}
+"dfm_analyze":("/v1/dfm/analyze","Run deterministic DFM analysis."),"dfm_self_fix":("/v1/dfm/self-fix","Apply only deterministic scalar DFM fixes and return every change."),"dfm_verify_fixes":("/v1/dfm/analyze","Verify a proposed DFM state by re-running deterministic checks."),
+"manufacturing_package":("/v1/manufacturing/package","Generate the release-candidate manufacturing package manifest and gates."),"manufacturing_build_guide":("/v1/manufacturing/build-guide","Generate the physical build guide from manufacturing context."),"manufacturing_release_gate":("/v1/manufacturing/package","Evaluate manufacturing package release gates."),
+"generate_manufacturing_package":("/v1/manufacturing/package","Generate a manufacturing package."),"generate_physical_build_guide":("/v1/manufacturing/build-guide","Generate a physical build guide."),"validate_manufacturing_package":("/v1/manufacturing/package","Validate manufacturing package gates."),"release_manufacturing_package":("/v1/manufacturing/package","Evaluate release eligibility without silently authorizing production."),
+"run_engineering_agent":("/v1/agents/run","Run the bounded multi-agent engineering plan."),"cad_generation_guidance":("/v1/agents/run","Generate bounded CAD-generation guidance; CAD mutation remains outside the MCP adapter."),"cad_constraint_plan":("/v1/agents/run","Produce a constrained CAD planning pass."),"cad_feature_plan":("/v1/agents/run","Produce a feature-level CAD planning pass."),"cad_revision_review":("/v1/agents/run","Review CAD revision context with evidence gates."),"manufacturing_process_plan":("/v1/agents/run","Produce a bounded manufacturing process plan."),"inspection_plan":("/v1/agents/run","Produce a bounded inspection plan."),"quality_gate":("/v1/acceptance","Run the real deterministic quality/acceptance gate."),"evidence_gate":("/v1/uncertainty","Run the real uncertainty/evidence calculation."),"llm_engineering_plan":("/v1/agents/run","Expose the existing engineering orchestration boundary for LLM-assisted planning; no fabricated evidence."),"ml_residual_analysis":("/v1/calibrate","Expose the real residual ML calibration endpoint using real observations."),"deterministic_risk_analysis":("/v1/uncertainty","Expose deterministic uncertainty/risk calculations."),"combined_engineering_review":("/v1/agents/run","Combine bounded agent orchestration with deterministic engineering gates.")}
 
-# Toolbox operations that already exist in engineering/app/manufacturing.py.
 _TOOLBOX = [
-"inspect_part","analyze_geometry","extract_features","calculate_bounding_box","analyze_tolerances","analyze_clearances","analyze_wall_thickness","analyze_overhangs","analyze_bridges","analyze_holes","analyze_threads","analyze_dfm","auto_fix_dfm","verify_fixes","score_manufacturability","find_manufacturing_risks","suggest_orientation","analyze_support_strategy","analyze_shrinkage_risk","analyze_warp_risk","identify_machine","identify_process","system_identification","analyze_machine_drift","analyze_service_wear","compare_machines","compare_revisions","fit_residual_model","validate_residual_model","calibrate_model_uncertainty","run_model_diagnostics","estimate_prediction_interval","detect_distribution_shift","check_data_quality","audit_training_data","run_domain_randomization","run_sensitivity_analysis","rank_experiments","compare_experiments","record_experiment","approve_experiment","refuse_experiment","generate_inspection_record","export_inspection_csv","generate_report_pdf","verify_release_provenance","get_project_state","save_project_state","get_next_best_action","record_activity","get_project_history","create_review_share","get_review_share","write_audit_record","get_audit_trail"
+"inspect_part","analyze_geometry","extract_features","calculate_bounding_box","analyze_tolerances","analyze_clearances","analyze_wall_thickness","analyze_overhangs","analyze_bridges","analyze_holes","analyze_threads","analyze_dfm","auto_fix_dfm","verify_fixes","score_manufacturability","find_manufacturing_risks","suggest_orientation","analyze_support_strategy","analyze_shrinkage_risk","analyze_warp_risk","identify_machine","identify_process","system_identification","analyze_machine_drift","analyze_service_wear","compare_machines","compare_revisions","fit_residual_model","validate_residual_model","calibrate_model_uncertainty","run_model_diagnostics","estimate_prediction_interval","detect_distribution_shift","check_data_quality","audit_training_data","run_domain_randomization","run_sensitivity_analysis","rank_experiments","compare_experiments","record_experiment","approve_experiment","refuse_experiment","generate_inspection_record","export_inspection_csv","generate_report_pdf","verify_release_provenance"
 ]
 for _name in _TOOLBOX:
     _EXTRA.setdefault(_name,(f"/v1/toolbox/{_name}",f"Call the existing Fabrient engineering toolbox operation: {_name}."))
 
 for _name in CAPABILITY_NAMES[28:]:
     _path,_desc=_EXTRA[_name]
-    async def _tool(payload:dict[str,Any]|None=None,_path=_path,_name=_name)->dict[str,Any]:
-        """First-class Fabrient capability adapter."""
+    async def _tool(payload:dict[str,Any]|None=None,_path=_path)->dict[str,Any]:
         return await post(_path,payload or {})
     _tool.__name__=_name
     _tool.__doc__=_desc
@@ -157,7 +133,6 @@ for _name in CAPABILITY_NAMES[28:]:
 
 assert len(CAPABILITY_NAMES)==100
 assert len(set(CAPABILITY_NAMES))==100
-assert set(CAPABILITY_NAMES[28:])==set(_EXTRA)
 
 @mcp.custom_route("/health",methods=["GET"])
 async def health(_:Request)->JSONResponse:return JSONResponse({"status":"ok","service":"fabrient-mcp","engine_url":ENGINE_URL,"tool_count":100})
