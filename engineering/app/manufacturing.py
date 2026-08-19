@@ -36,6 +36,13 @@ class PackageRequest(BaseModel):
     dfm_result: dict[str, Any] = Field(default_factory=dict)
     source_files: list[str] = Field(default_factory=list)
 
+class BuildGuideRequest(BaseModel):
+    project_name: str = "Fabrient build"
+    revision: str = "unversioned"
+    material: str = "unknown"
+    machine: str = "unknown"
+    dfm_result: dict[str, Any] = Field(default_factory=dict)
+
 class ToolboxRequest(BaseModel):
     operation: str
     payload: dict[str, Any] = Field(default_factory=dict)
@@ -67,13 +74,7 @@ def analyze(req: DFMRequest) -> dict[str, Any]:
     return {"status": "blocked" if blockers else "ready_for_review", "part_name": req.part_name, "revision": req.revision, "finding_count": len(findings), "blocker_count": blockers, "findings": findings, "provenance": {"source": "deterministic_fdm_rules", "rule_count": len(RULES), "synthetic": False}}
 
 
-@router.post("/v1/dfm/analyze")
-def dfm_analyze(req: DFMRequest):
-    return analyze(req)
-
-
-@router.post("/v1/dfm/self-fix")
-def dfm_self_fix(req: DFMRequest):
+def self_fix(req: DFMRequest) -> dict[str, Any]:
     result = analyze(req)
     changes: list[dict[str, Any]] = []
     fixed = dict(req.measurements)
@@ -99,13 +100,12 @@ def dfm_self_fix(req: DFMRequest):
     return {"status": "fixed" if not verification["blocker_count"] else "partially_fixed", "before": result, "changes": changes, "refused": refused, "after": verification, "show_changes": True, "guardrail": "Fabrient only changes deterministic scalar parameters; topology/orientation edits are explicitly refused rather than fabricated."}
 
 
-@router.post("/v1/manufacturing/package")
-def manufacturing_package(req: PackageRequest):
+def manufacturing_package(req: PackageRequest) -> dict[str, Any]:
     dfm = req.dfm_result or {}
     blockers = int(dfm.get("blocker_count", 0))
     release_status = "blocked" if blockers else "release_candidate"
     manifest = {
-        "package_version": "1.0",
+        "package_version": "1.1",
         "project_name": req.project_name,
         "revision": req.revision,
         "material": req.material,
@@ -113,8 +113,9 @@ def manufacturing_package(req: PackageRequest):
         "release_status": release_status,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "contents": [
-            {"name": "source_cad.step", "type": "source_cad", "required": True},
+            {"name": "source_cad/", "type": "source_cad", "required": True},
             {"name": "manufacturing_notes.md", "type": "manufacturing_notes", "required": True},
+            {"name": "physical_build_guide.md", "type": "physical_build_guide", "required": True},
             {"name": "inspection_plan.csv", "type": "inspection_plan", "required": True},
             {"name": "dfm_report.json", "type": "dfm_report", "required": True},
             {"name": "release_manifest.json", "type": "manifest", "required": True},
@@ -126,9 +127,41 @@ def manufacturing_package(req: PackageRequest):
             {"gate": "human_release", "status": "required", "reason": "Fabrient does not silently authorize physical production."},
         ],
     }
-    raw = repr(manifest).encode("utf-8")
-    manifest["manifest_sha256"] = sha256(raw).hexdigest()
+    manifest["manifest_sha256"] = sha256(repr(manifest).encode("utf-8")).hexdigest()
     return manifest
+
+
+def build_guide(req: BuildGuideRequest) -> dict[str, Any]:
+    dfm = req.dfm_result or {}
+    blockers = int(dfm.get("blocker_count", 0))
+    status = "Do not build yet" if blockers else "Ready for human build review"
+    steps = [
+        {"step": 1, "title": "Confirm the release", "action": f"Open revision {req.revision} for {req.project_name} and confirm the material is {req.material} and the machine is {req.machine}.", "check": "The revision, material, and machine match the manufacturing package."},
+        {"step": 2, "title": "Prepare the machine", "action": "Use the machine manufacturer's normal setup procedure and the declared process settings for this material.", "check": "Machine setup is complete and the machine is in its normal ready state."},
+        {"step": 3, "title": "Prepare the part", "action": "Use the validated source CAD and the released orientation/support strategy. Do not silently change geometry.", "check": "The file and revision match the package."},
+        {"step": 4, "title": "Make the first part", "action": "Start the build using the released process. Follow the machine manufacturer's operating and safety instructions.", "check": "The build starts normally and the first layer/process checkpoint is acceptable."},
+        {"step": 5, "title": "Inspect critical features", "action": "Measure the critical dimensions listed in the inspection plan and record the real measurements.", "check": "Every required measurement has a recorded result."},
+        {"step": 6, "title": "Accept or stop", "action": "Compare the measurements with the released acceptance criteria. If a required result is missing or outside the criteria, stop the release and review it.", "check": "A human reviewer records the final acceptance decision."},
+    ]
+    guide_markdown = "# Physical Build Guide\n\n" + f"**Project:** {req.project_name}\n\n**Revision:** {req.revision}\n\n**Material:** {req.material}\n\n**Machine:** {req.machine}\n\n**Current DFM status:** {status}\n\n" + "\n".join(f"## Step {s['step']} — {s['title']}\n{s['action']}\n\n**Check:** {s['check']}\n" for s in steps) + "\n## Final rule\nDo not treat this guide as a substitute for machine-specific safety procedures or human engineering release. Fabrient does not silently authorize physical production.\n"
+    return {"status": status, "blocker_count": blockers, "steps": steps, "guide_markdown": guide_markdown, "provenance": {"source": "deterministic_build_guide_template", "synthetic": False}}
+
+
+@router.post("/v1/dfm/analyze")
+def dfm_analyze(req: DFMRequest):
+    return analyze(req)
+
+@router.post("/v1/dfm/self-fix")
+def dfm_self_fix(req: DFMRequest):
+    return self_fix(req)
+
+@router.post("/v1/manufacturing/package")
+def manufacturing_package_route(req: PackageRequest):
+    return manufacturing_package(req)
+
+@router.post("/v1/manufacturing/build-guide")
+def manufacturing_build_guide(req: BuildGuideRequest):
+    return build_guide(req)
 
 
 TOOL_METADATA: dict[str, str] = {
@@ -137,6 +170,7 @@ TOOL_METADATA: dict[str, str] = {
     "auto_fix_dfm": "Apply only deterministic scalar DFM fixes and report every change.",
     "verify_fixes": "Re-run DFM checks after proposed fixes and report remaining blockers.",
     "generate_manufacturing_package": "Generate a release-candidate manufacturing package manifest and gates.",
+    "generate_physical_build_guide": "Generate a simple, step-by-step physical build guide from the released manufacturing context.",
     "release_manufacturing_package": "Evaluate whether the manufacturing package is eligible for human release.",
     "validate_material": "Validate declared material/process assumptions and flag missing evidence.",
     "validate_machine_envelope": "Check part envelope against the declared machine build envelope.",
@@ -144,7 +178,7 @@ TOOL_METADATA: dict[str, str] = {
     "check_clearances": "Check mating clearance against the deterministic FDM rule.",
     "check_holes": "Check minimum hole diameter and flag post-processing needs.",
     "check_overhangs": "Check unsupported overhang angle against the declared rule.",
-    "check_bridges": "Check unsupported bridge span against the declared rule.",
+    "check_bridges": "Check unsupported bridge span against the deterministic FDM rule.",
     "check_supports": "Check whether declared support strategy is sufficient or needs human review.",
     "check_orientation": "Evaluate orientation constraints and identify cases requiring CAD review.",
     "check_tolerances": "Check declared tolerances against measurement/process evidence.",
@@ -192,10 +226,16 @@ def toolbox(operation: str, req: ToolboxRequest):
     if operation == "analyze_dfm":
         return {"operation": operation, "description": meta, "result": analyze(DFMRequest(**req.payload))}
     if operation == "auto_fix_dfm":
-        return {"operation": operation, "description": meta, "result": dfm_self_fix(DFMRequest(**req.payload))}
+        return {"operation": operation, "description": meta, "result": self_fix(DFMRequest(**req.payload))}
     if operation == "generate_manufacturing_package":
         return {"operation": operation, "description": meta, "result": manufacturing_package(PackageRequest(**req.payload))}
+    if operation == "generate_physical_build_guide":
+        return {"operation": operation, "description": meta, "result": build_guide(BuildGuideRequest(**req.payload))}
     if operation == "verify_fixes":
-        result = dfm_self_fix(DFMRequest(**req.payload))
+        result = self_fix(DFMRequest(**req.payload))
         return {"operation": operation, "description": meta, "result": result["after"], "changes": result["changes"], "remaining_refused": result["refused"]}
-    return {"status": "reviewable", "operation": operation, "description": meta, "inputs_received": sorted(req.payload.keys()), "next_step": "Supply the operation-specific evidence; Fabrient refuses to invent missing measurements or process coefficients.", "human_gate": operation in {"release_manufacturing_package", "check_orientation", "check_supports", "check_part_split", "check_snap_fits", "propose_next_experiment"}}
+    if operation == "release_manufacturing_package":
+        package = manufacturing_package(PackageRequest(**req.payload))
+        eligible = package["release_status"] == "release_candidate" and not any(g["status"] == "fail" for g in package["gates"])
+        return {"operation": operation, "description": meta, "eligible": eligible, "package": package, "human_release_required": True}
+    return {"status": "reviewable", "operation": operation, "description": meta, "inputs_received": sorted(req.payload.keys()), "next_step": "Supply the operation-specific evidence; Fabrient refuses to invent missing measurements or process coefficients.", "human_gate": operation in {"check_orientation", "check_supports", "check_part_split", "check_snap_fits", "propose_next_experiment"}}
