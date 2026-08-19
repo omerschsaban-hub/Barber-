@@ -39,6 +39,31 @@ jobs:
       - name: Engineering tests
         run: pytest -q
 
+  mcp:
+    name: MCP registry and import test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/mcp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/mcp/requirements.txt
+      - name: Install MCP dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Compile MCP server
+        run: python -m py_compile server.py
+      - name: Import and assert 100 tools
+        env:
+          FABRIENT_ENGINE_URL: https://example.invalid
+        run: python -c "import server; assert len(server.CAPABILITY_NAMES) == 100; assert len(set(server.CAPABILITY_NAMES)) == 100; print('MCP registry OK:', len(server.CAPABILITY_NAMES))"
+
   frontend-root:
     name: Root frontend production build
     runs-on: ubuntu-latest
