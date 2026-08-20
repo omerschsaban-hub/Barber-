@@ -14,6 +14,7 @@ from .universal_quality import install as install_universal_quality
 from .data_flywheel import router as data_flywheel_router
 from .data_flywheel_worker import router as data_flywheel_worker_router
 from .moat_intelligence import router as moat_intelligence_router
+from .product_intelligence import install_product_intelligence
 
 app.include_router(advanced_router)
 app.include_router(real_cv_sim2real_router)
@@ -28,8 +29,6 @@ app.include_router(quality_router)
 app.include_router(compat_router)
 app.include_router(data_flywheel_router)
 app.include_router(data_flywheel_worker_router)
-# Product-facing moat intelligence: health, priorities, and the evidence-backed
-# engineering feedback graph are available to the app and MCP through the same
-# API boundary as the existing engineering surfaces.
 app.include_router(moat_intelligence_router)
+install_product_intelligence(app)
 install_universal_quality(app)
