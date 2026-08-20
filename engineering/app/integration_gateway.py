@@ -1,30 +1,13 @@
 """Provider-neutral gateway for authorized engineering-system integrations."""
 from __future__ import annotations
-
 import os
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
-
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from .mcp_integrations import MCP_PROVIDERS, public_provider_catalog, search_mcp_providers, provider_tool_help
 
-@dataclass(frozen=True)
-class ProviderConfig:
-    key: str
-    name: str
-    transport: str
-    endpoint_env: str
-    token_env: str
-
-PROVIDERS = {
-    "autodesk_fusion": ProviderConfig("autodesk_fusion", "Autodesk Fusion MCP", "mcp", "FABRIENT_FUSION_MCP_URL", "FABRIENT_FUSION_MCP_TOKEN"),
-    "propel_plm": ProviderConfig("propel_plm", "Propel PLM MCP", "mcp", "FABRIENT_PROPEL_MCP_URL", "FABRIENT_PROPEL_MCP_TOKEN"),
-}
-
-# Runtime connection registry. Secrets are held only in process memory and are
-# never returned by API responses. Production deployments can replace this
-# with the authenticated secret store without changing the public contract.
+# Existing provider credentials remain process-local for now; never return secrets.
 _runtime_connections: dict[str, dict[str, str]] = {}
 
 class IntegrationRequest(BaseModel):
@@ -38,11 +21,14 @@ class ConnectionRequest(BaseModel):
     bearer_token: str | None = None
 
 class MCPClient:
-    def __init__(self, config: ProviderConfig, endpoint: str | None = None, token: str | None = None):
-        self.config = config
-        runtime = _runtime_connections.get(config.key, {})
-        self.endpoint = (endpoint or runtime.get("endpoint") or os.getenv(config.endpoint_env, "")).strip()
-        self.token = token if token is not None else (runtime.get("token") or os.getenv(config.token_env, ""))
+    def __init__(self, provider: str, endpoint: str | None = None, token: str | None = None):
+        config = MCP_PROVIDERS.get(provider)
+        if not config:
+            raise KeyError(provider)
+        runtime = _runtime_connections.get(provider, {})
+        self.provider = provider
+        self.endpoint = (endpoint or runtime.get("endpoint") or config.get("endpoint") or os.getenv(f"FABRIENT_{provider.upper()}_MCP_URL", "")).strip()
+        self.token = token if token is not None else (runtime.get("token") or os.getenv(f"FABRIENT_{provider.upper()}_MCP_TOKEN", ""))
 
     @property
     def configured(self) -> bool:
@@ -50,7 +36,7 @@ class MCPClient:
 
     async def call(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if not self.endpoint:
-            raise RuntimeError(f"{self.config.key} is not configured")
+            raise RuntimeError(f"{self.provider} is not configured")
         headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
@@ -65,56 +51,84 @@ class MCPClient:
             raise RuntimeError(str(body["error"]))
         return body
 
-def client_for(provider: str) -> MCPClient:
-    config = PROVIDERS.get(provider)
-    if not config:
-        raise KeyError(provider)
-    return MCPClient(config)
-
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 @router.get("/providers")
 async def providers() -> Dict[str, Any]:
-    return {"providers": [{"key": c.key, "name": c.name, "transport": c.transport, "configured": client_for(c.key).configured} for c in PROVIDERS.values()]}
+    return {"providers": [{**p, "configured": MCPClient(pid).configured} for pid, p in ((x["id"], x) for x in public_provider_catalog())]}
+
+@router.get("/search")
+async def search(query: str = "", limit: int = 10) -> Dict[str, Any]:
+    return {"query": query, "results": search_mcp_providers(query, min(max(limit, 1), 25))}
+
+@router.get("/provider/{provider}/help")
+async def provider_help(provider: str) -> Dict[str, Any]:
+    try:
+        return provider_tool_help(provider)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown integration provider")
+
+@router.post("/auth/start")
+async def auth_start(request: dict[str, str]) -> Dict[str, Any]:
+    provider = request.get("provider", "")
+    p = MCP_PROVIDERS.get(provider)
+    if not p:
+        raise HTTPException(status_code=404, detail="Unknown integration provider")
+    if p.get("auth") == "public":
+        return {"provider": provider, "mode": "public", "auth_url": p.get("endpoint"), "message": "No sign-in is required."}
+    if p.get("auth") == "local":
+        return {"provider": provider, "mode": "local", "endpoint": p.get("endpoint"), "docs": p.get("docs"), "message": "Start the provider's local MCP server, then connect to the local endpoint."}
+    endpoint = p.get("endpoint") or os.getenv(f"FABRIENT_{provider.upper()}_MCP_URL", "")
+    if endpoint:
+        return {"provider": provider, "mode": "oauth_discovery", "mcp_url": endpoint, "message": "Use MCP OAuth discovery against the provider endpoint; do not paste a token into the UI."}
+    return {"provider": provider, "mode": "provider_auth", "docs": p.get("docs"), "message": "Provider authorization is required. Fabrient will use the provider's official authorization flow when an MCP endpoint is configured."}
 
 @router.post("/connect")
 async def connect(request: ConnectionRequest) -> Dict[str, Any]:
-    if request.provider not in PROVIDERS:
+    if request.provider not in MCP_PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown integration provider")
     if not request.endpoint.startswith(("https://", "http://")):
         raise HTTPException(status_code=400, detail="MCP endpoint must use HTTP(S)")
-    client = MCPClient(PROVIDERS[request.provider], request.endpoint, request.bearer_token)
+    client = MCPClient(request.provider, request.endpoint, request.bearer_token)
     try:
         result = await client.call("tools/list", {})
     except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(status_code=502, detail=f"Connection test failed: {exc}")
     _runtime_connections[request.provider] = {"endpoint": request.endpoint, "token": request.bearer_token or ""}
-    return {"connected": True, "provider": request.provider, "tool_count": len(result.get("result", {}).get("tools", []))}
+    tools = result.get("result", {}).get("tools", [])
+    return {"connected": True, "provider": request.provider, "tool_count": len(tools), "tools": tools}
 
 @router.post("/disconnect")
 async def disconnect(request: dict[str, str]) -> Dict[str, Any]:
     provider = request.get("provider", "")
-    if provider not in PROVIDERS:
+    if provider not in MCP_PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown integration provider")
     _runtime_connections.pop(provider, None)
     return {"disconnected": True, "provider": provider}
 
+@router.get("/connections")
+async def connections() -> Dict[str, Any]:
+    return {"connections": [{"provider": pid, "connected": bool(conn.get("endpoint")), "tool_count": 0} for pid, conn in _runtime_connections.items()]}
+
+@router.post("/discover-tools")
+async def discover_tools(request: dict[str, str]) -> Dict[str, Any]:
+    provider = request.get("provider", "")
+    try:
+        result = await MCPClient(provider).call("tools/list", {})
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown integration provider")
+    except (httpx.HTTPError, RuntimeError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    tools = result.get("result", {}).get("tools", [])
+    return {"provider": provider, "tools": tools, "count": len(tools)}
+
 @router.post("/mcp/call")
 async def mcp_call(request: IntegrationRequest) -> Dict[str, Any]:
     try:
-        client = client_for(request.provider)
+        return await MCPClient(request.provider).call(request.method, request.params)
     except KeyError:
         raise HTTPException(status_code=404, detail="Unknown integration provider")
-    try:
-        return await client.call(request.method, request.params)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=502, detail=f"Provider HTTP error: {exc.response.status_code}")
     except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-
-async def inspect_provider(provider: str) -> Dict[str, Any]:
-    client = client_for(provider)
-    if not client.configured:
-        return {"provider": provider, "configured": False, "tools": []}
-    result = await client.call("tools/list", {})
-    return {"provider": provider, "configured": True, "result": result}
