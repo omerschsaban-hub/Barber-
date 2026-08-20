@@ -1,11 +1,13 @@
 'use client';
 
-/** Non-blocking, privacy-preserving product telemetry.
- * Never captures request bodies, headers, tokens, URLs with query strings, or private content.
- * Telemetry must never be on the critical rendering path.
+/**
+ * Non-blocking, privacy-preserving product telemetry.
+ * Never captures request bodies, headers, tokens, query strings, private content,
+ * keystrokes, or precise location. Telemetry is best-effort and cannot block UI.
  */
-const QUEUE_KEY = 'fabrient:telemetry:v1';
-const MAX_QUEUE = 100;
+const QUEUE_KEY = 'fabrient:telemetry:v2';
+const MAX_QUEUE = 200;
+const SESSION_KEY = 'fabrient:telemetry:session';
 
 type TelemetryEvent = {
   name: string;
@@ -18,7 +20,17 @@ type TelemetryEvent = {
 };
 
 function safePath(): string {
-  try { return window.location.pathname; } catch { return '/'; }
+  try { return window.location.pathname || '/'; } catch { return '/'; }
+}
+
+function sessionId(): string {
+  try {
+    const existing = sessionStorage.getItem(SESSION_KEY);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    sessionStorage.setItem(SESSION_KEY, id);
+    return id;
+  } catch { return 'ephemeral'; }
 }
 
 function readQueue(): TelemetryEvent[] {
@@ -32,14 +44,38 @@ function writeQueue(events: TelemetryEvent[]) {
 export function trackProductEvent(name: string, metadata?: TelemetryEvent['metadata']) {
   try {
     if (!name || name.length > 80) return;
-    const event: TelemetryEvent = { name, ts: new Date().toISOString(), path: safePath(), metadata };
+    const event: TelemetryEvent = {
+      name,
+      ts: new Date().toISOString(),
+      path: safePath(),
+      metadata: { session: sessionId(), ...metadata },
+    };
     writeQueue([...readQueue(), event]);
     flushTelemetry();
   } catch {}
 }
 
 export function trackApiOutcome(name: string, duration_ms: number, ok: boolean, status?: number) {
-  trackProductEvent(name, { duration_ms: Math.round(Math.max(0, duration_ms)), ok, status: status ?? null });
+  trackProductEvent(name, {
+    duration_ms: Math.round(Math.max(0, duration_ms)),
+    ok,
+    status: status ?? null,
+  });
+}
+
+export function trackWorkflowEvent(
+  workflow: string,
+  event: 'started' | 'completed' | 'abandoned' | 'failed',
+  metadata?: TelemetryEvent['metadata'],
+) {
+  trackProductEvent(`workflow.${event}`, { workflow, ...metadata });
+}
+
+export function trackPerformanceMetric(
+  metric: 'navigation' | 'paint' | 'interaction' | 'resource',
+  value_ms: number,
+) {
+  trackProductEvent(`performance.${metric}`, { value_ms: Math.round(Math.max(0, value_ms)) });
 }
 
 let flushing = false;
@@ -48,9 +84,12 @@ export function flushTelemetry() {
   const events = readQueue();
   if (!events.length) return;
   flushing = true;
-  const payload = JSON.stringify({ events });
   try {
-    const accepted = navigator.sendBeacon?.('/api/telemetry', new Blob([payload], { type: 'application/json' }));
+    const payload = JSON.stringify({ events });
+    const accepted = navigator.sendBeacon?.(
+      '/api/telemetry',
+      new Blob([payload], { type: 'application/json' }),
+    );
     if (accepted) writeQueue([]);
   } catch {}
   flushing = false;
