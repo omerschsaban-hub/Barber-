@@ -19,3 +19,5 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
     </main>
   );
 }
+
+// Deployment trigger: keep the Vercel main-branch integration moving to the latest fix.
