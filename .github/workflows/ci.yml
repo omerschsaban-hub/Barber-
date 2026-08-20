@@ -53,10 +53,18 @@ jobs:
         env:
           FABRIENT_ENGINE_URL: http://127.0.0.1:8001
         run: |
+          set -euo pipefail
           python -m py_compile server.py smoke_test.py
           python -c "import server; assert len(server.CAPABILITY_NAMES)==100; assert len(set(server.CAPABILITY_NAMES))==100"
           python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
+          pid=$!
+          ready=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/mcp.log; exit 1; fi
           MCP_URL=http://127.0.0.1:8000/mcp python smoke_test.py
 
   engineering-api:
@@ -73,10 +81,20 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - run: python -m py_compile main.py
+      - name: Import API application
+        run: python -c "from main import app; print('Engineering API import OK')"
       - name: Start API
         run: |
+          set -euo pipefail
           uvicorn main:app --host 127.0.0.1 --port 8001 >/tmp/engine.log 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8001/health >/dev/null && break; sleep 1; done
+          pid=$!
+          ready=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8001/health >/dev/null; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/engine.log; exit 1; fi
       - name: Verify API routes are callable
         run: |
           python - <<'PY'
@@ -118,8 +136,16 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8001
         run: |
+          set -euo pipefail
           npm run start -- --hostname 127.0.0.1 --port 3000 >/tmp/web.log 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          pid=$!
+          ready=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/web.log; exit 1; fi
       - name: Smoke every shipped route
         run: |
           set -euo pipefail
@@ -143,4 +169,9 @@ jobs:
         with:
           node-version: '20'
       - run: npm install --no-audit --no-fund
-      - run: npm run build
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8001
+        run: npm run build
