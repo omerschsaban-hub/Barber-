@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import tempfile
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.cad_kernel import extract_step
 
 router = APIRouter(prefix="/v1/geometry", tags=["cad"])
+
 
 @router.post("/step")
 async def step_geometry(file: UploadFile = File(...)):
@@ -22,4 +24,9 @@ async def step_geometry(file: UploadFile = File(...)):
         result = extract_step(str(path))
     if result.get("status") == "error":
         raise HTTPException(422, result.get("reason", "STEP extraction failed"))
+    result.setdefault("filename", file.filename)
+    result.setdefault("file_size_bytes", len(raw))
+    result.setdefault("provenance", {})
+    result["provenance"]["synthetic"] = False
+    result["provenance"]["visualization"] = "kernel-derived bounding box only"
     return result
