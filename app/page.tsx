@@ -1,3 +1,60 @@
-import Link from 'next/link';
-function Orb(){return <div className="orb-stage" aria-hidden="true"><div className="orb"><div className="orb-core"/><div className="ring"/><div className="ring r2"/><div className="ring r3"/><i className="node n1"/><i className="node n2"/><i className="node n3"/><i className="node n4"/><span className="orb-label">PHYSICS • EVIDENCE • RELEASE</span></div></div>}
-export default function Home(){return <main className="page"><section className="hero-grid"><div className="hero-copy"><div className="eyebrow">ENGINEERING RELEASE SYSTEM</div><h1 className="title">Go from part idea to verified build without the engineering maze.</h1><p className="hero-sub">Fabrient turns requirements, deterministic DFM checks, real inspection evidence and verification into one short loop — then gives the builder a manufacturing package they can actually follow.</p><div className="hero-actions"><Link className="button primary" href="/manufacturing">Start a build →</Link><Link className="button" href="/workspace">Open workspace</Link></div><div className="trust-row"><span className="trust-pill">DETERMINISTIC FIRST</span><span className="trust-pill">REAL MEASUREMENTS</span><span className="trust-pill">EVERY CHANGE SHOWN</span><span className="trust-pill">HUMAN RELEASE GATE</span></div></div><Orb/></section><section style={{marginTop:54}}><div className="section-kicker">THE CORE LOOP</div><div className="grid grid3"><div className="panel"><h2>01 / DEFINE</h2><p className="muted">Enter only what the engineering decision actually needs. No giant setup wizard.</p></div><div className="panel"><h2>02 / VERIFY</h2><p className="muted">Run deterministic checks, show failures, apply bounded fixes and verify again.</p></div><div className="panel"><h2>03 / BUILD</h2><p className="muted">Generate the manufacturing package, inspection plan and a simple physical build guide.</p></div></div></section><section className="panel" style={{marginTop:16}}><div className="section-kicker">WHY THIS WORKFLOW</div><div className="pipeline"><span>REQUIREMENTS</span><i>→</i><span>DELETE</span><i>→</i><span>SIMPLIFY</span><i>→</i><span>ACCELERATE</span><i>→</i><span>AUTOMATE</span></div><p className="muted" style={{maxWidth:900}}>The product itself follows the same discipline: question unnecessary requirements, remove unnecessary steps, simplify what survives, shorten the feedback loop, and automate only the stable workflow.</p></section></main>}
+import Link from 'next/link'
+
+const loop = [
+  ['Define', 'Requirements, dimensions and evidence boundary.'],
+  ['Validate', 'Deterministic DFM and geometry checks expose concrete failures.'],
+  ['Verify', 'Real measurements and simulation evidence are kept separate.'],
+  ['Release', 'A manufacturing package is produced only when its gates are satisfied.'],
+]
+
+export default function Home() {
+  return (
+    <main className="page">
+      <section className="hero-grid">
+        <div className="hero-copy">
+          <div className="eyebrow">FABRIENT / ENGINEERING RELEASE</div>
+          <h1 className="title">A traceable path from part requirements to a build you can inspect.</h1>
+          <p className="hero-sub">
+            Fabrient keeps geometry, deterministic checks, physical observations, uncertainty and release decisions in one engineering record. Claims stay tied to evidence instead of presentation effects.
+          </p>
+          <div className="hero-actions">
+            <Link className="button primary" href="/manufacturing">Start a build</Link>
+            <Link className="button" href="/workspace">Open workspace</Link>
+          </div>
+        </div>
+        <aside className="release-summary" aria-label="Release workflow">
+          <div className="summary-heading">RELEASE RECORD</div>
+          <dl>
+            <div><dt>Geometry</dt><dd>Required</dd></div>
+            <div><dt>DFM checks</dt><dd>Deterministic</dd></div>
+            <div><dt>Physical evidence</dt><dd>Ground truth</dd></div>
+            <div><dt>Uncertainty</dt><dd>Explicit</dd></div>
+            <div><dt>Final acceptance</dt><dd>Human gate</dd></div>
+          </dl>
+        </aside>
+      </section>
+
+      <section className="workflow-section">
+        <div className="section-kicker">THE ENGINEERING RECORD</div>
+        <div className="workflow-list">
+          {loop.map(([name, description], index) => (
+            <article className="workflow-row" key={name}>
+              <div className="workflow-index">0{index + 1}</div>
+              <h2>{name}</h2>
+              <p className="muted">{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel release-note">
+        <div>
+          <div className="section-kicker">DESIGN RULE</div>
+          <h2>Evidence before polish.</h2>
+          <p className="muted">The interface intentionally avoids decorative status claims, invented customer proof, unnecessary motion and generic AI-product patterns. Engineering state should be understandable from the record itself.</p>
+        </div>
+        <Link className="button" href="/records">View records</Link>
+      </section>
+    </main>
+  )
+}
