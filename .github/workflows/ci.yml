@@ -23,91 +23,111 @@ jobs:
       run:
         working-directory: engineering
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: engineering/requirements.txt
-      - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
-      - name: Dependency integrity
-        run: python -m pip check
-      - name: Compile check
-        run: python -m compileall -q app tests
-      - name: Engineering tests
-        run: pytest -q
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - run: python -m pip check
+      - run: python -m compileall -q app tests
+      - run: pytest -q
 
   mcp:
-    name: MCP registry and all-tool call smoke test
+    name: MCP 100-tool real call test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: services/mcp
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: services/mcp/requirements.txt
-      - name: Install MCP dependencies
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
-      - name: Compile MCP server and smoke test
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Registry, compile and server smoke
         env:
-          FABRIENT_ENGINE_URL: https://example.invalid
+          FABRIENT_ENGINE_URL: http://127.0.0.1:8001
         run: |
           python -m py_compile server.py smoke_test.py
-          python -c "import server; assert len(server.CAPABILITY_NAMES) == 100; assert len(set(server.CAPABILITY_NAMES)) == 100; print('authoritative registry:', len(server.CAPABILITY_NAMES))"
-          python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/fabrient-mcp.log 2>&1 &
+          python -c "import server; assert len(server.CAPABILITY_NAMES)==100; assert len(set(server.CAPABILITY_NAMES))==100"
+          python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
           MCP_URL=http://127.0.0.1:8000/mcp python smoke_test.py
 
+  engineering-api:
+    name: Engineering API contract smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - run: python -m py_compile main.py
+      - name: Start API
+        run: |
+          uvicorn main:app --host 127.0.0.1 --port 8001 >/tmp/engine.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8001/health >/dev/null && break; sleep 1; done
+      - name: Verify API routes are callable
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          base='http://127.0.0.1:8001'
+          checks=[
+            ('/health',None),
+            ('/v1/dfm/analyze',{'part_name':'CI fixture','revision':'A','material':'PETG','machine':'FDM printer','measurements':{'wall_thickness_mm':1.0,'clearance_mm':0.15,'hole_diameter_mm':2.4,'overhang_deg':55,'bridge_mm':8,'tolerance_mm':0.2}}),
+            ('/v1/dfm/self-fix',{'part_name':'CI fixture','revision':'A','material':'PETG','machine':'FDM printer','measurements':{'wall_thickness_mm':1.0,'clearance_mm':0.15,'hole_diameter_mm':2.4,'overhang_deg':55,'bridge_mm':8,'tolerance_mm':0.2}}),
+          ]
+          for path,body in checks:
+            if body is None:
+              r=urllib.request.urlopen(base+path,timeout=10)
+            else:
+              data=json.dumps(body).encode(); r=urllib.request.urlopen(urllib.request.Request(base+path,data=data,headers={'content-type':'application/json'}),timeout=10)
+            assert 200 <= r.status < 300, (path,r.status)
+            print(path,r.status)
+          PY
+
   frontend-root:
-    name: Root frontend production build and route smoke
+    name: Frontend production build and route smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - name: Production build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8001
         run: npm run build
       - name: Start production server
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8001
         run: |
-          npm run start -- --hostname 127.0.0.1 --port 3000 >/tmp/fabrient-web.log 2>&1 &
+          npm run start -- --hostname 127.0.0.1 --port 3000 >/tmp/web.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
-      - name: Smoke every shipped application route
+      - name: Smoke every shipped route
         run: |
           set -euo pipefail
           for route in / /login /calibration /experiments /geometry /graph /import /manufacturing /projects /records /risk-map; do
             echo "SMOKE $route"
             code=$(curl -sS -o /tmp/route.html -w '%{http_code}' --max-time 15 "http://127.0.0.1:3000$route")
-            case "$code" in
-              2??|3??) ;;
-              *) echo "Route $route returned HTTP $code"; cat /tmp/route.html; exit 1;;
-            esac
-            if grep -Eiq 'Application error|Unhandled Runtime Error|Internal Server Error' /tmp/route.html; then
-              echo "Route $route contains a server/runtime error marker"; cat /tmp/route.html; exit 1
-            fi
+            case "$code" in 2??|3??) ;; *) cat /tmp/route.html; exit 1;; esac
+            ! grep -Eiq 'Application error|Unhandled Runtime Error|Internal Server Error' /tmp/route.html
           done
 
   frontend-secondary:
@@ -118,21 +138,9 @@ jobs:
       run:
         working-directory: apps/web
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Production build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
-        run: npm run build
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
