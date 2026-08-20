@@ -4,6 +4,7 @@ from .real_cv_sim2real import router as real_cv_sim2real_router
 from .cv_json import router as cv_json_router
 from .risk_map import router as risk_map_router
 from .validate_dimension import router as validate_dimension_router
+from .mcp_compat_fixes import router as mcp_compat_fixes_router
 from .manufacturing import router as manufacturing_router
 from .cad_routes import router as cad_router
 from .final_pipeline import router as final_router
@@ -19,6 +20,9 @@ app.include_router(real_cv_sim2real_router)
 app.include_router(cv_json_router)
 app.include_router(risk_map_router)
 app.include_router(validate_dimension_router)
+# Register compatibility routes before legacy manufacturing routes so corrected
+# MCP release/alias behavior wins route matching without changing the web API.
+app.include_router(mcp_compat_fixes_router)
 app.include_router(manufacturing_router)
 app.include_router(cad_router)
 app.include_router(final_router)
