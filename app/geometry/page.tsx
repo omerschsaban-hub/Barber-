@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || process.env.NEXT_PUBLIC_ENGINEERING_URL || 'http://localhost:8000';
 
-type MeshData = {vertices:number[][];triangles:number[][]};
+type MeshData = {vertices:number[][];triangles:number[][];triangle_count?:number};
 
 type GeometryData = {
   status:string;
