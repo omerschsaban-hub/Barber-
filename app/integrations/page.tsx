@@ -1,41 +1,80 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-const providers = [
-  { id: 'autodesk_fusion', name: 'Autodesk Fusion', description: 'Connect an authorized Fusion MCP endpoint.' },
-  { id: 'propel_plm', name: 'Propel PLM', description: 'Connect an authorized Propel MCP endpoint.' },
-];
+type Provider = { id: string; name: string; description: string; auth: string; endpoint?: string; docs?: string; configured?: boolean; kind?: string };
 
 export default function IntegrationsPage() {
-  const [provider, setProvider] = useState(providers[0].id);
-  const [endpoint, setEndpoint] = useState('');
-  const [token, setToken] = useState('');
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customUrl, setCustomUrl] = useState('');
+  const [customToken, setCustomToken] = useState('');
 
-  async function connect() {
-    setBusy(true); setStatus('Connecting…');
+  async function load(q = '') {
+    const r = await fetch(`/integrations/search?query=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    setProviders(data.results || []);
+  }
+  useEffect(() => { load(); }, []);
+  useEffect(() => { const t = setTimeout(() => load(query), 180); return () => clearTimeout(t); }, [query]);
+
+  const visible = useMemo(() => providers, [providers]);
+
+  async function connect(p: Provider) {
+    setBusy(p.id); setStatus('');
     try {
-      const r = await fetch('/integrations/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, endpoint, bearer_token: token || null }) });
+      const r = await fetch('/integrations/auth/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: p.id }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || 'Unable to start connection');
+      if (data.auth_url) {
+        window.open(data.auth_url, '_blank', 'noopener,noreferrer');
+        setStatus(`${p.name}: authorization opened.`);
+      } else if (data.endpoint && p.auth === 'local') {
+        setCustomUrl(data.endpoint); setCustomOpen(true); setStatus(`${p.name}: local MCP detected. Start it on this computer, then connect.`);
+      } else {
+        setStatus(`${p.name}: ${data.message || 'Provider authorization is required.'}`);
+        if (data.docs) window.open(data.docs, '_blank', 'noopener,noreferrer');
+      }
+    } catch (e) { setStatus(e instanceof Error ? e.message : 'Connection failed'); }
+    finally { setBusy(null); }
+  }
+
+  async function connectCustom() {
+    setBusy('custom');
+    try {
+      const r = await fetch('/integrations/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'custom_mcp', endpoint: customUrl, bearer_token: customToken || null }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || 'Connection failed');
-      setStatus(`Connected. ${data.tool_count ?? 0} tools discovered.`);
-      setToken('');
+      setStatus(`Custom MCP connected. ${data.tool_count ?? 0} tools discovered.`); setCustomToken('');
     } catch (e) { setStatus(e instanceof Error ? e.message : 'Connection failed'); }
-    finally { setBusy(false); }
+    finally { setBusy(null); }
   }
 
   return <main className="page-shell">
-    <h1>Integrations</h1>
-    <p>Connect Fabrient to engineering systems you already use through their authorized MCP interface.</p>
+    <h1>Connect your tools</h1>
+    <p>Search for the system or task you need. Fabrient discovers available MCP tools after an authorized connection.</p>
     <section className="card">
-      <label>System<select value={provider} onChange={e => setProvider(e.target.value)}>{providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-      <p>{providers.find(p => p.id === provider)?.description}</p>
-      <label>MCP endpoint<input value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://…" autoComplete="off" /></label>
-      <label>Bearer token (optional)<input type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="Token" autoComplete="new-password" /></label>
-      <button disabled={busy || !endpoint} onClick={connect}>{busy ? 'Connecting…' : 'Connect & test'}</button>
-      {status && <p role="status">{status}</p>}
+      <input aria-label="Search integrations" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search CAD, PLM, documentation, repositories…" />
     </section>
+    <section className="grid">
+      {visible.map(p => <article className="card" key={p.id}>
+        <h2>{p.name}</h2>
+        <p>{p.description}</p>
+        <small>{p.kind?.replaceAll('_', ' ')}</small>
+        <div><button disabled={busy === p.id} onClick={() => connect(p)}>{busy === p.id ? 'Connecting…' : p.configured ? 'Connected' : 'Connect'}</button></div>
+      </article>)}
+    </section>
+    <section className="card">
+      <button onClick={() => setCustomOpen(v => !v)}>Connect a custom MCP</button>
+      {customOpen && <div>
+        <label>MCP URL<input value={customUrl} onChange={e => setCustomUrl(e.target.value)} placeholder="https://…" autoComplete="off" /></label>
+        <label>Bearer token (optional)<input type="password" value={customToken} onChange={e => setCustomToken(e.target.value)} autoComplete="new-password" /></label>
+        <button disabled={busy === 'custom' || !customUrl} onClick={connectCustom}>{busy === 'custom' ? 'Connecting…' : 'Connect & discover tools'}</button>
+      </div>}
+    </section>
+    {status && <p role="status">{status}</p>}
   </main>;
 }
