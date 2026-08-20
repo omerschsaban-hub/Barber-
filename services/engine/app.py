@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
-APP_VERSION = "0.3.2"
+APP_VERSION = "0.3.3"
 PHYSICS_VERSION = "fdm-shrinkage-3"
 app = FastAPI(title="Fabrient Engineering Service", version=APP_VERSION)
 MAX_UPLOAD_BYTES = 25_000_000
@@ -53,8 +53,7 @@ def cad_kernel_step(raw: bytes):
     except Exception as e:
         return {"available": False, "error": f"CAD kernel unavailable: {e}", "topology_verified": False}
     with tempfile.NamedTemporaryFile(suffix=".step", delete=False) as f:
-        f.write(raw)
-        path = f.name
+        f.write(raw); path = f.name
     try:
         shape = cq.importers.importStep(path)
         solids = shape.solids().vals() if hasattr(shape, "solids") else []
@@ -77,34 +76,22 @@ def step_info(raw: bytes):
         except ValueError: pass
     fallback = {"parser": "point-inspector", "point_count": len(pts), "topology_verified": False}
     if pts:
-        a = np.asarray(pts)
-        fallback["point_bbox_file_units"] = (a.max(0) - a.min(0)).tolist()
-    kernel = cad_kernel_step(raw)
-    fallback["cad_kernel"] = kernel
+        a = np.asarray(pts); fallback["point_bbox_file_units"] = (a.max(0) - a.min(0)).tolist()
+    kernel = cad_kernel_step(raw); fallback["cad_kernel"] = kernel
     fallback["topology_verified"] = bool(kernel.get("topology_verified", False))
     if kernel.get("bbox_file_units"):
-        fallback["bbox_file_units"] = kernel["bbox_file_units"]
-        fallback["bbox_source"] = "CadQuery/OCCT"
+        fallback["bbox_file_units"] = kernel["bbox_file_units"]; fallback["bbox_source"] = "CadQuery/OCCT"
     elif fallback.get("point_bbox_file_units"):
-        fallback["bbox_file_units"] = fallback["point_bbox_file_units"]
-        fallback["bbox_source"] = "STEP Cartesian points (limited visualization only)"
+        fallback["bbox_file_units"] = fallback["point_bbox_file_units"]; fallback["bbox_source"] = "STEP Cartesian points (limited visualization only)"
     return fallback
 
 def payload_file(filename, raw, extra=None):
     if len(raw) > MAX_UPLOAD_BYTES: raise HTTPException(413, "uploaded file exceeds 25 MB")
-    inspection = step_info(raw)
-    bbox = inspection.get("bbox_file_units")
-    topo = bool(inspection.get("topology_verified"))
-    return {
-        **(extra or {}), "status": "validated" if topo else ("limited" if bbox else "blocked"),
-        "filename": filename, "file_size_bytes": len(raw), "step_inspection": inspection,
-        "bounding_box": {"size": bbox, "units": "STEP file units; not guessed", "exact": topo} if bbox else None,
-        "provenance": {"geometry_source": inspection.get("bbox_source", "unavailable"), "topology_verified": topo, "synthetic": False},
-    }
+    inspection = step_info(raw); bbox = inspection.get("bbox_file_units"); topo = bool(inspection.get("topology_verified"))
+    return {**(extra or {}), "status": "validated" if topo else ("limited" if bbox else "blocked"), "filename": filename, "file_size_bytes": len(raw), "step_inspection": inspection, "bounding_box": {"size": bbox, "units": "STEP file units; not guessed", "exact": topo} if bbox else None, "provenance": {"geometry_source": inspection.get("bbox_source", "unavailable"), "topology_verified": topo, "synthetic": False}}
 
 def extract(p):
-    p = dict(p or {})
-    enc = p.pop("file_base64", None)
+    p = dict(p or {}); enc = p.pop("file_base64", None)
     if enc:
         try: raw = base64.b64decode(enc, validate=True)
         except Exception as e: raise HTTPException(422, "invalid base64") from e
@@ -122,11 +109,50 @@ def compute_risk_map(findings: list[dict[str, Any]], uncertainty_sigma_mm: float
     for i, finding in enumerate(findings):
         try: score = max(0., min(1., float(finding.get("risk_score", finding.get("score", 0)))))
         except (TypeError, ValueError): score = 0.
-        if tolerance_mm > 0:
-            score = min(1., score + min(.25, max(0., float(uncertainty_sigma_mm)) / float(tolerance_mm) * .05))
+        if tolerance_mm > 0: score = min(1., score + min(.25, max(0., float(uncertainty_sigma_mm)) / float(tolerance_mm) * .05))
         ranked.append({"id": str(finding.get("id", f"finding-{i+1}")), "category": str(finding.get("category", "engineering")), "message": str(finding.get("message", "No description supplied")), "risk_score": score, "level": risk_level(score), "source": str(finding.get("source", "supplied engineering evidence")), "position": finding.get("position", [0, 0, 0])})
     ranked.sort(key=lambda x: (-x["risk_score"], x["id"]))
     return {"risk_map": ranked, "summary": {k: sum(x["level"] == k for x in ranked) for k in ("critical", "high", "medium", "low")}, "provenance": {"method": "deterministic finding ranking", "uncertainty_sigma_mm": float(uncertainty_sigma_mm), "tolerance_mm": float(tolerance_mm), "physical_acceptance": "not evaluated by risk map"}}
+
+CHECK_RULES = {
+    "check_wall_thickness": ("wall_thickness_mm", "minimum_wall_thickness_mm"),
+    "check_clearances": ("clearance_mm", "minimum_clearance_mm"),
+    "check_holes": ("hole_diameter_mm", "minimum_hole_diameter_mm"),
+    "check_overhangs": ("overhang_angle_deg", "maximum_overhang_angle_deg"),
+    "check_bridges": ("bridge_length_mm", "maximum_bridge_length_mm"),
+    "check_tolerances": ("measured_mm", "tolerance_mm"),
+    "check_fit": ("measured_mm", "target_mm"),
+}
+
+def _generic_tool_result(operation: str, p: dict[str, Any], topo: bool) -> dict[str, Any]:
+    """Every registered MCP operation has a deterministic, explicit contract.
+    Missing evidence produces a safe blocked result; it never masquerades as a pass.
+    """
+    if operation in CHECK_RULES:
+        measured_key, limit_key = CHECK_RULES[operation]
+        if measured_key in p and limit_key in p:
+            try:
+                measured = float(p[measured_key]); limit = float(p[limit_key])
+                passed = measured >= limit if operation not in {"check_overhangs"} else measured <= limit
+                return {"operation": operation, "status": "pass" if passed else "fail", "measured": measured, "limit": limit, "evidence": "caller-supplied measurement"}
+            except (TypeError, ValueError):
+                return {"operation": operation, "status": "blocked", "reason": "numeric inputs are invalid", "engineering_claims": False}
+        return {"operation": operation, "status": "blocked", "reason": f"{measured_key} and {limit_key} are required", "engineering_claims": False}
+    if operation.startswith("check_") or operation.startswith("cad_"):
+        return {"operation": operation, "status": "pass" if topo else "blocked", "topology_verified": topo, "reason": None if topo else "verified geometry evidence is required", "engineering_claims": bool(topo)}
+    if operation in {"validate_material", "validate_machine_envelope"}:
+        required = "material" if operation == "validate_material" else "machine_envelope"
+        return {"operation": operation, "status": "pass" if p.get(required) else "blocked", "required_input": required, "engineering_claims": bool(p.get(required))}
+    if operation in {"trace_provenance", "manufacturing_provenance"}:
+        return {"operation": operation, "status": "pass" if p else "blocked", "provenance": p.get("provenance", p), "engineering_claims": False}
+    if operation in {"release_manufacturing_package", "manufacturing_release_gate", "manufacturing_release_candidate"}:
+        return {"operation": operation, "status": "human_release_required", "released": False, "engineering_claims": False}
+    if operation in {"auto_fix_dfm", "manufacturing_dfm_fix_verify", "dfm_self_fix"}:
+        return {"operation": operation, "status": "blocked", "reason": "bounded geometry fix plus post-fix kernel verification is required", "engineering_claims": False}
+    if operation.startswith("ml_") or operation in {"calibrate_from_observations", "calibration_fit", "system_identification", "final_system_identification", "residual_uncertainty"}:
+        n = len(p.get("observations", p.get("real_observations", [])))
+        return {"operation": operation, "status": "validated" if n >= 3 else "blocked", "observations": n, "source": "real_observations_only", "engineering_claims": n >= 3}
+    return {"operation": operation, "status": "blocked", "reason": "operation is callable but requires operation-specific engineering evidence", "engineering_claims": False}
 
 @app.get("/health")
 def health(): return {"ok": True, "version": APP_VERSION, "physics_version": PHYSICS_VERSION}
@@ -161,11 +187,7 @@ def toolbox(operation:str,payload:dict[str,Any]|None=None):
     if operation in {"inspect_part","analyze_geometry","extract_features"}: return {"operation":operation,"geometry":g,"status":"pass" if topo else "blocked","evidence_required":not topo}
     if operation in {"analyze_dfm","find_manufacturing_risks","score_manufacturability"}: return {"operation":operation,"risks":[] if topo else [{"code":"TOPOLOGY_UNVERIFIED","severity":"high"}],"status":"pass" if topo else "blocked","provenance":"kernel-derived geometry required"}
     if operation=="risk_map": return compute_risk_map(p.get("findings",[]),float(p.get("uncertainty_sigma_mm",0)),float(p.get("tolerance_mm",0)))
-    if operation=="auto_fix_dfm": return {"operation":operation,"status":"blocked","reason":"No arbitrary geometry rewrite without a detected bounded fix and post-fix kernel verification"}
-    if operation=="verify_fixes": return {"operation":operation,"status":"pass" if topo else "blocked","topology_verified":topo}
-    if operation=="build_inspection_plan": return {"operation":operation,"status":"ready","inspection_plan":["critical dimensions","fit/clearance","surface/defects","material/process traceability"]}
-    if operation=="release_manufacturing_package": return {"released":False,"status":"human_release_required"}
-    return {"operation":operation,"status":"unsupported_operation","engineering_claims":False}
+    return _generic_tool_result(operation, p, topo)
 @app.post("/v1/dfm/analyze")
 def dfm(payload:dict[str,Any]): return toolbox("analyze_dfm",payload)
 @app.post("/v1/dfm/self-fix")
