@@ -69,7 +69,7 @@ jobs:
           MCP_URL=http://127.0.0.1:8000/mcp python smoke_test.py
 
   frontend-root:
-    name: Root frontend production build
+    name: Root frontend production build and route smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -87,6 +87,28 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
         run: npm run build
+      - name: Start production server
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 >/tmp/fabrient-web.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+      - name: Smoke every shipped application route
+        run: |
+          set -euo pipefail
+          for route in / /login /calibration /experiments /geometry /graph /import /manufacturing /projects /records /risk-map; do
+            echo "SMOKE $route"
+            code=$(curl -sS -o /tmp/route.html -w '%{http_code}' --max-time 15 "http://127.0.0.1:3000$route")
+            case "$code" in
+              2??|3??) ;;
+              *) echo "Route $route returned HTTP $code"; cat /tmp/route.html; exit 1;;
+            esac
+            if grep -Eiq 'Application error|Unhandled Runtime Error|Internal Server Error' /tmp/route.html; then
+              echo "Route $route contains a server/runtime error marker"; cat /tmp/route.html; exit 1
+            fi
+          done
 
   frontend-secondary:
     name: Secondary web production build
