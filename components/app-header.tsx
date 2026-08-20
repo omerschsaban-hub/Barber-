@@ -29,7 +29,6 @@ export default function AppHeader() {
         <Link href="/geometry">Geometry</Link>
         <Link href="/calibration">Calibration</Link>
         <Link href="/graph">Evidence</Link>
-        <Link href="/moat">Engineering Intelligence</Link>
         <Link href="/records">Exports</Link>
       </div>
       <div>{email ? <span className="user">{email}</span> : <Link href="/login" className="button">Sign in</Link>}</div>
