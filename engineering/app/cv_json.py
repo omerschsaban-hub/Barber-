@@ -74,7 +74,13 @@ def measure_real_json(x: RealCVJsonRequest):
     mm_per_px = x.reference_length_mm / ref_px
     px_sigma = math.sqrt(0.5**2 + 0.5**2)
     measurement_mm = target_px * mm_per_px
-    sigma = math.sqrt((measurement_mm * math.sqrt((px_sigma / ref_px) ** 2 + (px_sigma / target_px) ** 2)) ** 2 + x.reference_uncertainty_mm** ** 2)
+    relative_pixel_uncertainty = math.sqrt(
+        (px_sigma / ref_px) ** 2 + (px_sigma / target_px) ** 2
+    )
+    sigma = math.sqrt(
+        (measurement_mm * relative_pixel_uncertainty) ** 2
+        + x.reference_uncertainty_mm**2
+    )
     return {
         "status": "measured",
         "measurement_mm": measurement_mm,
