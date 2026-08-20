@@ -116,3 +116,5 @@ async def capabilities(_: Request) -> JSONResponse:
 host = os.getenv("RENDER_EXTERNAL_HOSTNAME", "localhost")
 security = TransportSecuritySettings(allowed_hosts=[host, f"{host}:*", "localhost", "localhost:*"], allowed_origins=[f"https://{host}", "http://localhost", "http://localhost:*"] if host != "localhost" else ["http://localhost", "http://localhost:*"])
 app = mcp.streamable_http_app(transport_security=security)
+
+# Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.

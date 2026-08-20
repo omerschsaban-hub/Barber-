@@ -140,3 +140,21 @@ def engineering_agent_run(payload: dict[str, Any]):
 @router.post("/v1/toolbox/run_bounded_engineering_review")
 def bounded_engineering_review(payload: dict[str, Any]):
     return {"status": "reviewable", "operation": "run_bounded_engineering_review", "blocked_actions": ["physical_execution", "automatic_release", "fabricated_measurements"], "inputs_received": sorted(payload.keys()), "human_gate": True}
+
+
+# Direct lifecycle aliases used by the authoritative MCP registry.
+@router.post("/v1/agent/step")
+def agent_step_alias(payload: dict[str, Any]):
+    return {"status": "approval_required", "action": "none", "iterations": 0, "reason": "Engineering actions remain human-approved in v1.", "inputs_received": sorted(payload.keys())}
+
+@router.post("/v1/final/risk")
+def final_risk_alias(payload: dict[str, Any]):
+    return reviewable("risk_estimate", payload)
+
+@router.post("/v1/final/system-identification")
+def final_system_identification_alias(payload: dict[str, Any]):
+    return reviewable("final_system_identification", payload)
+
+@router.post("/v1/final/import/confirm")
+def inspection_confirm_alias(payload: dict[str, Any]):
+    return {"status": "reviewable", "operation": "inspection_confirm", "inputs_received": sorted(payload.keys()), "next_step": "Confirm only against the previewed real inspection data.", "human_gate": True, "provenance": {"source": "inspection_confirmation_boundary", "synthetic": False}}
