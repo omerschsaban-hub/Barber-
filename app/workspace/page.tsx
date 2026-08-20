@@ -1,14 +1,11 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import {useMemo, useState} from 'react';
-import * as THREE from 'three';
-import {Canvas, useFrame} from '@react-three/fiber';
-import {OrbitControls} from '@react-three/drei';
 
+const View3D = dynamic(()=>import('@/components/geometry-viewer'), {ssr:false, loading:()=> <div className="viewer"><div className="viewer-label">3D viewer ready when a verified result is available.</div></div>});
 const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || 'http://localhost:8000';
 type Prediction={prediction_mm:number;interval_95_mm:number[];physics_uncertainty_mm:number;status:string;provenance:any};
-function Part({size}:{size:number[]}){const ref=useMemo(()=>new THREE.MeshStandardMaterial({wireframe:true}),[]);const[x,y,z]=size.map(v=>Math.max(v/20,.1));return <mesh scale={[x,y,z]} material={ref}><boxGeometry args={[1,1,1]}/></mesh>}
-function View3D({size,deviation}:{size:number[];deviation:number}){return <div className="viewer"><Canvas camera={{position:[3,3,3],fov:45}}><ambientLight intensity={1}/><directionalLight position={[3,4,5]}/><Part size={size}/><OrbitControls/></Canvas><div className="viewer-label">COMPUTED GEOMETRY · DEVIATION {deviation.toFixed(3)} mm</div></div>}
 function ShareReview(){const[done,setDone]=useState(false);async function share(){const url=window.location.href;const text='Review this Fabrient engineering workspace with me.';try{if(navigator.share)await navigator.share({title:'Fabrient engineering review',text,url});else await navigator.clipboard.writeText(url);setDone(true);setTimeout(()=>setDone(false),2200)}catch{}}return <button className="button" onClick={share}>{done?'Link copied':'Share a review'}</button>}
 export default function Workspace(){
  const[nominal,setNominal]=useState(40);const[shrink,setShrink]=useState(.5);const[sigma,setSigma]=useState(.15);const[material,setMaterial]=useState('PETG');const[machine,setMachine]=useState('Machine 01');const[temp,setTemp]=useState(245);const[pred,setPred]=useState<Prediction|null>(null);const[busy,setBusy]=useState(false);const[error,setError]=useState('');const[file,setFile]=useState<File|null>(null);const[importResult,setImportResult]=useState<any>(null);const[tolerance,setTolerance]=useState(.4);const[interval,setIntervalResult]=useState<any>(null);const[reverify,setReverify]=useState({uses:20,environment:.2,drift:.002,consequence:.5,measurement:.01});const[size]=useState([40,20,10]);
