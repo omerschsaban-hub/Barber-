@@ -14,7 +14,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from engineering.app.composed import app  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
+from services.engine.data_flywheel_worker import start_scheduler  # noqa: E402
 
+start_scheduler()
 
 @app.middleware("http")
 async def sim2real_quality_gate(request: Request, call_next):
