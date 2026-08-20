@@ -1,5 +1,4 @@
 import './globals.css';
-import './fabrient-effects.css';
 import AppHeader from '@/components/app-header';
 
 export const metadata = {
