@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .data_flywheel import SOURCES, post
+from .product_operating_system import evaluate_operation
 
 ROUTE_SOURCES = {
     "/v1/predict": ("prediction_reality", "prediction"),
@@ -74,7 +75,8 @@ def install_product_intelligence(app: Any) -> None:
                 status = getattr(response, "status_code", 500 if error else 200)
                 project_id = request.headers.get("x-project-id")
                 entity_id = request.headers.get("x-entity-id")
-                base = {"route": path, "status_code": status, "latency_ms": elapsed_ms, "app_version": "1.0.0"}
+                operation = evaluate_operation(path, status, elapsed_ms)
+                base = {"route": path, "status_code": status, "latency_ms": elapsed_ms, "app_version": "1.0.0", "operating_policy": operation}
 
                 route_info = ROUTE_SOURCES.get(path)
                 if route_info:
@@ -90,6 +92,11 @@ def install_product_intelligence(app: Any) -> None:
                 record("mcp_success" if 200 <= status < 400 else "mcp_failure", "runtime_result", base, project_id, entity_id)
                 record("mcp_inputs", "tool_input_event", {"route": path, "status_code": status}, project_id, entity_id)
                 record("mcp_outputs", "tool_output_event", {"route": path, "status_code": status, "latency_ms": elapsed_ms}, project_id, entity_id)
+
+                # Slow or failed operations become explicit internal improvement
+                # candidates. Nothing about this policy is returned to customers.
+                if operation["improvement_priority"] in {"critical", "high"}:
+                    record("failure_clustering", "operating_policy_improvement_candidate", base, project_id, entity_id)
 
                 if request.headers.get("x-fabrient-workflow-consent") == "allowed":
                     record("consented_workflow_events", "consented_workflow_event", base, project_id, entity_id)
