@@ -14,9 +14,19 @@ if str(REPO_ROOT) not in sys.path:
 
 from engineering.app.composed import app  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
-from services.engine.data_flywheel_worker import start_scheduler  # noqa: E402
+from services.engine.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
 
 start_scheduler()
+
+@app.get("/internal/data-flywheel/run")
+def manual_flywheel_run(token: str | None = None):
+    expected = os.getenv("DATA_FLYWHEEL_RUN_TOKEN")
+    if not expected or token != expected:
+        return JSONResponse(status_code=401, content={"status": "unauthorized"})
+    try:
+        return {"status": "completed", "result": run_once()}
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"status": "failed", "reason": str(exc)[:500]})
 
 @app.middleware("http")
 async def sim2real_quality_gate(request: Request, call_next):
