@@ -3,19 +3,37 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 router = APIRouter()
 
+
 class DimensionValidationRequest(BaseModel):
-    nominal_mm: float = Field(gt=0)
-    measured_mm: float
-    tolerance_mm: float = Field(gt=0)
+    # Accept both the direct REST body and the MCP operation/payload envelope.
+    nominal_mm: float | None = Field(default=None, gt=0)
+    measured_mm: float | None = None
+    tolerance_mm: float | None = Field(default=None, gt=0)
     measurement_uncertainty_mm: float = Field(default=0.0, ge=0)
     dimension_name: str = "dimension"
+    operation: str | None = None
+    payload: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def unwrap_mcp_payload(cls, values: Any):
+        if isinstance(values, dict) and isinstance(values.get("payload"), dict):
+            merged = dict(values["payload"])
+            for key in ("operation", "dimension_name"):
+                if key in values and key not in merged:
+                    merged[key] = values[key]
+            return merged
+        return values
+
 
 @router.post("/v1/toolbox/validate_dimension")
 def validate_dimension(req: DimensionValidationRequest) -> dict[str, Any]:
+    if req.nominal_mm is None or req.measured_mm is None or req.tolerance_mm is None:
+        raise HTTPException(422, "nominal_mm, measured_mm, and tolerance_mm are required")
     if req.measurement_uncertainty_mm > req.tolerance_mm:
         return {
             "status": "insufficient_evidence",
