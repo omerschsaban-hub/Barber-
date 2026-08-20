@@ -11,21 +11,18 @@ from .final_pipeline import router as final_router
 from .quality import router as quality_router
 from .compat_routes import router as compat_router
 from .universal_quality import install as install_universal_quality
+from .data_flywheel import router as data_flywheel_router
 
-# Compose the complete engineering API surface used by both the web app and MCP.
-# Every lifecycle surface is exposed from this same application boundary to
-# prevent app/MCP behavior drift.
 app.include_router(advanced_router)
 app.include_router(real_cv_sim2real_router)
 app.include_router(cv_json_router)
 app.include_router(risk_map_router)
 app.include_router(validate_dimension_router)
-# Register compatibility routes before legacy manufacturing routes so corrected
-# MCP release/alias behavior wins route matching without changing the web API.
 app.include_router(mcp_compat_fixes_router)
 app.include_router(manufacturing_router)
 app.include_router(cad_router)
 app.include_router(final_router)
 app.include_router(quality_router)
 app.include_router(compat_router)
+app.include_router(data_flywheel_router)
 install_universal_quality(app)
