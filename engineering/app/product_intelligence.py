@@ -47,7 +47,6 @@ def _write(source_key: str, event_type: str, payload: dict[str, Any], project_id
             "content_hash": hashlib.sha256(json.dumps({"s": source_key, "e": event_type, "p": payload}, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
         })
     except Exception:
-        # Telemetry is strictly non-blocking: the engineering product must work if Supabase is unavailable.
         pass
 
 
@@ -69,39 +68,31 @@ def install_product_intelligence(app: Any) -> None:
             raise
         finally:
             path = request.url.path
-            if path.startswith("/data-flywheel") or path in {"/health", "/docs", "/openapi.json", "/redoc"}:
-                continue_recording = False
-            else:
-                continue_recording = True
-            if not continue_recording:
-                continue
-            elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-            status = getattr(response, "status_code", 500 if error else 200)
-            project_id = request.headers.get("x-project-id")
-            entity_id = request.headers.get("x-entity-id")
-            base = {"route": path, "status_code": status, "latency_ms": elapsed_ms, "app_version": "1.0.0"}
+            continue_recording = not (path.startswith("/data-flywheel") or path in {"/health", "/docs", "/openapi.json", "/redoc"})
+            if continue_recording:
+                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                status = getattr(response, "status_code", 500 if error else 200)
+                project_id = request.headers.get("x-project-id")
+                entity_id = request.headers.get("x-entity-id")
+                base = {"route": path, "status_code": status, "latency_ms": elapsed_ms, "app_version": "1.0.0"}
 
-            route_info = ROUTE_SOURCES.get(path)
-            if route_info:
-                source_key, event_type = route_info
-                record(source_key, "product_outcome", base, project_id, entity_id)
-                # Successful engineering operations create evidence for verification/trust;
-                # failures become candidates for the existing failure/regression agents to validate.
-                if 200 <= status < 400:
-                    record("validation_results", "verified_product_operation", base, project_id, entity_id)
-                else:
-                    record("edge_case_discovery", "failed_product_operation", base, project_id, entity_id)
+                route_info = ROUTE_SOURCES.get(path)
+                if route_info:
+                    source_key, event_type = route_info
+                    record(source_key, "product_outcome", base, project_id, entity_id)
+                    if 200 <= status < 400:
+                        record("validation_results", "verified_product_operation", base, project_id, entity_id)
+                    else:
+                        record("edge_case_discovery", "failed_product_operation", base, project_id, entity_id)
 
-            # Runtime behavior strengthens workflow, integration, reliability and speed without exposing telemetry.
-            record("common_workflows", "workflow_event", base, project_id, entity_id)
-            record("mcp_latency", "runtime_latency", base, project_id, entity_id)
-            record("mcp_success" if 200 <= status < 400 else "mcp_failure", "runtime_result", base, project_id, entity_id)
-            record("mcp_inputs", "tool_input_event", {"route": path, "status_code": status}, project_id, entity_id)
-            record("mcp_outputs", "tool_output_event", {"route": path, "status_code": status, "latency_ms": elapsed_ms}, project_id, entity_id)
+                record("common_workflows", "workflow_event", base, project_id, entity_id)
+                record("mcp_latency", "runtime_latency", base, project_id, entity_id)
+                record("mcp_success" if 200 <= status < 400 else "mcp_failure", "runtime_result", base, project_id, entity_id)
+                record("mcp_inputs", "tool_input_event", {"route": path, "status_code": status}, project_id, entity_id)
+                record("mcp_outputs", "tool_output_event", {"route": path, "status_code": status, "latency_ms": elapsed_ms}, project_id, entity_id)
 
-            # Only opt-in workflow telemetry can contribute to the customer-workflow moat.
-            if request.headers.get("x-fabrient-workflow-consent") == "allowed":
-                record("consented_workflow_events", "consented_workflow_event", base, project_id, entity_id)
+                if request.headers.get("x-fabrient-workflow-consent") == "allowed":
+                    record("consented_workflow_events", "consented_workflow_event", base, project_id, entity_id)
 
-            if status >= 400:
-                record("failure_clustering", "product_failure", base, project_id, entity_id)
+                if status >= 400:
+                    record("failure_clustering", "product_failure", base, project_id, entity_id)
