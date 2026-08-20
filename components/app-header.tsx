@@ -10,20 +10,10 @@ export default function AppHeader() {
   useEffect(() => {
     const supabase = createBrowserSupabase();
     if (!supabase) return;
-
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setEmail(data.session?.user?.email ?? null);
-    }).catch(() => {});
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) setEmail(session?.user?.email ?? null);
-    });
-
-    return () => {
-      mounted = false;
-      subscription.subscription.unsubscribe();
-    };
+    supabase.auth.getSession().then(({ data }) => { if (mounted) setEmail(data.session?.user?.email ?? null); }).catch(() => {});
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => { if (mounted) setEmail(session?.user?.email ?? null); });
+    return () => { mounted = false; subscription.subscription.unsubscribe(); };
   }, []);
 
   return (
@@ -39,6 +29,7 @@ export default function AppHeader() {
         <Link href="/geometry">Geometry</Link>
         <Link href="/calibration">Calibration</Link>
         <Link href="/graph">Evidence</Link>
+        <Link href="/moat">Engineering Intelligence</Link>
         <Link href="/records">Exports</Link>
       </div>
       <div>{email ? <span className="user">{email}</span> : <Link href="/login" className="button">Sign in</Link>}</div>
