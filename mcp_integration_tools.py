@@ -22,10 +22,16 @@ def register_integration_tools(mcp) -> None:
     @mcp.tool(name="list_fabrient_mcp_integrations", description="List supported official MCP integrations and their short descriptions, authentication mode, and official documentation.")
     async def list_fabrient_mcp_integrations() -> dict[str, Any]: return {"providers": public_provider_catalog()}
     @mcp.tool(name="discover_connected_mcp_tools", description="Given an authorized MCP endpoint, discover its current tools dynamically. Use only an endpoint the user has authorized Fabrient to access.")
-    async def discover_connected_mcp_tools(endpoint: str, bearer_token: str | None = None) -> dict[str, Any]: return {"count": len((tools := await _discover(endpoint, bearer_token))), "tools": tools}
+    async def discover_connected_mcp_tools(endpoint: str, bearer_token: str | None = None) -> dict[str, Any]:
+        tools = await _discover(endpoint, bearer_token); return {"count": len(tools), "tools": tools}
     @mcp.tool(name="search_connected_mcp_tools", description="Search dynamically discovered connected MCP tools by the task the user needs completed. Returns matching tool names and vendor-provided descriptions.")
     async def search_connected_mcp_tools(endpoint: str, query: str, bearer_token: str | None = None, limit: int = 10) -> dict[str, Any]:
-        terms = [t.lower() for t in query.split() if t.strip()]; tools = await _discover(endpoint, bearer_token); matches = [t for t in tools if not terms or all(t.lower() in f"{t.get('name','')} {t.get('description','')}".lower() for t in terms)]
+        terms = [term.lower() for term in query.split() if term.strip()]
+        tools = await _discover(endpoint, bearer_token)
+        matches = []
+        for tool in tools:
+            text = f"{tool.get('name','')} {tool.get('description','')}".lower()
+            if not terms or all(term in text for term in terms): matches.append(tool)
         return {"query": query, "count": len(matches[:limit]), "tools": matches[:limit]}
     @mcp.tool(name="describe_mcp_integration", description="Return a concise description of a supported integration and how its tools are discovered.")
     async def describe_mcp_integration(provider: str) -> dict[str, Any]:
