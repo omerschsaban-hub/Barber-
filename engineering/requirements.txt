@@ -10,3 +10,4 @@ pytest==8.4.1
 httpx==0.28.1
 openai>=1.99,<2
 cadquery==2.6.0
+requests==2.32.4
