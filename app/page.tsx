@@ -14,12 +14,11 @@ export default function Home() {
         <div className="hero-copy">
           <div className="eyebrow">FABRIENT / ENGINEERING RELEASE</div>
           <h1 className="title">A traceable path from part requirements to a build you can inspect.</h1>
-          <p className="hero-sub">
-            Fabrient keeps geometry, deterministic checks, physical observations, uncertainty and release decisions in one engineering record. Claims stay tied to evidence instead of presentation effects.
-          </p>
+          <p className="hero-sub">Fabrient keeps geometry, deterministic checks, physical observations, uncertainty and release decisions in one engineering record. Claims stay tied to evidence instead of presentation effects.</p>
           <div className="hero-actions">
             <Link className="button primary" href="/manufacturing">Start a build</Link>
             <Link className="button" href="/workspace">Open workspace</Link>
+            <Link className="button" href="/engineering">Engineering Center</Link>
           </div>
         </div>
         <aside className="release-summary" aria-label="Release workflow">
@@ -33,27 +32,15 @@ export default function Home() {
           </dl>
         </aside>
       </section>
-
       <section className="workflow-section">
         <div className="section-kicker">THE ENGINEERING RECORD</div>
         <div className="workflow-list">
-          {loop.map(([name, description], index) => (
-            <article className="workflow-row" key={name}>
-              <div className="workflow-index">0{index + 1}</div>
-              <h2>{name}</h2>
-              <p className="muted">{description}</p>
-            </article>
-          ))}
+          {loop.map(([name, description], index) => (<article className="workflow-row" key={name}><div className="workflow-index">0{index + 1}</div><h2>{name}</h2><p className="muted">{description}</p></article>))}
         </div>
       </section>
-
       <section className="panel release-note">
-        <div>
-          <div className="section-kicker">DESIGN RULE</div>
-          <h2>Evidence before polish.</h2>
-          <p className="muted">The interface intentionally avoids decorative status claims, invented customer proof, unnecessary motion and generic AI-product patterns. Engineering state should be understandable from the record itself.</p>
-        </div>
-        <Link className="button" href="/records">View records</Link>
+        <div><div className="section-kicker">DESIGN RULE</div><h2>Evidence before polish.</h2><p className="muted">The interface intentionally avoids decorative status claims, invented customer proof, unnecessary motion and generic AI-product patterns. Engineering state should be understandable from the record itself.</p></div>
+        <div className="row"><Link className="button" href="/records">View records</Link><Link className="button primary" href="/engineering">Run advanced engineering</Link></div>
       </section>
     </main>
   )
