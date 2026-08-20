@@ -12,6 +12,7 @@ from .quality import router as quality_router
 from .compat_routes import router as compat_router
 from .universal_quality import install as install_universal_quality
 from .data_flywheel import router as data_flywheel_router
+from .data_flywheel_worker import router as data_flywheel_worker_router
 
 app.include_router(advanced_router)
 app.include_router(real_cv_sim2real_router)
@@ -25,4 +26,5 @@ app.include_router(final_router)
 app.include_router(quality_router)
 app.include_router(compat_router)
 app.include_router(data_flywheel_router)
+app.include_router(data_flywheel_worker_router)
 install_universal_quality(app)
