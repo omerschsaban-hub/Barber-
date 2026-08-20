@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .mcp_integrations import MCP_PROVIDERS, public_provider_catalog, search_mcp_providers, provider_tool_help
+from .product_intelligence import record
 
 _runtime_connections: dict[str, dict[str, str]] = {}
 
@@ -16,6 +17,8 @@ class IntegrationRequest(BaseModel):
     provider: str = Field(min_length=1)
     method: str = Field(default="tools/list", min_length=1)
     params: Dict[str, Any] = Field(default_factory=dict)
+    project_id: str | None = None
+    entity_id: str | None = None
 
 class ConnectionRequest(BaseModel):
     provider: str = Field(min_length=1)
@@ -49,6 +52,7 @@ class MCPClient:
         if "error" in body:
             raise RuntimeError(str(body["error"]))
         return body
+
 
 def public_catalog() -> list[dict[str, Any]]:
     return [{**p, "configured": MCPClient(pid).configured} for pid, p in ((x["id"], x) for x in public_provider_catalog())]
@@ -111,12 +115,15 @@ async def connect(request: ConnectionRequest) -> Dict[str, Any]:
     if request.provider != "autodesk_product_help":
         _runtime_connections[request.provider] = {"token": request.bearer_token or ""}
     tools = result.get("result", {}).get("tools", [])
+    record("mcp_success", "integration_connected", {"provider": request.provider, "tool_count": len(tools)})
+    record("mcp_outputs", "integration_capabilities_discovered", {"provider": request.provider, "tool_names": [t.get("name") for t in tools[:100]]})
     return {"connected": True, "provider": request.provider, "endpoint": client.endpoint, "tool_count": len(tools), "tools": tools}
 
 @router.post("/disconnect")
 async def disconnect(request: dict[str, str]) -> Dict[str, Any]:
     provider = request.get("provider", "")
     _runtime_connections.pop(provider, None)
+    record("mcp_success", "integration_disconnected", {"provider": provider})
     return {"disconnected": True, "provider": provider}
 
 @router.get("/connections")
@@ -137,6 +144,7 @@ async def discover_tools(request: dict[str, str]) -> Dict[str, Any]:
     except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     tools = result.get("result", {}).get("tools", [])
+    record("mcp_outputs", "integration_tool_discovery", {"provider": provider, "tool_count": len(tools), "tool_names": [t.get("name") for t in tools[:100]]})
     return {"provider": provider, "endpoint": client.endpoint, "tools": tools, "count": len(tools)}
 
 @router.post("/mcp/call")
@@ -148,8 +156,13 @@ async def mcp_call(request: IntegrationRequest) -> Dict[str, Any]:
     if not client.configured:
         raise HTTPException(status_code=401, detail="Provider authorization is required")
     try:
-        return await client.call(request.method, request.params)
+        result = await client.call(request.method, request.params)
+        record("mcp_success", "integration_tool_call", {"provider": request.provider, "method": request.method, "project_id": request.project_id, "entity_id": request.entity_id}, request.project_id, request.entity_id)
+        record("mcp_outputs", "integration_tool_result", {"provider": request.provider, "method": request.method, "success": True}, request.project_id, request.entity_id)
+        return result
     except httpx.HTTPStatusError as exc:
+        record("mcp_failure", "integration_tool_failure", {"provider": request.provider, "method": request.method, "status_code": exc.response.status_code}, request.project_id, request.entity_id)
         raise HTTPException(status_code=502, detail=f"Provider HTTP error: {exc.response.status_code}")
     except (httpx.HTTPError, RuntimeError) as exc:
+        record("mcp_failure", "integration_tool_failure", {"provider": request.provider, "method": request.method, "error_type": type(exc).__name__}, request.project_id, request.entity_id)
         raise HTTPException(status_code=502, detail=str(exc))
