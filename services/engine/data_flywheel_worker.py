@@ -1,7 +1,5 @@
 """Bounded, idempotent orchestration over the existing Fabrient flywheel tables."""
 from __future__ import annotations
-import hashlib
-import json
 import os
 import threading
 import time
@@ -21,7 +19,7 @@ AGENTS = [
     ("Experiment/Validation Agent", 180, 1),
     ("Release Gate Agent", 120, 1),
 ]
-SYSTEM_PROJECT_ID = "00000000-0000-0000-0000-000000000001"
+SYSTEM_PROJECT_ID = "5fea1405-56fe-4d65-b908-8180ebb68718"
 
 class FlywheelError(RuntimeError):
     pass
@@ -40,11 +38,8 @@ class FlywheelClient:
             raise FlywheelError(f"Supabase read failed: {r.status_code}")
         return r.json()
 
-    def insert(self, table: str, payload: dict[str, Any], *, on_conflict: str | None = None) -> list[dict[str, Any]]:
-        h = {**self.headers, "Prefer": "return=representation"}
-        if on_conflict:
-            h["Prefer"] = f"resolution=ignore-duplicates,return=representation"
-        r = requests.post(f"{self.url}/rest/v1/{table}", headers=h, params={"on_conflict": on_conflict} if on_conflict else {}, json=payload, timeout=20)
+    def insert(self, table: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        r = requests.post(f"{self.url}/rest/v1/{table}", headers={**self.headers, "Prefer": "return=representation"}, json=payload, timeout=20)
         if r.status_code >= 300:
             raise FlywheelError(f"Supabase write failed: {r.status_code}")
         return r.json() if r.text else []
@@ -74,18 +69,15 @@ def run_once() -> dict[str, Any]:
     started = datetime.now(timezone.utc)
     sources = db.get("data_sources", {"select": "id,key,enabled,consent_required,proprietary_data_allowed,license_required,config,priority", "enabled": "eq.true", "order": "priority.desc"})
     observations = db.get("data_observations", {"select": "id,source_key,event_type,raw_payload,normalized_payload,provenance,consent_state,validation_state,quality_score,content_hash,observed_at", "order": "observed_at.desc", "limit": "250"})
-    result: dict[str, Any] = {"sources": len(sources), "observations_seen": len(observations), "agents": {}, "improvement_candidates": 0, "quarantined": 0}
+    result: dict[str, Any] = {"sources": len(sources), "observations_seen": len(observations), "agents": {}, "improvement_candidates": 0, "quarantined": 0, "derived_signals": 0, "prediction_discrepancies": 0}
 
-    # Collector is deliberately bounded: only configured, explicitly authorized collectors are eligible.
     configured = [s for s in sources if isinstance(s.get("config"), dict) and s["config"].get("collector_url") and s.get("consent_required") is False]
     audit(db, "Collector Agent", "completed", {"enabled_sources": len(sources)}, {"eligible_collectors": len(configured), "skipped_unauthorized": len(sources)-len(configured)}, started)
     result["agents"]["Collector Agent"] = {"eligible": len(configured), "skipped_unauthorized": len(sources)-len(configured)}
 
-    # Existing ingestion already stores normalized/provenance fields. Worker verifies them and records checks.
     for agent, timeout_s, retries in AGENTS[1:]:
         astart = datetime.now(timezone.utc)
-        passed = 0
-        failed = 0
+        passed = failed = 0
         for obs in observations:
             ok = True
             details: dict[str, Any] = {}
@@ -102,6 +94,8 @@ def run_once() -> dict[str, Any]:
                 ok = obs.get("validation_state") != "invalid"
             elif agent == "Calibration Analysis Agent":
                 p = obs.get("normalized_payload") or {}
+                if isinstance(p, dict) and "predicted_mm" in p:
+                    result["prediction_discrepancies"] += int("measured_mm" not in p)
                 ok = not (isinstance(p, dict) and "predicted_mm" in p and "measured_mm" not in p)
             elif agent == "Regression Test Generator Agent":
                 ok = True
@@ -110,35 +104,33 @@ def run_once() -> dict[str, Any]:
             elif agent == "Experiment/Validation Agent":
                 ok = True
             elif agent == "Release Gate Agent":
-                # Never auto-release engineering-rule changes.
                 ok = True
                 details = {"engineering_rule_mutation": False, "approval_required": True}
             try:
                 db.insert("data_quality_checks", {"observation_id": obs["id"], "check_name": agent, "passed": ok, "score": 1.0 if ok else 0.0, "details": details})
+                if not ok and agent == "Data Quality Agent":
+                    db.patch("data_observations", {"id": f"eq.{obs['id']}"}, {"validation_state": "quarantined", "quality_score": 0.0})
+                    result["quarantined"] += 1
             except Exception:
-                # Audit failure but keep bounded processing.
                 ok = False
-            if ok: passed += 1
-            else: failed += 1
+            passed += int(ok)
+            failed += int(not ok)
         status = "completed" if failed == 0 else "completed_with_failures"
         audit(db, agent, status, {"observations": len(observations), "timeout_seconds": timeout_s, "max_retries": retries}, {"passed": passed, "failed": failed}, astart)
         result["agents"][agent] = {"passed": passed, "failed": failed}
 
-    # Deterministic improvement candidate generation. Deduplicate by title + hypothesis before insert.
     discrepancies = [o for o in observations if o.get("source_key") in {"prediction_reality", "false_positives", "false_negatives", "engineer_corrections"}]
     for obs in discrepancies[:25]:
-        payload = obs.get("normalized_payload") or {}
         title = f"Investigate {obs.get('source_key')} discrepancy"
-        hypothesis = "Observed production evidence indicates a recurring prediction/reality or engineering-correction discrepancy."
         existing = db.get("improvement_candidates", {"select": "id", "source_observation_id": f"eq.{obs['id']}", "title": f"eq.{title}", "limit": "1"})
         if existing:
             continue
         db.insert("improvement_candidates", {
-            "project_id": None,
+            "project_id": SYSTEM_PROJECT_ID,
             "source_observation_id": obs["id"],
             "title": title,
-            "hypothesis": hypothesis,
-            "evidence": {"observation_id": obs["id"], "source_key": obs.get("source_key"), "payload": payload},
+            "hypothesis": "Observed production evidence indicates a recurring prediction/reality or engineering-correction discrepancy.",
+            "evidence": {"observation_id": obs["id"], "source_key": obs.get("source_key")},
             "target_component": "validation/calibration",
             "expected_impact": None,
             "risk_score": 1.0,
@@ -148,11 +140,11 @@ def run_once() -> dict[str, Any]:
         })
         result["improvement_candidates"] += 1
 
-    # Checkpoint is an audit record, not a new data store. Idempotency is enforced by observation content_hash and candidate lookup.
+    result["derived_signals"] = result["prediction_discrepancies"]
     db.insert("flywheel_checkpoints", {
         "improvement_candidate_id": None,
         "baseline_metrics": {"sources": len(sources), "observations": len(observations)},
-        "experiment_metrics": {"agents": result["agents"]},
+        "experiment_metrics": {"agents": result["agents"], "derived_signals": result["derived_signals"]},
         "regression_metrics": {"idempotent": True, "duplicate_observations": 0},
         "decision": "hold_for_validation",
         "created_at": datetime.now(timezone.utc).isoformat(),
