@@ -8,6 +8,7 @@ from .manufacturing import router as manufacturing_router
 from .cad_routes import router as cad_router
 from .final_pipeline import router as final_router
 from .quality import router as quality_router
+from .compat_routes import router as compat_router
 from .universal_quality import install as install_universal_quality
 
 # Compose the complete engineering API surface used by both the web app and MCP.
@@ -22,4 +23,5 @@ app.include_router(manufacturing_router)
 app.include_router(cad_router)
 app.include_router(final_router)
 app.include_router(quality_router)
+app.include_router(compat_router)
 install_universal_quality(app)
