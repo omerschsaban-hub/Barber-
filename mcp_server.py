@@ -6,6 +6,7 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from mcp_capabilities import TOOLBOX_CAPABILITIES, DIRECT_CAPABILITIES
+from mcp_integration_tools import register_integration_tools
 
 ENGINEERING_API = os.getenv("FABRIENT_ENGINEERING_API", "http://localhost:8000").rstrip("/")
 MCP_AUTH_TOKEN = os.getenv("FABRIENT_MCP_AUTH_TOKEN", "").strip()
@@ -125,6 +126,8 @@ for _name, (_path, _description) in CAPABILITIES.items():
 @mcp.tool(name="list_fabrient_capabilities", description="Return the complete callable Fabrient MCP capability registry and endpoint mappings.")
 async def list_fabrient_capabilities() -> dict[str, Any]:
     return {"count": len(CAPABILITIES), "capabilities": [{"name": n, "path": p, "description": d} for n, (p, d) in sorted(CAPABILITIES.items())]}
+
+register_integration_tools(mcp)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")
