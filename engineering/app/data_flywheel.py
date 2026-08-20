@@ -23,6 +23,17 @@ def post(table,payload):
  r=requests.post(f'{SUPABASE_URL}/rest/v1/{table}',headers={**headers(),'Prefer':'return=representation'},json=payload,timeout=20)
  if r.status_code>=300: raise HTTPException(502,f'Supabase write failed: {r.text[:500]}')
  d=r.json(); return d[0] if isinstance(d,list) and d else d
+def query(table,filters=None,limit=1000):
+ """Read-only bounded query helper used by internal product-loop aggregation."""
+ params={"select":"*","limit":str(min(max(limit,1),1000))}
+ for key,value in (filters or {}).items():
+  if value is not None: params[key]=f"eq.{value}"
+ try:
+  r=requests.get(f'{SUPABASE_URL}/rest/v1/{table}',headers=headers(),params=params,timeout=20)
+  if r.status_code>=300: raise RuntimeError(f'Supabase query failed: {r.status_code}')
+  return r.json()
+ except requests.RequestException as exc:
+  raise RuntimeError('Supabase query unavailable') from exc
 @router.get('/catalog')
 def catalog(): return {'count':len(SOURCES),'sources':SOURCES}
 @router.post('/ingest')
