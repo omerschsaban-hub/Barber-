@@ -114,7 +114,7 @@ async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
 host = os.getenv("RENDER_EXTERNAL_HOSTNAME", "localhost")
-security = TransportSecuritySettings(allowed_hosts=[host, f"{host}:*", "localhost", "localhost:*"], allowed_origins=[f"https://{host}", "http://localhost", "http://localhost:*"] if host != "localhost" else ["http://localhost", "http://localhost:*"])
+security = TransportSecuritySettings(allowed_hosts=[host, f"{host}:*", "localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*"], allowed_origins=[f"https://{host}", "http://localhost", "http://localhost:*", "http://127.0.0.1", "http://127.0.0.1:*"])
 app = mcp.streamable_http_app(transport_security=security)
 
 # Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.cad_kernel import extract_step
+from .cad_kernel import extract_step
 
 router = APIRouter(prefix="/v1/geometry", tags=["cad"])
 
