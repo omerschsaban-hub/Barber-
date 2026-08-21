@@ -1,0 +1,1 @@
+This branch intentionally does not add new products or a second UI/MCP concept. It sharpens the existing 20 capabilities by giving them a common evidence model and common rules for physical truth, uncertainty, residual ML, CV refusal, LLM boundaries, experiment selection and release gating.
