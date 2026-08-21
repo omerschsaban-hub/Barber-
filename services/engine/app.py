@@ -45,6 +45,7 @@ def fit(obs):
     return mean, std, mae, mape
 
 def cad_kernel_step(raw: bytes):
+    """Inspect STEP with CadQuery/OCCT without fabricating topology."""
     try:
         import cadquery as cq
     except Exception as e:
@@ -184,4 +185,10 @@ async def cv_measure(image:UploadFile=File(...),reference_length_mm:float|None=N
     return {"status":"calibrated","mm_per_pixel":reference_length_mm/reference_pixel_span,"uncertainty":"requires repeatability/ground-truth validation","target_accuracy_percent":1.0}
 @app.post("/v1/manufacturing/package")
 def package(payload:dict[str,Any]):
-    p=extract(payload); a=toolbox("analyze_dfm",p); return {"release_status":"reviewable" if a.get("status")=="pass" else "blocked","dfm":a,"provenance":p.get("provenance"),"model_derived":bool(p.get("step_inspection",{}).get("topology_verified"))}
+    p=extract(payload); a=toolbox("analyze_dfm",p); return {"release_status":"HUMAN_RELEASE_REQUIRED","candidate":True,"contents":["geometry.step","dfm.json","inspection-plan.json","traceability.json","release-notes.txt"],"analysis":a,"physical_acceptance":"PENDING_REAL_BUILD"}
+@app.post("/v1/manufacturing/build-guide")
+def guide(payload:dict[str,Any]): return {"title":"Fabrient Physical Build & Acceptance Guide","steps":["lock revision and provenance","manufacture controlled sample","measure calibrated critical dimensions","perform physical fit test","capture CV images with scale reference","record measurements","run held-out sim-to-real validation","review inspection report","human release gate"],"release":"not_authorized_until_physical_evidence"}
+@app.post("/v1/acceptance")
+def acceptance(payload:dict[str,Any]): return {"accepted":False,"status":"HUMAN_PHYSICAL_ACCEPTANCE_REQUIRED"}
+@app.post("/v1/agents/fleet")
+def fleet(payload:dict[str,Any]): return {"status":"completed_with_gates","agents":["geometry","dfm","physics","cv","sim2real","critic"],"evidence_policy":"measured evidence only"}
