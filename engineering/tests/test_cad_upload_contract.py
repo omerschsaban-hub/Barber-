@@ -33,6 +33,30 @@ def test_step_json_base64_upload_reaches_kernel(monkeypatch):
     assert body["file_size_bytes"] == len(raw)
 
 
+def test_step_json_file_path_bridge_reaches_kernel(tmp_path, monkeypatch):
+    captured = {}
+    step = tmp_path / "future_smartphone_enclosure.step"
+    raw = b"ISO-10303-21;HEADER;ENDSEC;DATA;ENDSEC;END-ISO-10303-21;"
+    step.write_bytes(raw)
+
+    def fake_extract_step(path: str):
+        captured["bytes"] = open(path, "rb").read()
+        return {
+            "status": "validated",
+            "brep": {"solids": 1, "faces": 6, "edges": 12, "vertices": 8},
+            "provenance": {"source": "test-kernel", "synthetic": True},
+        }
+
+    monkeypatch.setattr(cad_routes, "extract_step", fake_extract_step)
+    response = client.post(
+        "/v1/geometry/step",
+        json={"filename": step.name, "file_path": str(step)},
+    )
+    assert response.status_code == 200
+    assert captured["bytes"] == raw
+    assert response.json()["filename"] == step.name
+
+
 def test_step_json_rejects_invalid_base64():
     response = client.post(
         "/v1/geometry/step",
@@ -40,6 +64,15 @@ def test_step_json_rejects_invalid_base64():
     )
     assert response.status_code == 422
     assert "valid base64" in response.text
+
+
+def test_step_json_rejects_missing_file_payload():
+    response = client.post(
+        "/v1/geometry/step",
+        json={"filename": "model.step"},
+    )
+    assert response.status_code == 422
+    assert "file_base64 or file_path" in response.text
 
 
 def test_step_rejects_non_step_filename():

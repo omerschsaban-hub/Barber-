@@ -28,14 +28,25 @@ async def _read_step_request(request: Request) -> tuple[str, bytes]:
         body = await request.json()
         name = str(body.get("filename") or "model.step")
         encoded = body.get("file_base64")
-        if not isinstance(encoded, str) or not encoded:
-            raise HTTPException(422, "JSON STEP request must contain file_base64")
-        try:
-            raw = base64.b64decode(encoded, validate=True)
-        except (binascii.Error, ValueError) as exc:
-            raise HTTPException(422, "file_base64 is not valid base64") from exc
+        if isinstance(encoded, str) and encoded:
+            try:
+                raw = base64.b64decode(encoded, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise HTTPException(422, "file_base64 is not valid base64") from exc
+        else:
+            # Some MCP/file bridges surface an attached file as a local path instead
+            # of bytes. Accept that bridge form at the engine boundary and immediately
+            # materialize the bytes here. Never infer or synthesize geometry.
+            file_path = body.get("file_path")
+            if not isinstance(file_path, str) or not file_path:
+                raise HTTPException(422, "JSON STEP request must contain file_base64 or file_path")
+            path = Path(file_path)
+            if not path.is_file():
+                raise HTTPException(422, "file_path does not resolve to a readable file in the engineering runtime")
+            name = str(body.get("filename") or path.name)
+            raw = path.read_bytes()
     else:
-        raise HTTPException(415, "STEP endpoint accepts multipart/form-data or application/json with file_base64")
+        raise HTTPException(415, "STEP endpoint accepts multipart/form-data or application/json with file_base64/file_path")
 
     if not name.lower().endswith((".step", ".stp")):
         raise HTTPException(415, "Only STEP/STP is accepted")
