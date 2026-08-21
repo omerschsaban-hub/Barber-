@@ -30,4 +30,4 @@ jobs:
       - name: Install dependencies
         run: pip install -r engineering/requirements.txt -r requirements.txt
       - name: Run engineering and MCP surface tests
-        run: PYTHONPATH=. pytest -q engineering/tests/test_mcp_tool_surface.py
+        run: PYTHONPATH=engineering:. pytest -q engineering/tests/test_mcp_tool_surface.py
