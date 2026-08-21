@@ -4,6 +4,8 @@ import base64
 import binascii
 import tempfile
 from pathlib import Path
+import re
+import numpy as np
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -52,7 +54,26 @@ async def step_geometry(request: Request):
         path.write_bytes(raw)
         result = extract_step(str(path))
     if result.get("status") == "error":
-        raise HTTPException(422, result.get("reason", "STEP extraction failed"))
+        # A syntactically valid/minimal STEP file may not contain enough topology for
+        # the kernel. Fall back to a bounded Cartesian-point envelope rather than
+        # pretending the file is invalid or inventing B-rep topology.
+        text = raw.decode("utf-8", errors="ignore")
+        points = []
+        pattern = r"CARTESIAN_POINT\s*\([^;]*?\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*\)"
+        for match in re.finditer(pattern, text, re.I | re.S):
+            points.append(tuple(float(v) for v in match.groups()))
+        if not points:
+            raise HTTPException(422, result.get("reason", "STEP extraction failed"))
+        arr = np.asarray(points, dtype=float)
+        mins, maxs = arr.min(axis=0), arr.max(axis=0)
+        result = {
+            "status": "limited",
+            "units": "file_units_assumed_mm",
+            "point_count": len(points),
+            "bounding_box": {"min": mins.tolist(), "max": maxs.tolist(), "size": (maxs-mins).tolist()},
+            "feature_extraction": {"method": "Cartesian-point fallback", "topology_features": None, "status": "limited"},
+            "provenance": {"source": "STEP", "method": "kernel failed; bounded Cartesian-point fallback", "warning": "Full B-rep topology and unit declaration were not inferred."},
+        }
     result.setdefault("filename", name)
     result.setdefault("file_size_bytes", len(raw))
     result.setdefault("provenance", {})
