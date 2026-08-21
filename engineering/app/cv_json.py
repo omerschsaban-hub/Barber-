@@ -8,12 +8,12 @@ import math
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .real_cv_sim2real import _line, _px, REAL_CV_VERSION
 
 router = APIRouter(prefix="/v1/cv", tags=["cv-json"])
-CV_JSON_VERSION = "real-cv-json-2.1"
+CV_JSON_VERSION = "real-cv-json-2.2"
 
 
 class RealCVJsonRequest(BaseModel):
@@ -26,6 +26,13 @@ class RealCVJsonRequest(BaseModel):
     min_contrast: float = Field(default=8.0, ge=0, le=128)
     min_sharpness: float = Field(default=20.0, ge=0, le=100000)
 
+    @field_validator("reference_length_mm", "reference_uncertainty_mm", "min_contrast", "min_sharpness")
+    @classmethod
+    def finite_numbers(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("numeric inputs must be finite")
+        return value
+
 
 def _decode_image(value: str) -> bytes:
     try:
@@ -37,16 +44,21 @@ def _decode_image(value: str) -> bytes:
     return raw
 
 
+def _decode_gray(raw: bytes) -> np.ndarray:
+    try:
+        image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
+    except cv2.error as exc:
+        raise HTTPException(415, "Image decoder rejected the supplied image data") from exc
+    if image is None or image.size == 0:
+        raise HTTPException(415, "Unsupported or corrupt image format")
+    return image
+
+
 def _image_quality(image: np.ndarray) -> dict:
     gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     contrast = float(np.std(gray))
     sharpness = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    return {
-        "contrast_std": contrast,
-        "sharpness_laplacian_variance": sharpness,
-        "width_px": int(gray.shape[1]),
-        "height_px": int(gray.shape[0]),
-    }
+    return {"contrast_std": contrast, "sharpness_laplacian_variance": sharpness, "width_px": int(gray.shape[1]), "height_px": int(gray.shape[0])}
 
 
 def _validate_quality(image: np.ndarray, x: RealCVJsonRequest) -> dict:
@@ -63,43 +75,27 @@ def _validate_quality(image: np.ndarray, x: RealCVJsonRequest) -> dict:
 @router.post("/measure-real-json")
 def measure_real_json(x: RealCVJsonRequest):
     raw = _decode_image(x.image_base64)
-    image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
-    if image is None:
-        raise HTTPException(415, "Unsupported image format")
+    image = _decode_gray(raw)
     quality = _validate_quality(image, x)
-    ref, target = _line(x.reference_line, "reference_line"), _line(x.target_line, "target_line")
+    try:
+        ref, target = _line(x.reference_line, "reference_line"), _line(x.target_line, "target_line")
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(422, "reference_line and target_line must contain valid line geometry") from exc
     ref_px, target_px = _px(ref), _px(target)
     if ref_px < 5 or target_px < 5:
         raise HTTPException(422, "Reference and target lines must be at least 5 pixels long")
     mm_per_px = x.reference_length_mm / ref_px
     px_sigma = math.sqrt(0.5**2 + 0.5**2)
     measurement_mm = target_px * mm_per_px
-    relative_pixel_uncertainty = math.sqrt(
-        (px_sigma / ref_px) ** 2 + (px_sigma / target_px) ** 2
-    )
-    sigma = math.sqrt(
-        (measurement_mm * relative_pixel_uncertainty) ** 2
-        + x.reference_uncertainty_mm**2
-    )
-    return {
-        "status": "measured",
-        "measurement_mm": measurement_mm,
-        "uncertainty_1sigma_mm": sigma,
-        "interval_95_mm": [measurement_mm - 1.96 * sigma, measurement_mm + 1.96 * sigma],
-        "quality": quality,
-        "quality_gate": "pass",
-        "scale": {"reference_length_mm": x.reference_length_mm, "reference_pixels": ref_px, "mm_per_pixel": mm_per_px, "perspective_corrected": False},
-        "image": {"width_px": int(image.shape[1]), "height_px": int(image.shape[0]), "sha256": hashlib.sha256(raw).hexdigest()},
-        "provenance": {"source": "user_image", "algorithm": "explicit-reference-pixel-scale", "cv_version": REAL_CV_VERSION, "cv_json_version": CV_JSON_VERSION, "ground_truth_mm": False, "claim_boundary": "Physical reference establishes scale; CV measurement is evidence, not final physical acceptance."},
-    }
+    relative_pixel_uncertainty = math.sqrt((px_sigma / ref_px) ** 2 + (px_sigma / target_px) ** 2)
+    sigma = math.sqrt((measurement_mm * relative_pixel_uncertainty) ** 2 + x.reference_uncertainty_mm**2)
+    return {"status": "measured", "measurement_mm": measurement_mm, "uncertainty_1sigma_mm": sigma, "interval_95_mm": [measurement_mm - 1.96 * sigma, measurement_mm + 1.96 * sigma], "quality": quality, "quality_gate": "pass", "scale": {"reference_length_mm": x.reference_length_mm, "reference_pixels": ref_px, "mm_per_pixel": mm_per_px, "perspective_corrected": False}, "image": {"width_px": int(image.shape[1]), "height_px": int(image.shape[0]), "sha256": hashlib.sha256(raw).hexdigest()}, "provenance": {"source": "user_image", "algorithm": "explicit-reference-pixel-scale", "cv_version": REAL_CV_VERSION, "cv_json_version": CV_JSON_VERSION, "ground_truth_mm": False, "claim_boundary": "Physical reference establishes scale; CV measurement is evidence, not final physical acceptance."}}
 
 
 @router.post("/detect-line-candidates-json")
 def detect_line_candidates_json(payload: dict):
     raw = _decode_image(str(payload.get("image_base64", "")))
-    image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
-    if image is None:
-        raise HTTPException(415, "Unsupported image format")
+    image = _decode_gray(raw)
     quality = _image_quality(image)
     if min(quality["width_px"], quality["height_px"]) < 160:
         raise HTTPException(422, "Image is too small for line detection")
