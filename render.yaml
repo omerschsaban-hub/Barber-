@@ -6,3 +6,14 @@ services:
     dockerContext: .
     healthCheckPath: /health
     autoDeploy: true
+
+  - type: web
+    name: fabrient-mcp
+    runtime: docker
+    dockerfilePath: ./services/mcp/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: FABRIENT_ENGINE_URL
+        value: https://fabrient-engineering.onrender.com
