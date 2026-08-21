@@ -1,0 +1,36 @@
+name: Engineering smoke tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'engineering/**'
+      - 'services/mcp/**'
+      - 'mcp_capabilities.py'
+      - 'Dockerfile'
+      - 'render.yaml'
+      - '.github/workflows/engineering-smoke.yml'
+  pull_request:
+    paths:
+      - 'engineering/**'
+      - 'services/mcp/**'
+      - 'mcp_capabilities.py'
+      - 'Dockerfile'
+      - 'render.yaml'
+      - '.github/workflows/engineering-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engineering
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run engineering and MCP surface tests
+        run: pytest -q tests/test_mcp_tool_surface.py
