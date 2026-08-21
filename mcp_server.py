@@ -127,6 +127,26 @@ for _name, (_path, _description) in CAPABILITIES.items():
 async def list_fabrient_capabilities() -> dict[str, Any]:
     return {"count": len(CAPABILITIES), "capabilities": [{"name": n, "path": p, "description": d} for n, (p, d) in sorted(CAPABILITIES.items())]}
 
+@mcp.tool(name="get_fabrient_mcp_health", description="Return deterministic MCP health and capability diagnostics so clients can distinguish connector exposure, server health, API configuration, and capability registration failures.")
+async def get_fabrient_mcp_health() -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "status": "healthy",
+        "server": "Fabrient Engineering",
+        "engineering_api_configured": bool(ENGINEERING_API),
+        "auth_configured": bool(MCP_AUTH_TOKEN),
+        "capability_count": len(CAPABILITIES),
+        "step_capability_registered": "extract_step_geometry" in CAPABILITIES,
+        "cad_capabilities_registered": all(name in CAPABILITIES for name in ("inspect_part", "analyze_geometry", "extract_features", "calculate_bounding_box")),
+        "diagnostic_contract": "If this tool is callable, the Fabrient MCP connector is exposed to the client. If it is not discoverable, the failure is upstream of the engineering API and must not be represented as an engineering-operation failure.",
+    }
+    try:
+        health = await _request("GET", "/v1/health", payload={})
+        result["engineering_api_health"] = health
+    except Exception as exc:
+        result["status"] = "degraded"
+        result["engineering_api_health_error"] = str(exc)
+    return result
+
 register_integration_tools(mcp)
 
 if __name__ == "__main__":
