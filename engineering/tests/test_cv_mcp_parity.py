@@ -10,7 +10,9 @@ client = TestClient(app)
 
 
 def _image_b64():
-    image = np.zeros((200, 300), dtype=np.uint8)
+    image = np.zeros((400, 400), dtype=np.uint8)
+    cv2.line(image, (10, 10), (110, 10), 255, 3)
+    cv2.line(image, (20, 50), (70, 50), 255, 3)
     ok, encoded = cv2.imencode('.png', image)
     assert ok
     return base64.b64encode(encoded.tobytes()).decode('ascii')
