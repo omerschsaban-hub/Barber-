@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   deployed-mcp:
-    name: Real deployed MCP tools/list + 100 tools/call
+    name: Real deployed MCP tools/list + 100 tools/call + quality gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -45,7 +45,12 @@ jobs:
           echo "Timed out waiting for deployed MCP health endpoint"
           exit 1
 
-      - name: Run the actual deployed 100/100 MCP test
+      - name: Run the actual deployed 100/100 MCP contract test
         env:
           MCP_URL: https://fabrient-mcp.onrender.com/mcp
         run: python smoke_test.py
+
+      - name: Run engineering quality gate
+        env:
+          MCP_URL: https://fabrient-mcp.onrender.com/mcp
+        run: python quality_gate.py
