@@ -115,6 +115,6 @@ async def capabilities(_: Request) -> JSONResponse:
 
 host = os.getenv("RENDER_EXTERNAL_HOSTNAME", "localhost")
 security = TransportSecuritySettings(allowed_hosts=[host, f"{host}:*", "localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*"], allowed_origins=[f"https://{host}", "http://localhost", "http://localhost:*", "http://127.0.0.1", "http://127.0.0.1:*"])
-app = mcp.streamable_http_app(transport_security=security)
+app = mcp.streamable_http_app(transport_security=security, stateless_http=True)
 
 # Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.
