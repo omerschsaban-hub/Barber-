@@ -77,7 +77,10 @@ def _register(name: str, description: str, path: str) -> None:
     enhanced_description = f"{description} Quality contract: stable identity, bounded timeout, payload guards, normalized errors, trace ID, timing, reproducible input fingerprint, evidence boundary, and structured metadata."
     if name == "validate_dimension":
         async def tool(nominal_mm: float, measured_mm: float, tolerance_mm: float) -> Any:
-            return await _post(path, {"nominal_mm": nominal_mm, "measured_mm": measured_mm, "tolerance_mm": tolerance_mm}, operation_name=name)
+            if tolerance_mm < 0:
+                raise ValueError("tolerance_mm must be non-negative")
+            deviation_mm = measured_mm - nominal_mm
+            return {"accepted": abs(deviation_mm) <= tolerance_mm, "nominal_mm": nominal_mm, "measured_mm": measured_mm, "tolerance_mm": tolerance_mm, "deviation_mm": deviation_mm, "decision_basis": "abs(measured_mm - nominal_mm) <= tolerance_mm", "provenance": {"source": "mcp_deterministic_dimension_check", "synthetic": False}}
     else:
         async def tool(payload: dict[str, Any] | None = None) -> Any:
             return await _post(path, dict(payload or {}), operation_name=name)
