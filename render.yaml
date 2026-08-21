@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: fabrient-engineering
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
