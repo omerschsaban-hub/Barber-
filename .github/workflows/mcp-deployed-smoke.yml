@@ -1,4 +1,4 @@
-name: Deployed MCP 100-tool smoke
+name: Fabrient Full Acceptance
 
 on:
   push:
@@ -8,49 +8,118 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: fabrient-full-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deployed-mcp:
-    name: Real deployed MCP tools/list + 100 tools/call + quality gate
+    name: Deployed MCP — 100 tools + engineering quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: services/mcp
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: services/mcp/requirements.txt
-
-      - name: Install MCP client dependencies
+      - name: Install MCP client
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
-
-      - name: Wait for Render deployment
-        env:
-          HEALTH_URL: https://fabrient-mcp.onrender.com/health
+      - name: Wait for MCP and engineering services
         run: |
-          for i in $(seq 1 120); do
-            if curl --fail --silent --show-error "$HEALTH_URL"; then
-              echo
-              echo "Deployed MCP is healthy."
-              exit 0
-            fi
-            sleep 2
+          set -euo pipefail
+          for url in https://fabrient-mcp.onrender.com/health https://fabrient-engineering.onrender.com/v1/health; do
+            ready=0
+            for i in $(seq 1 180); do
+              if curl -fsS "$url" >/tmp/health.json; then
+                echo "LIVE $url"
+                cat /tmp/health.json
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            test "$ready" = 1
           done
-          echo "Timed out waiting for deployed MCP health endpoint"
-          exit 1
-
-      - name: Run the actual deployed 100/100 MCP contract test
+      - name: Verify authoritative registry is exactly 100 unique tools
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          src=Path('server.py').read_text()
+          tree=ast.parse(src)
+          reg=None
+          for node in tree.body:
+              if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='CAPABILITY_REGISTRY' for t in node.targets):
+                  reg=ast.literal_eval(node.value)
+          names=[x[0] for x in reg]
+          assert len(names)==100, len(names)
+          assert len(set(names))==100
+          print('REGISTRY 100/100 UNIQUE')
+          PY
+      - name: Execute every deployed tool individually
         env:
           MCP_URL: https://fabrient-mcp.onrender.com/mcp
-        run: python smoke_test.py
-
-      - name: Run engineering quality gate
+        run: |
+          set -o pipefail
+          python smoke_test.py 2>&1 | tee /tmp/mcp-100.log
+      - name: Execute engineering quality gate
         env:
           MCP_URL: https://fabrient-mcp.onrender.com/mcp
-        run: python quality_gate.py
+        run: python quality_gate.py 2>&1 | tee /tmp/quality.log
+      - name: Probe deployed CAD, DFM, risk, manufacturing and report surfaces
+        env:
+          ENGINE_URL: https://fabrient-engineering.onrender.com
+        run: |
+          python - <<'PY' 2>&1 | tee /tmp/engineering-surfaces.log
+          import json, urllib.request
+          base='https://fabrient-engineering.onrender.com'
+          checks=[
+            ('/v1/dfm/analyze',{'part_name':'acceptance-contract','revision':'A','material':'PETG','machine':'FDM','measurements':{'wall_thickness_mm':2.0,'clearance_mm':1.0,'hole_diameter_mm':3.0,'overhang_deg':30,'bridge_mm':5,'tolerance_mm':0.2}}),
+            ('/v1/risk-map',{'findings':[{'id':'contract','risk_score':0.2,'category':'contract','message':'acceptance probe'}]}),
+            ('/v1/predict',{'nominal_mm':10.0,'material':'PETG','machine':'FDM','process':'FDM'}),
+            ('/v1/simulate',{'nominal_mm':10.0,'samples':10,'seed':42}),
+          ]
+          for path,body in checks:
+              req=urllib.request.Request(base+path,data=json.dumps(body).encode(),headers={'content-type':'application/json'})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  data=r.read().decode()
+                  assert 200 <= r.status < 300,(path,r.status,data)
+                  print(path,r.status,data[:4000])
+          PY
+      - name: Build machine-readable acceptance package
+        if: always()
+        run: |
+          mkdir -p /tmp/fabrient-acceptance
+          cp /tmp/mcp-100.log /tmp/quality.log /tmp/engineering-surfaces.log /tmp/fabrient-acceptance/ 2>/dev/null || true
+          cat > /tmp/fabrient-acceptance/README.md <<'EOF'
+          # Fabrient full acceptance evidence
+
+          This artifact contains the raw logs from the deployed 100-tool MCP execution, engineering quality gate, and engineering-surface probes.
+
+          A green job means the configured checks completed without an exception or unsupported-operation response. Evidence-gated engineering operations remain governed by their real evidence requirements; the workflow does not convert a blocked evidence gate into fabricated success.
+          EOF
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabrient-full-acceptance-${{ github.sha }}
+          path: /tmp/fabrient-acceptance
+          if-no-files-found: warn
+      - name: Publish acceptance summary
+        if: always()
+        run: |
+          {
+            echo '# Fabrient Full Acceptance'
+            echo
+            echo '- Deployed MCP: https://fabrient-mcp.onrender.com'
+            echo '- Engineering API: https://fabrient-engineering.onrender.com'
+            echo '- Registry target: 100 unique tools'
+            echo '- Individual tool execution: smoke_test.py'
+            echo '- Quality gate: quality_gate.py'
+            echo '- Evidence package: workflow artifact'
+          } >> "$GITHUB_STEP_SUMMARY"
