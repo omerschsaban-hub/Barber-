@@ -99,11 +99,6 @@ async def health(_: Request) -> JSONResponse:
 async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
-# ChatGPT/Fabrinat's connector may negotiate JSON-only Streamable HTTP. FastMCP's
-# default SSE mode rejects JSON-only clients at the transport header gate before
-# any JSON-RPC request reaches the tool dispatcher. JSON-response mode is still
-# fully MCP Streamable HTTP and preserves stateful sessions; it simply returns each
-# request response as application/json instead of requiring an SSE Accept header.
-app = mcp.streamable_http_app(json_response=True)
+app = mcp.streamable_http_app()
 
 # Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.
