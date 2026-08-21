@@ -123,3 +123,5 @@ jobs:
             echo '- Quality gate: quality_gate.py'
             echo '- Evidence package: workflow artifact'
           } >> "$GITHUB_STEP_SUMMARY"
+
+# Acceptance trigger: execute the complete deployed gate on every main push.
