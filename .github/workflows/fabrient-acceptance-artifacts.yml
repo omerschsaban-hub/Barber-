@@ -1,0 +1,77 @@
+name: Fabrient Acceptance Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate acceptance contract
+        run: |
+          python - <<'PY'
+          import ast, pathlib
+          p=pathlib.Path('services/mcp/server.py')
+          tree=ast.parse(p.read_text())
+          reg=None
+          for n in tree.body:
+            if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='CAPABILITY_REGISTRY' for t in n.targets):
+              reg=ast.literal_eval(n.value)
+          assert reg is not None, 'CAPABILITY_REGISTRY missing'
+          names=[x[0] for x in reg]
+          assert len(names)==100, f'expected 100, got {len(names)}'
+          assert len(set(names))==100, 'duplicate tool names'
+          print('100/100 unique registry: PASS')
+          PY
+      - name: Validate real acceptance test assets
+        run: |
+          test -f services/mcp/smoke_test.py
+          test -f services/mcp/quality_gate.py
+          echo 'smoke_test.py: PRESENT'
+          echo 'quality_gate.py: PRESENT'
+      - name: Run repository acceptance tests
+        working-directory: services/mcp
+        env:
+          MCP_URL: https://fabrient-mcp.onrender.com/mcp
+        run: |
+          python smoke_test.py 2>&1 | tee "$GITHUB_WORKSPACE/mcp-100.log"
+          python quality_gate.py 2>&1 | tee "$GITHUB_WORKSPACE/quality.log"
+      - name: Generate machine-readable evidence manifest
+        if: always()
+        run: |
+          mkdir -p acceptance-artifacts
+          cp mcp-100.log quality.log acceptance-artifacts/ 2>/dev/null || true
+          python - <<'PY'
+          import json, pathlib, os
+          manifest={
+            'workflow':'Fabrient Acceptance Artifacts',
+            'tool_registry_target':100,
+            'mcp_url':'https://fabrient-mcp.onrender.com/mcp',
+            'evidence_files':[str(p) for p in pathlib.Path('acceptance-artifacts').glob('*')],
+            'commit':os.environ.get('GITHUB_SHA')
+          }
+          pathlib.Path('acceptance-artifacts/manifest.json').write_text(json.dumps(manifest,indent=2))
+          PY
+      - name: Upload complete raw acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabrient-acceptance-${{ github.sha }}
+          path: acceptance-artifacts
+          if-no-files-found: warn
+      - name: Publish summary
+        if: always()
+        run: |
+          echo '# Fabrient Acceptance Evidence' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The workflow runs the real deployed MCP smoke test and quality gate and uploads raw logs.' >> "$GITHUB_STEP_SUMMARY"
