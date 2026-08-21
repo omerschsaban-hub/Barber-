@@ -40,11 +40,26 @@ install_product_intelligence(app)
 install_universal_quality(app)
 
 # Keep the engineering API's route surface in lockstep with the authoritative
-# 100-tool MCP registry. Routes that already have a concrete implementation are
-# left untouched; missing compatibility endpoints are installed explicitly so
-# every registered MCP operation has a deterministic HTTP boundary rather than
-# a silent 404.
+# 100-tool MCP registry without importing the MCP SDK into the engineering
+# runtime. The registry is parsed from the literal CAPABILITY_REGISTRY assignment
+# in services/mcp/server.py, so there is still exactly one source of truth.
+import ast
+from pathlib import Path
 from fastapi import Request
+
+_registry_path = Path(__file__).resolve().parents[2] / "services" / "mcp" / "server.py"
+_registry_source = _registry_path.read_text(encoding="utf-8")
+_registry_tree = ast.parse(_registry_source, filename=str(_registry_path))
+CAPABILITY_REGISTRY = None
+for _node in _registry_tree.body:
+    if isinstance(_node, ast.Assign):
+        if any(isinstance(_target, ast.Name) and _target.id == "CAPABILITY_REGISTRY" for _target in _node.targets):
+            CAPABILITY_REGISTRY = ast.literal_eval(_node.value)
+            break
+if not isinstance(CAPABILITY_REGISTRY, tuple) or len(CAPABILITY_REGISTRY) != 100:
+    raise RuntimeError("Authoritative MCP registry could not be loaded without the MCP SDK")
+if len({name for name, _, _ in CAPABILITY_REGISTRY}) != 100:
+    raise RuntimeError("Authoritative MCP registry contains duplicate tool names")
 
 _existing_paths = {route.path for route in app.routes if hasattr(route, "path")}
 
@@ -63,8 +78,6 @@ def _make_mcp_compat_handler(operation: str):
             "provenance": {"source": "mcp_registry_compatibility_boundary", "synthetic": False},
         }
     return _handler
-
-from services.mcp.server import CAPABILITY_REGISTRY
 
 for _name, _description, _path in CAPABILITY_REGISTRY:
     if _path not in _existing_paths:
