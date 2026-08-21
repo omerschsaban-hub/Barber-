@@ -105,6 +105,23 @@ async def health(_: Request) -> JSONResponse:
 async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
-app = mcp.streamable_http_app()
+class _ConnectorHeaderCompat:
+    """Normalize headers from MCP clients that omit the Streamable HTTP Accept header."""
+    def __init__(self, inner: Any) -> None:
+        self.inner = inner
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("path") == "/mcp" and scope.get("method") == "POST":
+            headers = list(scope.get("headers", []))
+            names = {name.lower() for name, _ in headers}
+            if b"accept" not in names:
+                headers.append((b"accept", b"application/json, text/event-stream"))
+            if b"content-type" not in names:
+                headers.append((b"content-type", b"application/json"))
+            scope = dict(scope)
+            scope["headers"] = headers
+        await self.inner(scope, receive, send)
+
+app = _ConnectorHeaderCompat(mcp.streamable_http_app())
 
 # Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.
