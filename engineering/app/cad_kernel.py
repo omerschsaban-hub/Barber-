@@ -1,8 +1,8 @@
 """Authoritative STEP/BREP extraction with an OCCT-backed kernel.
 
-Topology claims come only from the CAD kernel. When the direct OCP imports are
-unavailable, CadQuery's bundled OCCT integration is used. Point parsing is
-never used as a substitute for topology.
+Topology claims come only from the CAD kernel. CadQuery 2.6.0 is the
+supported OCCT-backed runtime and is also used to produce a deterministic
+triangle mesh for the browser viewer. No point-cloud approximation is used.
 """
 from __future__ import annotations
 
@@ -10,47 +10,31 @@ from pathlib import Path
 
 OCC_AVAILABLE = False
 _BACKEND = "unavailable"
+cq = None
 
 try:
-    from OCP.STEPControl import STEPControl_Reader
-    from OCP.IFSelect import IFSelect_RetDone
-    from OCP.TopAbs import TopAbs_SOLID, TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX
-    from OCP.TopExp import TopExp_Explorer
-    from OCP.GProp import GProp_GProps
-    from OCP.BRepGProp import brepgprop_VolumeProperties
+    import cadquery as cq
     OCC_AVAILABLE = True
-    _BACKEND = "OCP"
+    _BACKEND = "CadQuery/OCCT"
 except Exception:
-    try:
-        import cadquery as cq
-        OCC_AVAILABLE = True
-        _BACKEND = "CadQuery/OCCT"
-    except Exception:
-        cq = None
+    pass
 
 
-def _cadquery_extract(path: Path) -> dict:
-    shape = cq.importers.importStep(str(path))
-    solids = shape.solids().vals() if hasattr(shape, "solids") else []
-    valid = all(s.isValid() for s in solids) if solids else False
-    if not solids:
-        return {"status": "error", "reason": "STEP contained no valid solid topology"}
-    bb = shape.val().BoundingBox()
+def _mesh_from_shape(shape) -> dict:
+    """Return a bounded, deterministic triangle mesh from an OCCT shape."""
+    vertices, triangles = shape.tessellate(0.15, 0.5)
+    if not vertices or not triangles:
+        return {"vertices": [], "triangles": [], "vertex_count": 0, "triangle_count": 0}
+    if len(vertices) > 100_000 or len(triangles) > 200_000:
+        raise ValueError("STEP tessellation exceeds visualization mesh limit")
+    verts = [[float(v.x), float(v.y), float(v.z)] for v in vertices]
+    tris = [[int(t[0]), int(t[1]), int(t[2])] for t in triangles]
     return {
-        "status": "validated",
-        "format": "step",
-        "brep": {
-            "solids": len(solids),
-            "faces": sum(len(s.Faces()) for s in solids),
-            "edges": sum(len(s.Edges()) for s in solids),
-            "vertices": sum(len(s.Vertices()) for s in solids),
-            "volume_native_units": float(sum(s.Volume() for s in solids)),
-        },
-        "bounding_box": {
-            "size": [float(bb.xlen), float(bb.ylen), float(bb.zlen)],
-            "units": "STEP model units; not guessed",
-        },
-        "provenance": {"source": _BACKEND, "topology": "kernel-derived", "units": "STEP model units; not guessed"},
+        "vertices": verts,
+        "triangles": tris,
+        "vertex_count": len(verts),
+        "triangle_count": len(tris),
+        "tolerance": {"linear": 0.15, "angular": 0.5},
     }
 
 
@@ -61,36 +45,37 @@ def extract_step(path: str) -> dict:
     if not p.is_file() or p.stat().st_size == 0:
         return {"status": "error", "reason": "STEP file is missing or empty"}
     try:
-        if _BACKEND == "CadQuery/OCCT":
-            return _cadquery_extract(p)
+        shape = cq.importers.importStep(str(p))
+        solids = shape.solids().vals() if hasattr(shape, "solids") else []
+        valid = all(s.isValid() for s in solids) if solids else False
+        if not solids or not valid:
+            return {"status": "error", "reason": "STEP contained no valid solid topology"}
 
-        reader = STEPControl_Reader()
-        status = reader.ReadFile(str(p))
-        if status != IFSelect_RetDone:
-            return {"status": "error", "reason": "OpenCascade could not read the STEP file"}
-        if reader.TransferRoots() <= 0:
-            return {"status": "error", "reason": "STEP contained no transferable roots"}
-        shape = reader.OneShape()
-
-        def count(kind):
-            explorer = TopExp_Explorer(shape, kind)
-            total = 0
-            while explorer.More():
-                total += 1
-                explorer.Next()
-            return total
-
-        props = GProp_GProps()
-        brepgprop_VolumeProperties(shape, props)
-        try:
-            from OCP.Bnd import Bnd_Box
-            from OCP.BRepBndLib import brepbndlib_Add
-            box = Bnd_Box()
-            brepbndlib_Add(shape, box)
-            xmin, ymin, zmin, xmax, ymax, zmax = box.Get()
-            bbox = {"size": [float(xmax-xmin), float(ymax-ymin), float(zmax-zmin)], "units": "STEP model units; not guessed"}
-        except Exception:
-            bbox = None
-        return {"status":"validated","format":"step","brep":{"solids":count(TopAbs_SOLID),"faces":count(TopAbs_FACE),"edges":count(TopAbs_EDGE),"vertices":count(TopAbs_VERTEX),"volume_native_units":float(props.Mass())},"bounding_box":bbox,"provenance":{"source":"OCP","topology":"kernel-derived","units":"STEP model units; not guessed"}}
+        model_shape = shape.val()
+        bb = model_shape.BoundingBox()
+        mesh = _mesh_from_shape(model_shape)
+        return {
+            "status": "validated",
+            "format": "step",
+            "brep": {
+                "solids": len(solids),
+                "faces": sum(len(s.Faces()) for s in solids),
+                "edges": sum(len(s.Edges()) for s in solids),
+                "vertices": sum(len(s.Vertices()) for s in solids),
+                "volume_native_units": float(sum(s.Volume() for s in solids)),
+            },
+            "bounding_box": {
+                "size": [float(bb.xlen), float(bb.ylen), float(bb.zlen)],
+                "units": "STEP model units; not guessed",
+            },
+            "mesh": mesh,
+            "provenance": {
+                "source": _BACKEND,
+                "topology": "kernel-derived",
+                "topology_verified": True,
+                "mesh": "kernel tessellation; deterministic parameters",
+                "units": "STEP model units; not guessed",
+            },
+        }
     except Exception as exc:
         return {"status": "error", "reason": f"CAD kernel STEP extraction failed: {exc}", "provenance": {"source": _BACKEND}}
