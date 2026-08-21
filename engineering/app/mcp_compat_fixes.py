@@ -22,23 +22,16 @@ def reviewable(operation: str, payload: dict[str, Any] | None = None, *, human_g
 
 @router.post("/v1/toolbox/release_manufacturing_package")
 def release_package(payload: dict[str, Any]):
-    # The old implementation marked a package eligible merely because DFM passed,
-    # even while its evidence gate was still review_required. Keep the tool callable
-    # but make eligibility agree with the actual release gates.
-    blockers = int((payload.get("dfm_result") or {}).get("blocker_count", 0))
-    source_files = payload.get("source_files") or []
-    evidence_ready = bool(source_files) and bool(payload.get("inspection_evidence"))
-    eligible = blockers == 0 and evidence_ready
+    # This compatibility path must return the same authoritative package contract as manufacturing.py.
+    from .manufacturing import PackageRequest, manufacturing_package
+    inner = payload.get("payload") if isinstance(payload.get("payload"), dict) else payload
+    package = manufacturing_package(PackageRequest(**inner))
+    eligible = package["release_status"] == "release_candidate"
     return {
         "operation": "release_manufacturing_package",
         "eligible": eligible,
+        "package": package,
         "human_release_required": True,
-        "gates": [
-            {"gate": "dfm", "status": "pass" if blockers == 0 else "fail", "blockers": blockers},
-            {"gate": "evidence", "status": "pass" if evidence_ready else "blocked", "reason": "Real source CAD and inspection evidence are required."},
-            {"gate": "human_release", "status": "required", "reason": "Physical acceptance remains human-gated."},
-        ],
-        "provenance": {"source": "deterministic_release_gate", "synthetic": False},
     }
 
 
@@ -149,7 +142,8 @@ def agent_step_alias(payload: dict[str, Any]):
 
 @router.post("/v1/final/risk")
 def final_risk_alias(payload: dict[str, Any]):
-    return reviewable("risk_estimate", payload)
+    from .final_pipeline import RiskRequest, computed_risk
+    return computed_risk(RiskRequest(**payload))
 
 @router.post("/v1/final/system-identification")
 def final_system_identification_alias(payload: dict[str, Any]):

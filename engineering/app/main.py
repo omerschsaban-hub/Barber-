@@ -62,7 +62,7 @@ class SimulationInput(BaseModel):
     seed: int = 42
 
 class ExperimentInput(BaseModel):
-    features: list[dict[str, float]]
+    features: list[dict[str, Any]]
     current_uncertainty: dict[str, float] = {}
     budget: float = Field(default=1, ge=0)
 

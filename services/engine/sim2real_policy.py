@@ -66,30 +66,24 @@ def auto_fix(predicted, measured, max_rounds=MAX_ROUNDS):
     p, y = _validate(predicted, measured)
     train_p, train_y, hold_p, hold_y = _holdout_split(p, y)
     history = []
-    current_train = train_p.copy()
-    current_hold = hold_p.copy()
 
-    for i in range(min(max_rounds, MAX_ROUNDS)):
-        scale, bias = _fit_train(current_train, train_y)
-        corrected_train = current_train * scale + bias
-        corrected_hold = current_hold * scale + bias
-        train_mae, train_mape = _metrics(corrected_train, train_y)
-        hold_mae, hold_mape = _metrics(corrected_hold, hold_y)
-        history.append({
-            "round": i + 1,
-            "scale": scale,
-            "bias_mm": bias,
-            "train_mae_mm": train_mae,
-            "train_mape_percent": train_mape,
-            "held_out_mae_mm": hold_mae,
-            "held_out_mape_percent": hold_mape,
-        })
-        if hold_mape <= TARGET_MAPE_PERCENT:
-            return Fit(bias, scale, hold_mae, hold_mape), history, True
-        current_train = corrected_train
-        current_hold = corrected_hold
-
+    # Fit once on the training partition. The correction is explicitly bounded by
+    # MAX_CORRECTION_FACTOR; repeatedly fitting the already-corrected data could
+    # compound corrections and make a large real error appear falsely validated.
     scale, bias = _fit_train(train_p, train_y)
+    corrected_train = train_p * scale + bias
     corrected_hold = hold_p * scale + bias
+    train_mae, train_mape = _metrics(corrected_train, train_y)
     hold_mae, hold_mape = _metrics(corrected_hold, hold_y)
+    history.append({
+        "round": 1,
+        "scale": scale,
+        "bias_mm": bias,
+        "train_mae_mm": train_mae,
+        "train_mape_percent": train_mape,
+        "held_out_mae_mm": hold_mae,
+        "held_out_mape_percent": hold_mape,
+        "correction_bound_percent": MAX_CORRECTION_FACTOR * 100,
+    })
     return Fit(bias, scale, hold_mae, hold_mape), history, hold_mape <= TARGET_MAPE_PERCENT
+
