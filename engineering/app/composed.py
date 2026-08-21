@@ -52,10 +52,17 @@ _registry_source = _registry_path.read_text(encoding="utf-8")
 _registry_tree = ast.parse(_registry_source, filename=str(_registry_path))
 CAPABILITY_REGISTRY = None
 for _node in _registry_tree.body:
+    _targets = []
+    _value = None
     if isinstance(_node, ast.Assign):
-        if any(isinstance(_target, ast.Name) and _target.id == "CAPABILITY_REGISTRY" for _target in _node.targets):
-            CAPABILITY_REGISTRY = ast.literal_eval(_node.value)
-            break
+        _targets = _node.targets
+        _value = _node.value
+    elif isinstance(_node, ast.AnnAssign):
+        _targets = [_node.target]
+        _value = _node.value
+    if _value is not None and any(isinstance(_target, ast.Name) and _target.id == "CAPABILITY_REGISTRY" for _target in _targets):
+        CAPABILITY_REGISTRY = ast.literal_eval(_value)
+        break
 if not isinstance(CAPABILITY_REGISTRY, tuple) or len(CAPABILITY_REGISTRY) != 100:
     raise RuntimeError("Authoritative MCP registry could not be loaded without the MCP SDK")
 if len({name for name, _, _ in CAPABILITY_REGISTRY}) != 100:
