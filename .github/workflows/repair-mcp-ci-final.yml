@@ -1,0 +1,46 @@
+name: Repair final MCP CI contract
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: contains(github.event.head_commit.message, 'repair-mcp-ci-final') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch MCP capability alias and engine dependency
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('mcp_server.py')
+          s = p.read_text()
+          marker = 'CAPABILITY_NAMES = list(CAPABILITIES)'
+          if marker not in s:
+              needle = 'CAPABILITIES: dict[str, tuple[str, str]] = {'
+              s = s.replace(needle, needle, 1)
+              insert_after = '\n}\n\nfor _name, _description in TOOLBOX_CAPABILITIES.items():'
+              s = s.replace(insert_after, '\n}\n\nCAPABILITY_NAMES = list(CAPABILITIES)\n\nfor _name, _description in TOOLBOX_CAPABILITIES.items():', 1)
+          p.write_text(s)
+
+          p = Path('services/engine/requirements.txt')
+          s = p.read_text()
+          if 'mcp<2,>=1.28' not in s:
+              s = 'mcp<2,>=1.28\n' + s
+          p.write_text(s)
+          PY
+          python -m py_compile mcp_server.py
+          grep -n 'CAPABILITY_NAMES' mcp_server.py | head
+          head -n 2 services/engine/requirements.txt
+      - name: Commit repair and remove temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add mcp_server.py services/engine/requirements.txt
+          git rm .github/workflows/repair-mcp-ci-final.yml
+          git commit -m 'repair-mcp-ci-final: restore MCP capability alias and dependency'
+          git push
