@@ -7,21 +7,25 @@ import time
 import uuid
 from typing import Any
 
-# The remote Fabrinat connector uses the 2026 Streamable HTTP era. Force
-# stateless JSON responses before constructing the server so every request is
-# independently routable and returns one JSON body.
 os.environ.setdefault("FASTMCP_STATELESS_HTTP", "true")
 os.environ.setdefault("FASTMCP_JSON_RESPONSE", "true")
 os.environ.setdefault("FASTMCP_STREAMABLE_HTTP_PATH", "/mcp")
 
 import httpx
 from mcp.server import MCPServer as FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 ENGINE_URL = os.getenv("FABRIENT_ENGINE_URL", "https://fabrient-engineering.onrender.com").rstrip("/")
 MCP_TIMEOUT = min(max(float(os.getenv("FABRIENT_MCP_TIMEOUT", "120")), 5.0), 300.0)
 MAX_PAYLOAD_BYTES = 25_000_000
+HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME", "fabrient-mcp.onrender.com")
+TRANSPORT_SECURITY = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=[HOST, f"{HOST}:*"],
+    allowed_origins=[f"https://{HOST}", f"https://{HOST}:*"]
+)
 
 mcp = FastMCP("Fabrient Engineering", instructions="Fabrient MCP: deterministic engineering algorithms + measured-evidence ML + bounded engineering/LLM orchestration. Never invent measurements or confidence. Every tool returns or preserves evidence, status, and provenance where the engine supports it.")
 
@@ -101,13 +105,12 @@ async def health(_: Request) -> JSONResponse:
 async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
-# The modern SDK exposes http_app(); retain a fallback for the previous API so
-# the source remains robust if a deployment cache briefly supplies the old SDK.
-if hasattr(mcp, "http_app"):
-    app = mcp.http_app()
-elif hasattr(mcp, "streamable_http_app"):
-    app = mcp.streamable_http_app()
-else:
-    raise RuntimeError("Installed MCP SDK exposes neither http_app nor streamable_http_app")
+app = mcp.streamable_http_app(
+    streamable_http_path="/mcp",
+    json_response=True,
+    stateless_http=True,
+    transport_security=TRANSPORT_SECURITY,
+    host=HOST,
+)
 
 # Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.
