@@ -6,7 +6,6 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from mcp_capabilities import TOOLBOX_CAPABILITIES, DIRECT_CAPABILITIES
-from mcp_integration_tools import register_integration_tools
 
 ENGINEERING_API = os.getenv("FABRIENT_ENGINEERING_API", "http://localhost:8000").rstrip("/")
 MCP_AUTH_TOKEN = os.getenv("FABRIENT_MCP_AUTH_TOKEN", "").strip()
@@ -147,7 +146,6 @@ async def get_fabrient_mcp_health() -> dict[str, Any]:
         result["engineering_api_health_error"] = str(exc)
     return result
 
-register_integration_tools(mcp)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")

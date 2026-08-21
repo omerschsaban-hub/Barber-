@@ -152,3 +152,9 @@ def final_system_identification_alias(payload: dict[str, Any]):
 @router.post("/v1/final/import/confirm")
 def inspection_confirm_alias(payload: dict[str, Any]):
     return {"status": "reviewable", "operation": "inspection_confirm", "inputs_received": sorted(payload.keys()), "next_step": "Confirm only against the previewed real inspection data.", "human_gate": True, "provenance": {"source": "inspection_confirmation_boundary", "synthetic": False}}
+
+# Generic compatibility boundary for every authoritative toolbox endpoint.
+
+@router.post("/v1/toolbox/{operation}")
+def generic_toolbox_operation(operation: str, payload: dict[str, Any]):
+    return reviewable(operation, payload, human_gate=True)
