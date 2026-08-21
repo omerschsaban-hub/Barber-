@@ -38,3 +38,34 @@ app.include_router(competitive_product_loop_router)
 app.include_router(customer_obsession_router)
 install_product_intelligence(app)
 install_universal_quality(app)
+
+# Keep the engineering API's route surface in lockstep with the authoritative
+# 100-tool MCP registry. Routes that already have a concrete implementation are
+# left untouched; missing compatibility endpoints are installed explicitly so
+# every registered MCP operation has a deterministic HTTP boundary rather than
+# a silent 404.
+from fastapi import Request
+
+_existing_paths = {route.path for route in app.routes if hasattr(route, "path")}
+
+def _make_mcp_compat_handler(operation: str):
+    async def _handler(request: Request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        return {
+            "status": "reviewable",
+            "operation": operation,
+            "inputs_received": sorted(payload.keys()) if isinstance(payload, dict) else [],
+            "next_step": "Provide operation-specific evidence; the compatibility boundary never invents measurements or confidence.",
+            "human_gate": True,
+            "provenance": {"source": "mcp_registry_compatibility_boundary", "synthetic": False},
+        }
+    return _handler
+
+from services.mcp.server import CAPABILITY_REGISTRY
+
+for _name, _description, _path in CAPABILITY_REGISTRY:
+    if _path not in _existing_paths:
+        app.add_api_route(_path, _make_mcp_compat_handler(_name), methods=["POST"], name=f"mcp_compat_{_name}")
