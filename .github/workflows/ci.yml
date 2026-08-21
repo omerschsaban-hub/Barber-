@@ -51,14 +51,17 @@ jobs:
           cache: pip
           cache-dependency-path: services/mcp/requirements.txt
       - run: python -m pip install --upgrade pip && pip install -r requirements.txt
-      - name: Install engineering runtime for 100-tool contract calls
+      - name: Create isolated engineering runtime
         working-directory: engineering
-        run: python -m pip install -r requirements.txt
+        run: |
+          python -m venv /tmp/fabrient-engineering-venv
+          /tmp/fabrient-engineering-venv/bin/python -m pip install --upgrade pip
+          /tmp/fabrient-engineering-venv/bin/pip install -r requirements.txt
       - name: Start engineering runtime
         working-directory: services/engine
         run: |
           set -euo pipefail
-          uvicorn app:app --host 127.0.0.1 --port 8001 >/tmp/engine-for-mcp.log 2>&1 &
+          /tmp/fabrient-engineering-venv/bin/uvicorn app:app --host 127.0.0.1 --port 8001 >/tmp/engine-for-mcp.log 2>&1 &
           pid=$!
           ready=0
           for i in $(seq 1 60); do
@@ -73,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile server.py smoke_test.py ../../mcp_server.py ../../mcp_capabilities.py
-          python -c "import server; assert len(server.CAPABILITY_NAMES)==100; assert len(set(server.CAPABILITY_NAMES))==100"
+          python -c "import mcp_server; assert len(mcp_server.CAPABILITY_NAMES)==100; assert len(set(mcp_server.CAPABILITY_NAMES))==100"
           PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert 'extract_step_geometry' in mcp_server.CAPABILITIES; assert 'inspect_part' in mcp_server.CAPABILITIES"
           python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
           pid=$!
@@ -122,17 +125,17 @@ jobs:
           import json, urllib.request
           base='http://127.0.0.1:8001'
           checks=[
-            ('/health',None),
-            ('/v1/dfm/analyze',{'part_name':'CI fixture','revision':'A','material':'PETG','machine':'FDM printer','measurements':{'wall_thickness_mm':1.0,'clearance_mm':0.15,'hole_diameter_mm':2.4,'overhang_deg':55,'bridge_mm':8,'tolerance_mm':0.2}}),
-            ('/v1/dfm/self-fix',{'part_name':'CI fixture','revision':'A','material':'PETG','machine':'FDM printer','measurements':{'wall_thickness_mm':1.0,'clearance_mm':0.15,'hole_diameter_mm':2.4,'overhang_deg':55,'bridge_mm':8,'tolerance_mm':0.2}}),
+              ('/health',None),
+              ('/v1/dfm/analyze',{'part_name':'CI fixture','revision':'A','material':'PETG','machine':'FDM printer','measurements':{'wall_thickness_mm':1.0,'clearance_mm':0.15,'hole_diameter_mm':2.4,'overhang_deg':55,'bridge_mm':8,'tolerance_mm':0.2}}),
+              ('/v1/dfm/self-fix',{'part_name':'CI fixture','revision':'A','material':'PETG','machine':'FDM printer','measurements':{'wall_thickness_mm':1.0,'clearance_mm':0.15,'hole_diameter_mm':2.4,'overhang_deg':55,'bridge_mm':8,'tolerance_mm':0.2}}),
           ]
           for path,body in checks:
-            if body is None:
-              r=urllib.request.urlopen(base+path,timeout=10)
-            else:
-              data=json.dumps(body).encode(); r=urllib.request.urlopen(urllib.request.Request(base+path,data=data,headers={'content-type':'application/json'}),timeout=10)
-            assert 200 <= r.status < 300, (path,r.status)
-            print(path,r.status)
+              if body is None:
+                  r=urllib.request.urlopen(base+path,timeout=10)
+              else:
+                  data=json.dumps(body).encode(); r=urllib.request.urlopen(urllib.request.Request(base+path,data=data,headers={'content-type':'application/json'}),timeout=10)
+              assert 200 <= r.status < 300, (path,r.status)
+              print(path,r.status)
           PY
 
   frontend-root:
