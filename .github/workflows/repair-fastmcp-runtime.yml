@@ -1,0 +1,39 @@
+name: Repair FastMCP runtime compatibility
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: contains(github.event.head_commit.message, 'repair-fastmcp-runtime') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch FastMCP v1.29-compatible app construction
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('services/mcp/server.py')
+          s = p.read_text()
+          old_ctor = 'transport_security=TRANSPORT_SECURITY)'
+          new_ctor = 'transport_security=TRANSPORT_SECURITY, stateless_http=True)'
+          if 'stateless_http=True' not in s.split('app = mcp.streamable_http_app', 1)[0]:
+              s = s.replace(old_ctor, new_ctor, 1)
+          s = s.replace('app = mcp.streamable_http_app(stateless_http=True)', 'app = mcp.streamable_http_app()')
+          p.write_text(s)
+          PY
+          grep -n 'mcp = FastMCP\|app = mcp.streamable_http_app' services/mcp/server.py
+      - name: Commit repair and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add services/mcp/server.py
+          git rm .github/workflows/repair-fastmcp-runtime.yml
+          git commit -m 'repair-fastmcp-runtime: fix FastMCP v1.29 app construction'
+          git push
