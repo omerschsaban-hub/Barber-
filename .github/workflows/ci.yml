@@ -40,6 +40,8 @@ jobs:
     name: MCP 100-tool real call test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/services/mcp
     defaults:
       run:
         working-directory: services/mcp
@@ -76,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile server.py smoke_test.py ../../mcp_server.py ../../mcp_capabilities.py
-          python -c "import mcp_server; assert len(mcp_server.CAPABILITY_NAMES)==100; assert len(set(mcp_server.CAPABILITY_NAMES))==100"
+          PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert len(mcp_server.CAPABILITY_NAMES)==100; assert len(set(mcp_server.CAPABILITY_NAMES))==100"
           PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert 'extract_step_geometry' in mcp_server.CAPABILITIES; assert 'inspect_part' in mcp_server.CAPABILITIES"
           python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
           pid=$!
