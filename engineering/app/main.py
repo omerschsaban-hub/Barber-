@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sklearn.linear_model import Ridge, HuberRegressor
@@ -229,19 +229,11 @@ async def import_preview(file: UploadFile = File(...)):
     return {"filename":file.filename,"content_sha256":hashlib.sha256(raw).hexdigest(),"columns":map_columns(headers),"row_count_preview":len(rows),"rows":rows[:10],"requires_confirmation":True,"provenance":{"source":"user_uploaded_record","synthetic":False}}
 
 @app.post("/v1/geometry/step")
-async def step_geometry(file: UploadFile = File(...)):
-    raw=await file.read()
-    if len(raw)>25_000_000: raise HTTPException(413,"Geometry exceeds 25 MB limit.")
-    name=(file.filename or "").lower()
-    if not name.endswith((".step",".stp")): raise HTTPException(415,"Only STEP/STP is accepted by this endpoint.")
-    text=raw.decode("utf-8",errors="ignore")
-    pts=[]
-    for m in re.finditer(r"CARTESIAN_POINT\s*\([^;]*?\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*\)", text, re.I|re.S):
-        pts.append(tuple(float(v) for v in m.groups()))
-    if not pts:
-        return {"status":"unsupported","reason":"No Cartesian points could be extracted from this STEP file.","provenance":{"source":"STEP","method":"textual_cartesian_point_parser"}}
-    a=np.array(pts); mins=a.min(axis=0); maxs=a.max(axis=0); dims=maxs-mins
-    return {"status":"extracted_limited","units":"file_units_assumed_mm","point_count":len(pts),"bounding_box":{"min":mins.tolist(),"max":maxs.tolist(),"size":dims.tolist()},"feature_extraction":{"method":"vertex/bounding-box pass","topology_features":None,"status":"limited"},"provenance":{"source":"STEP","method":"CARTESIAN_POINT parser","warning":"Unit declaration and full BREP topology require a CAD kernel; no unit conversion or topology was invented."}}
+async def step_geometry(request: Request):
+    # Keep the legacy route name, but delegate to the canonical kernel-backed parser so
+    # multipart and JSON/base64 STEP uploads have exactly one contract.
+    from .cad_routes import step_geometry as canonical_step_geometry
+    return await canonical_step_geometry(request)
 
 @app.post("/v1/cv/measure")
 async def measure(file: UploadFile = File(...)):
