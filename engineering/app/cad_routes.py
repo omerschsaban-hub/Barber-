@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import gzip
 import tempfile
 from pathlib import Path
 import re
@@ -28,25 +29,29 @@ async def _read_step_request(request: Request) -> tuple[str, bytes]:
         body = await request.json()
         name = str(body.get("filename") or "model.step")
         encoded = body.get("file_base64")
+        compressed = body.get("file_base64_gzip")
         if isinstance(encoded, str) and encoded:
             try:
                 raw = base64.b64decode(encoded, validate=True)
             except (binascii.Error, ValueError) as exc:
                 raise HTTPException(422, "file_base64 is not valid base64") from exc
+        elif isinstance(compressed, str) and compressed:
+            try:
+                packed = base64.b64decode(compressed, validate=True)
+                raw = gzip.decompress(packed)
+            except (binascii.Error, ValueError, EOFError, gzip.BadGzipFile, OSError) as exc:
+                raise HTTPException(422, "file_base64_gzip is not valid gzip-compressed base64") from exc
         else:
-            # Some MCP/file bridges surface an attached file as a local path instead
-            # of bytes. Accept that bridge form at the engine boundary and immediately
-            # materialize the bytes here. Never infer or synthesize geometry.
             file_path = body.get("file_path")
             if not isinstance(file_path, str) or not file_path:
-                raise HTTPException(422, "JSON STEP request must contain file_base64 or file_path")
+                raise HTTPException(422, "JSON STEP request must contain file_base64, file_base64_gzip, or file_path")
             path = Path(file_path)
             if not path.is_file():
                 raise HTTPException(422, "file_path does not resolve to a readable file in the engineering runtime")
             name = str(body.get("filename") or path.name)
             raw = path.read_bytes()
     else:
-        raise HTTPException(415, "STEP endpoint accepts multipart/form-data or application/json with file_base64/file_path")
+        raise HTTPException(415, "STEP endpoint accepts multipart/form-data or application/json with file_base64/file_base64_gzip/file_path")
 
     if not name.lower().endswith((".step", ".stp")):
         raise HTTPException(415, "Only STEP/STP is accepted")
@@ -65,9 +70,6 @@ async def step_geometry(request: Request):
         path.write_bytes(raw)
         result = extract_step(str(path))
     if result.get("status") == "error":
-        # A syntactically valid/minimal STEP file may not contain enough topology for
-        # the kernel. Fall back to a bounded Cartesian-point envelope rather than
-        # pretending the file is invalid or inventing B-rep topology.
         text = raw.decode("utf-8", errors="ignore")
         points = []
         pattern = r"CARTESIAN_POINT\s*\([^;]*?\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*\)"
