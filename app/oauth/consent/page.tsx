@@ -57,9 +57,6 @@ export default function OAuthConsentPage() {
         return;
       }
 
-      // Supabase's return type is a union: OAuthRedirect does not expose
-      // `scope`, while OAuthAuthorizationDetails does. Read the optional
-      // field defensively so a type change cannot break the production build.
       const requestedScope = getRequestedScope(data);
       const requestedScopes = requestedScope.split(/\s+/).filter(Boolean);
       const unsupported = requestedScopes.filter((scope) => !ALLOWED_SCOPES.has(scope));
@@ -99,6 +96,8 @@ export default function OAuthConsentPage() {
 
   if (loading) return <main className="page auth-page"><div className="auth-card panel"><p className="muted">Checking authorization request…</p></div></main>;
 
+  const displayedScopes = getRequestedScope(details || '').split(/\s+/).filter(Boolean);
+
   return (
     <main className="page auth-page">
       <div className="auth-card panel">
@@ -111,7 +110,7 @@ export default function OAuthConsentPage() {
             <div className="panel" style={{ margin: '20px 0', padding: 16 }}>
               <p><strong>Permissions</strong></p>
               <ul>
-                {(details.scope || 'email').split(/\s+/).filter(Boolean).map((scope) => <li key={scope}>{scope}</li>)}
+                {(displayedScopes.length ? displayedScopes : ['email']).map((scope) => <li key={scope}>{scope}</li>)}
               </ul>
               <p className="muted">Fabrient does not grant Gmail inbox access. Your existing Gmail one-time-code login is used only to identify you.</p>
             </div>
