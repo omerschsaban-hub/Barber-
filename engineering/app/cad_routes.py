@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import gzip
+import io
 import tempfile
 from pathlib import Path
 import re
@@ -14,6 +15,24 @@ from .cad_kernel import extract_step
 
 router = APIRouter(prefix="/v1/geometry", tags=["cad"])
 MAX_STEP_BYTES = 25_000_000
+MAX_COMPRESSED_BYTES = 10_000_000
+
+
+def _bounded_gzip_decode(encoded: str) -> bytes:
+    try:
+        packed = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(422, "file_base64_gzip is not valid base64") from exc
+    if len(packed) > MAX_COMPRESSED_BYTES:
+        raise HTTPException(413, "compressed STEP payload exceeds 10 MB limit")
+    try:
+        with gzip.GzipFile(fileobj=io.BytesIO(packed), mode="rb") as stream:
+            raw = stream.read(MAX_STEP_BYTES + 1)
+    except (EOFError, gzip.BadGzipFile, OSError) as exc:
+        raise HTTPException(422, "file_base64_gzip is not valid gzip-compressed base64") from exc
+    if len(raw) > MAX_STEP_BYTES:
+        raise HTTPException(413, "decompressed STEP payload exceeds 25 MB limit")
+    return raw
 
 
 async def _read_step_request(request: Request) -> tuple[str, bytes]:
@@ -24,9 +43,16 @@ async def _read_step_request(request: Request) -> tuple[str, bytes]:
         if upload is None or not hasattr(upload, "read"):
             raise HTTPException(422, "Multipart STEP request must contain a file field")
         name = getattr(upload, "filename", None) or "model.step"
-        raw = await upload.read()
+        raw = await upload.read(MAX_STEP_BYTES + 1)
+        if len(raw) > MAX_STEP_BYTES:
+            raise HTTPException(413, "Geometry exceeds 25 MB limit")
     elif content_type.startswith("application/json"):
-        body = await request.json()
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise HTTPException(400, "Malformed JSON request") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(422, "JSON STEP request must be an object")
         name = str(body.get("filename") or "model.step")
         encoded = body.get("file_base64")
         compressed = body.get("file_base64_gzip")
@@ -35,23 +61,14 @@ async def _read_step_request(request: Request) -> tuple[str, bytes]:
                 raw = base64.b64decode(encoded, validate=True)
             except (binascii.Error, ValueError) as exc:
                 raise HTTPException(422, "file_base64 is not valid base64") from exc
+            if len(raw) > MAX_STEP_BYTES:
+                raise HTTPException(413, "Geometry exceeds 25 MB limit")
         elif isinstance(compressed, str) and compressed:
-            try:
-                packed = base64.b64decode(compressed, validate=True)
-                raw = gzip.decompress(packed)
-            except (binascii.Error, ValueError, EOFError, gzip.BadGzipFile, OSError) as exc:
-                raise HTTPException(422, "file_base64_gzip is not valid gzip-compressed base64") from exc
+            raw = _bounded_gzip_decode(compressed)
         else:
-            file_path = body.get("file_path")
-            if not isinstance(file_path, str) or not file_path:
-                raise HTTPException(422, "JSON STEP request must contain file_base64, file_base64_gzip, or file_path")
-            path = Path(file_path)
-            if not path.is_file():
-                raise HTTPException(422, "file_path does not resolve to a readable file in the engineering runtime")
-            name = str(body.get("filename") or path.name)
-            raw = path.read_bytes()
+            raise HTTPException(422, "JSON STEP request must contain file_base64 or file_base64_gzip")
     else:
-        raise HTTPException(415, "STEP endpoint accepts multipart/form-data or application/json with file_base64/file_base64_gzip/file_path")
+        raise HTTPException(415, "STEP endpoint accepts multipart/form-data or application/json with file_base64/file_base64_gzip")
 
     if not name.lower().endswith((".step", ".stp")):
         raise HTTPException(415, "Only STEP/STP is accepted")
