@@ -3,6 +3,8 @@ import './cad-home.css';
 import './fabrient-ux.css';
 import './fabrient-start.css';
 import AppHeader from '@/components/app-header';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata = {
   title: 'Fabrient — Engineering Release System',
@@ -15,6 +17,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AppHeader />
         {children}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
