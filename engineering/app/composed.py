@@ -1,6 +1,7 @@
 from .main import app
 from .advanced import router as advanced_router
 from .real_cv_sim2real import router as real_cv_sim2real_router
+from .sim2real_loop import router as sim2real_loop_router
 from .cv_json import router as cv_json_router
 from .risk_map import router as risk_map_router
 from .validate_dimension import router as validate_dimension_router
@@ -21,6 +22,7 @@ from .customer_obsession import router as customer_obsession_router
 
 app.include_router(advanced_router)
 app.include_router(real_cv_sim2real_router)
+app.include_router(sim2real_loop_router)
 app.include_router(cv_json_router)
 app.include_router(risk_map_router)
 app.include_router(validate_dimension_router)
