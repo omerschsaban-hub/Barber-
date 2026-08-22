@@ -3,6 +3,7 @@ import './cad-home.css';
 import './fabrient-ux.css';
 import './fabrient-start.css';
 import AppHeader from '@/components/app-header';
+import { Analytics } from '@vercel/analytics/react';
 
 export const metadata = {
   title: 'Fabrient — Engineering Release System',
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AppHeader />
         {children}
+        <Analytics />
       </body>
     </html>
   );

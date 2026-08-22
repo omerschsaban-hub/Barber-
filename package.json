@@ -13,25 +13,26 @@
     "@react-three/fiber": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@vercel/analytics": "^2.0.1",
+    "lucide-react": "latest",
     "next": "15.5.21",
+    "papaparse": "latest",
+    "pdf-lib": "latest",
     "react": "19.1.1",
     "react-dom": "19.1.1",
-    "three": "latest",
-    "lucide-react": "latest",
-    "papaparse": "latest",
-    "pdf-lib": "latest"
+    "three": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/papaparse": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@types/three": "latest",
-    "@types/papaparse": "latest",
-    "typescript": "latest",
-    "tailwindcss": "latest",
-    "postcss": "latest",
-    "vitest": "latest",
     "eslint": "latest",
-    "eslint-config-next": "15.5.21"
+    "eslint-config-next": "15.5.21",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
   }
 }
