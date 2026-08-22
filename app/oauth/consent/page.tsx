@@ -12,6 +12,12 @@ type AuthorizationDetails = {
 
 const ALLOWED_SCOPES = new Set(['openid', 'email', 'profile']);
 
+function getRequestedScope(data: unknown): string {
+  if (!data || typeof data !== 'object') return '';
+  const value = (data as { scope?: unknown }).scope;
+  return typeof value === 'string' ? value : '';
+}
+
 export default function OAuthConsentPage() {
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +57,11 @@ export default function OAuthConsentPage() {
         return;
       }
 
-      const requestedScopes = String(data.scope || '').split(/\s+/).filter(Boolean);
+      // Supabase's return type is a union: OAuthRedirect does not expose
+      // `scope`, while OAuthAuthorizationDetails does. Read the optional
+      // field defensively so a type change cannot break the production build.
+      const requestedScope = getRequestedScope(data);
+      const requestedScopes = requestedScope.split(/\s+/).filter(Boolean);
       const unsupported = requestedScopes.filter((scope) => !ALLOWED_SCOPES.has(scope));
       if (unsupported.length) {
         setError(`This request asks for unsupported permissions: ${unsupported.join(', ')}.`);
