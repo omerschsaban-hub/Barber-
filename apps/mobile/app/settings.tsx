@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Card, Header, Screen, StatusPill, Action } from '@/components/ui'
 import { theme } from '@/lib/theme'
 import { getCustomerInfo, isPro, presentCustomerCenter, restorePurchases } from '@/lib/revenuecat'
 
 export default function Settings() {
+  const router = useRouter()
   const [pro, setPro] = useState(false)
 
   const refresh = async () => {
@@ -17,6 +19,10 @@ export default function Settings() {
   }
 
   const manage = async () => {
+    if (!pro) {
+      router.push('/paywall')
+      return
+    }
     try {
       await presentCustomerCenter()
       await refresh()
@@ -36,7 +42,7 @@ export default function Settings() {
   }
 
   return <Screen><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}><Header title="Settings" subtitle="Mobile app preferences and connection state." />
-    <Card><Text style={styles.label}>SUBSCRIPTION</Text><View style={styles.row}><View style={styles.flex}><Text style={styles.name}>{pro ? 'Fabrinat Pro' : 'Fabrinat Free'}</Text><Text style={styles.detail}>{pro ? 'Advanced engineering features are unlocked.' : 'Core engineering workflow is available for free.'}</Text></View><StatusPill label={pro ? 'PRO' : 'FREE'} tone={pro ? 'success' : 'warning'} /></View><View style={styles.actions}><Action title={pro ? 'Manage subscription' : 'View Pro plans'} primary onPress={manage} /><Action title="Restore purchases" onPress={restore} /></View></Card>
+    <Card><Text style={styles.label}>SUBSCRIPTION</Text><View style={styles.row}><View style={styles.flex}><Text style={styles.name}>{pro ? 'Fabrinat Pro' : 'Fabrinat Free'}</Text><Text style={styles.detail}>{pro ? 'Advanced engineering features are unlocked.' : 'Core engineering workflow is available for free.'}</Text></View><StatusPill label={pro ? 'PRO' : 'FREE'} tone={pro ? 'success' : 'warning'} /></View><View style={styles.actions}><Action title={pro ? 'Manage subscription' : 'View Pro plans'} primary onPress={() => void manage()} /><Action title="Restore purchases" onPress={() => void restore()} /></View></Card>
     <Card><Text style={styles.label}>BACKEND</Text><View style={styles.row}><Text style={styles.name}>Fabrient services</Text><StatusPill label="CONNECTED" tone="success" /></View><Text style={styles.detail}>The mobile client reuses the existing Fabrient API and Supabase data layer.</Text></Card>
     <Card><Text style={styles.label}>APP</Text>{['Notifications', 'Offline cache', 'Appearance', 'About Fabrient'].map((x, i) => <View key={x} style={[styles.option, i > 0 && styles.border]}><Text style={styles.name}>{x}</Text><Text style={styles.chevron}>›</Text></View>)}</Card>
     <Text style={styles.footer}>Fabrient Mobile · v1.0.0</Text>
