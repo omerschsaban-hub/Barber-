@@ -1,65 +1,55 @@
 import Link from 'next/link'
 
-const loop = [
-  ['01', 'Define', 'Requirements, dimensions and evidence boundary.'],
-  ['02', 'Validate', 'Deterministic DFM and geometry checks expose concrete failures.'],
-  ['03', 'Verify', 'Real measurements and simulation evidence stay separate.'],
-  ['04', 'Release', 'A manufacturing package is produced only when its gates are satisfied.'],
+const stages = [
+  ['01', 'INPUT', 'Measured geometry'],
+  ['02', 'CHECK', 'DFM constraints'],
+  ['03', 'PROVE', 'Physical evidence'],
+  ['04', 'RELEASE', 'Build package'],
 ]
 
 export default function Home() {
   return (
-    <main className="page home-page">
-      <section className="hero-grid hero-scene">
-        <div className="hero-copy">
-          <div className="eyebrow">FABRIENT / PHYSICAL ENGINEERING</div>
-          <h1 className="title">Turn an idea into a part that is ready to build.</h1>
-          <p className="hero-sub">A visual engineering workspace for geometry, deterministic checks, physical evidence and manufacturing release — without fake AI theatre.</p>
-          <div className="hero-actions">
-            <Link className="button primary" href="/manufacturing">Start a build <span>↗</span></Link>
-            <Link className="button" href="/workspace">Open workspace</Link>
-            <Link className="button" href="/engineering">Engineering Center</Link>
+    <main className="cad-home">
+      <section className="cad-hero">
+        <div className="cad-intro">
+          <div className="cad-kicker"><span className="live-dot" /> FABRIENT / ENGINEERING SYSTEM</div>
+          <h1>Build it.<br /><em>Prove it.</em></h1>
+          <p>Engineering software for physical products. Define geometry, run deterministic checks, attach real evidence, then release what is actually ready to manufacture.</p>
+          <div className="cad-actions">
+            <Link href="/manufacturing" className="cad-button cad-button-main">NEW BUILD <span>→</span></Link>
+            <Link href="/workspace" className="cad-button">OPEN WORKSPACE</Link>
           </div>
-          <div className="hero-proof"><span className="signal-dot" /> Evidence-first. Deterministic. Buildable.</div>
+          <div className="cad-meta"><span>SYS / READY</span><span>DFM ENGINE / ONLINE</span><span>REV 0.9</span></div>
         </div>
 
-        <aside className="hero-object" aria-label="Fabrient 3D engineering object">
-          <div className="object-label label-a">GEOMETRY / LOCKED</div>
-          <div className="object-label label-b">DFM / PASS</div>
-          <div className="object-label label-c">EVIDENCE / LIVE</div>
-          <div className="cube-stage">
-            <div className="cube">
-              <span className="cube-face front" /><span className="cube-face back" /><span className="cube-face right" />
-              <span className="cube-face left" /><span className="cube-face top" /><span className="cube-face bottom" />
-            </div>
-          </div>
-          <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-          <div className="object-caption"><b>FABRIENT CORE</b><span>traceable physical release</span></div>
-        </aside>
-      </section>
-
-      <section className="signal-strip" aria-label="Engineering signals">
-        <div><span>01</span><b>Geometry</b><small>Measured inputs</small></div>
-        <div><span>02</span><b>DFM</b><small>Deterministic gates</small></div>
-        <div><span>03</span><b>Evidence</b><small>Physical ground truth</small></div>
-        <div><span>04</span><b>Release</b><small>Manufacturing-ready</small></div>
-      </section>
-
-      <section className="workflow-section">
-        <div className="section-heading"><div><div className="section-kicker">THE ENGINEERING LOOP</div><h2>From geometry to release.</h2></div><span className="section-count">4 gates / 0 guesswork</span></div>
-        <div className="workflow-list">
-          {loop.map(([index, name, description]) => (
-            <article className="workflow-row" key={name}>
-              <div className="workflow-index">{index}</div><div className="workflow-name"><span className="workflow-marker" />{name}</div>
-              <p className="muted">{description}</p><span className="workflow-arrow">→</span>
-            </article>
-          ))}
+        <div className="cad-stage" aria-label="3D exploded enclosure preview">
+          <div className="cad-axis axis-x">X</div><div className="cad-axis axis-y">Y</div><div className="cad-axis axis-z">Z</div>
+          <div className="cad-floor" />
+          <div className="part part-top"><span>TOP / A</span></div>
+          <div className="part part-board"><span>PCB / 01</span><i /></div>
+          <div className="part part-bottom"><span>BASE / A</span></div>
+          <div className="part-part part-side side-a" /><div className="part-part part-side side-b" />
+          <div className="dimension dim-x"><b>68.4</b><span>mm</span></div>
+          <div className="dimension dim-y"><b>42.0</b><span>mm</span></div>
+          <div className="cad-tag tag-pass">DFM PASS</div>
+          <div className="cad-tag tag-rev">REV A / 003</div>
         </div>
       </section>
 
-      <section className="panel release-note">
-        <div><div className="section-kicker">DESIGN PRINCIPLE</div><h2>Technical, playful, and honest.</h2><p className="muted">3D depth comes from lightweight CSS perspective and transforms, not a heavy WebGL scene. The UI stays fast, responsive and readable while the engineering record remains the source of truth.</p></div>
-        <div className="row"><Link className="button" href="/records">View records</Link><Link className="button primary" href="/engineering">Run advanced engineering</Link></div>
+      <section className="cad-pipeline">
+        {stages.map(([num, name, detail], i) => <div className="cad-stage-row" key={name}>
+          <span className="stage-num">{num}</span><strong>{name}</strong><small>{detail}</small>{i < stages.length - 1 && <span className="stage-line" />}
+        </div>)}
+      </section>
+
+      <section className="cad-work">
+        <div className="cad-section-head"><div><span>WORKSPACE</span><h2>Current engineering state</h2></div><Link href="/engineering">VIEW ENGINEERING →</Link></div>
+        <div className="cad-grid">
+          <article className="cad-card large"><header><span>01 / GEOMETRY</span><b>LOCKED</b></header><div className="card-value">68.4 × 42.0 × 16.2 <small>mm</small></div><p>Measured enclosure envelope · 12 features · 0 unresolved dimensions</p><div className="mini-wire"><i /><i /><i /><i /></div></article>
+          <article className="cad-card"><header><span>02 / DFM</span><b>PASS</b></header><div className="card-value">18 / 18</div><p>Deterministic checks satisfied</p><div className="checkline"><span /> wall thickness <b>2.0</b></div><div className="checkline"><span /> clearances <b>1.5</b></div><div className="checkline"><span /> overhangs <b>0</b></div></article>
+          <article className="cad-card"><header><span>03 / EVIDENCE</span><b>3 ATTACHED</b></header><div className="card-value">READY</div><p>Inspection record, measured fit and simulation result linked to revision.</p><Link href="/records" className="card-link">OPEN RECORDS →</Link></article>
+          <article className="cad-card wide-card"><header><span>04 / RELEASE</span><b className="yellow-state">GATED</b></header><div className="release-line"><strong>Manufacturing package</strong><span>2 / 3 gates complete</span></div><div className="release-bar"><i /></div><p>Final gate: physical acceptance. No release is generated from an estimate.</p><Link href="/manufacturing" className="card-link">OPEN RELEASE GATE →</Link></article>
+        </div>
       </section>
     </main>
   )
