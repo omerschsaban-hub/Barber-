@@ -17,9 +17,7 @@ export async function configureRevenueCat() {
 
   try {
     const { data } = await supabase?.auth.getUser() ?? { data: { user: null } }
-    if (data.user) {
-      await Purchases.logIn(data.user.id)
-    }
+    if (data.user) await Purchases.logIn(data.user.id)
   } catch (error) {
     console.warn('[RevenueCat] Could not sync authenticated user', error)
   }
@@ -53,7 +51,7 @@ export async function restorePurchases() {
 
 export async function presentFabrinatPaywall() {
   await configureRevenueCat()
-  return RevenueCatUI.presentPaywall({
+  return RevenueCatUI.presentPaywallIfNeeded({
     requiredEntitlementIdentifier: FABRINAT_PRO_ENTITLEMENT,
   })
 }
