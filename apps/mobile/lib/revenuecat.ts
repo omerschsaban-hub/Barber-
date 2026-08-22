@@ -3,6 +3,8 @@ import Purchases, { LOG_LEVEL, type CustomerInfo, type PurchasesPackage } from '
 import RevenueCatUI from 'react-native-purchases-ui'
 import { supabase } from './supabase'
 
+export type { PurchasesPackage }
+
 export const FABRINAT_PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
 export const REVENUECAT_API_KEY = 'test_NxIETMKVJqdYpjlVDuWZtwIQtjT'
 
