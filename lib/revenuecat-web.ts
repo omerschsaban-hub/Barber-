@@ -1,10 +1,10 @@
 'use client'
 
-import Purchases, { type CustomerInfo, type PurchasesOffering, type PurchasesPackage } from '@revenuecat/purchases-js'
+import Purchases from '@revenuecat/purchases-js'
 
 export const FABRINAT_PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
 
-let purchases: Purchases | null = null
+let purchases: any = null
 
 export function configureRevenueCatWeb(appUserId: string) {
   if (purchases) return purchases
@@ -14,22 +14,22 @@ export function configureRevenueCatWeb(appUserId: string) {
   return purchases
 }
 
-export async function getWebOffering(appUserId: string): Promise<PurchasesOffering | null> {
+export async function getWebOffering(appUserId: string) {
   const client = configureRevenueCatWeb(appUserId)
   const offerings = await client.getOfferings()
   return offerings.current ?? null
 }
 
-export async function purchaseWebPackage(appUserId: string, pkg: PurchasesPackage) {
+export async function purchaseWebPackage(appUserId: string, pkg: any) {
   const client = configureRevenueCatWeb(appUserId)
   return client.purchase({ rcPackage: pkg })
 }
 
-export async function getWebCustomerInfo(appUserId: string): Promise<CustomerInfo> {
+export async function getWebCustomerInfo(appUserId: string) {
   const client = configureRevenueCatWeb(appUserId)
   return client.getCustomerInfo()
 }
 
-export function hasProEntitlement(info: CustomerInfo | null | undefined) {
-  return Boolean(info?.entitlements.active[FABRINAT_PRO_ENTITLEMENT])
+export function hasProEntitlement(info: any) {
+  return Boolean(info?.entitlements?.active?.[FABRINAT_PRO_ENTITLEMENT])
 }
