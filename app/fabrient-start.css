@@ -1,0 +1,41 @@
+/* Fabrient start: restrained product UI, not a marketing template. */
+.cad-home{max-width:1180px!important;padding:34px 28px 88px!important;color:var(--fx-ink)!important}
+.cad-hero{min-height:0!important;grid-template-columns:minmax(0,1.05fr) minmax(360px,.72fr)!important;gap:72px!important;align-items:center!important;border-bottom:1px solid var(--fx-line)!important;padding:64px 0 58px!important}
+.cad-kicker{font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:11px!important;letter-spacing:.09em!important;font-weight:750!important;color:var(--fx-green)!important;text-transform:uppercase!important}
+.live-dot{width:6px!important;height:6px!important;border:0!important;border-radius:50%!important;background:var(--fx-yellow)!important;margin-right:8px!important;vertical-align:middle}
+.cad-intro h1{font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:clamp(48px,6.2vw,82px)!important;line-height:.96!important;letter-spacing:-.055em!important;margin:20px 0 22px!important;font-weight:780!important;color:var(--fx-green-strong)!important;-webkit-text-stroke:0!important}
+.cad-intro h1 em{color:var(--fx-green)!important;font-style:normal!important;-webkit-text-stroke:0!important}
+.cad-intro p{max-width:570px!important;font-size:17px!important;line-height:1.6!important;color:var(--fx-muted)!important;margin:0!important;font-weight:450!important}
+.cad-actions{display:flex!important;gap:10px!important;margin-top:30px!important}
+.cad-button{border:1px solid var(--fx-green)!important;border-radius:10px!important;padding:12px 16px!important;background:var(--fx-surface)!important;color:var(--fx-green-strong)!important;font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:12px!important;font-weight:700!important;letter-spacing:0!important;box-shadow:none!important;transition:background .16s ease,border-color .16s ease,transform .16s ease!important}
+.cad-button:hover{transform:translateY(-1px)!important;box-shadow:none!important;background:var(--fx-green-soft)!important}
+.cad-button-main{background:var(--fx-green)!important;color:#fff!important;border-color:var(--fx-green)!important}
+.cad-button-main:hover{background:var(--fx-green-strong)!important;color:#fff!important}
+.cad-meta{display:flex!important;gap:18px!important;margin-top:25px!important;padding-top:16px!important;border-top:1px solid var(--fx-line)!important;font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:10px!important;font-weight:600!important;letter-spacing:.01em!important;color:var(--fx-muted)!important}
+.cad-stage{height:470px!important;background:var(--fx-surface)!important;border:1px solid var(--fx-line)!important;border-radius:22px!important;box-shadow:0 18px 50px rgba(21,59,43,.08)!important;overflow:hidden!important}
+.cad-stage:after{content:"VALIDATED FIT";position:absolute;right:16px;bottom:16px;padding:7px 9px;border:1px solid var(--fx-green);border-radius:999px;background:var(--fx-surface);font:700 9px Inter,ui-sans-serif,sans-serif;letter-spacing:.05em;color:var(--fx-green-strong);z-index:4}
+.cad-stage:before{background-image:linear-gradient(rgba(22,138,74,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(22,138,74,.07) 1px,transparent 1px)!important;background-size:32px 32px!important;opacity:.7!important}
+.part{border:2px solid var(--fx-green-strong)!important;background:rgba(255,246,191,.9)!important;box-shadow:8px 10px 0 rgba(21,59,43,.08)!important;font-family:Inter,ui-sans-serif,system-ui,sans-serif!important}
+.part-board{background:rgba(22,138,74,.1)!important;border-color:var(--fx-green)!important}
+.part-side{background:var(--fx-yellow)!important;border-color:var(--fx-green-strong)!important}
+.cad-tag{border:1px solid var(--fx-line)!important;border-radius:8px!important;font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;background:var(--fx-surface)!important;box-shadow:none!important}
+.tag-pass{background:var(--fx-green)!important;color:#fff!important;border-color:var(--fx-green)!important}
+.cad-pipeline{max-width:none!important;margin:0 0 64px!important;border-bottom:1px solid var(--fx-line)!important}
+.cad-stage-row{min-height:82px!important;padding:18px 20px 18px 0!important;border-right:1px solid var(--fx-line)!important}
+.cad-stage-row strong{font-size:12px!important;font-weight:700!important}
+.cad-stage-row small{font-size:10px!important;line-height:1.4!important}
+.stage-num{font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:10px!important;font-weight:700!important;color:var(--fx-green)!important}
+.stage-line{background:var(--fx-yellow)!important}
+.cad-section-head{border-bottom:1px solid var(--fx-line)!important;padding-bottom:14px!important}
+.cad-section-head h2{font-size:26px!important;font-weight:750!important;letter-spacing:-.03em!important;color:var(--fx-green-strong)!important}
+.cad-section-head span,.cad-section-head>a{font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:10px!important;letter-spacing:.03em!important}
+.cad-grid{gap:14px!important;border:0!important}
+.cad-card{min-height:230px!important;border:1px solid var(--fx-line)!important;border-radius:16px!important;padding:22px!important;background:var(--fx-surface)!important;box-shadow:0 8px 24px rgba(21,59,43,.05)!important}
+.cad-card header{font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:10px!important;border-bottom:1px solid var(--fx-line)!important}
+.cad-card header b{background:transparent!important;border:0!important;color:var(--fx-green)!important;padding:0!important}
+.card-value{font-size:30px!important;font-weight:750!important;color:var(--fx-green-strong)!important}
+.cad-card p{font-size:11px!important;line-height:1.55!important}
+.card-link{font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:10px!important;border-bottom:1px solid var(--fx-yellow)!important}
+.friendly-bottom{max-width:none!important;margin:22px 0 0!important;border:1px solid var(--fx-line)!important;border-radius:14px!important;background:var(--fx-yellow-soft)!important;padding:18px 20px!important}
+@media(max-width:900px){.cad-home{padding:24px 18px 60px!important}.cad-hero{grid-template-columns:1fr!important;gap:32px!important;padding:42px 0!important}.cad-intro h1{font-size:clamp(46px,14vw,68px)!important}.cad-intro p{font-size:15px!important}.cad-stage{height:390px!important}.cad-pipeline{grid-template-columns:1fr 1fr!important}.cad-stage-row{border-right:0!important;border-bottom:1px solid var(--fx-line)!important}.cad-stage-row:nth-child(2){border-right:0!important}.cad-grid{grid-template-columns:1fr!important}.cad-card,.cad-card.wide-card{grid-column:auto!important}}
+@media(max-width:560px){.cad-actions{display:flex!important;flex-direction:column!important;align-items:stretch!important}.cad-button{justify-content:center!important}.cad-stage{height:340px!important}.cad-pipeline{grid-template-columns:1fr!important}.cad-stage-row:last-child{border-bottom:0!important}}
