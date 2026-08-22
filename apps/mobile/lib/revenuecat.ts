@@ -9,19 +9,37 @@ export const FABRINAT_PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
 export const REVENUECAT_API_KEY = 'test_NxIETMKVJqdYpjlVDuWZtwIQtjT'
 
 let configured = false
+let loggedInUserId: string | null = null
+
+async function syncRevenueCatUser() {
+  if (!configured || Platform.OS === 'web' || !supabase) return
+  const { data } = await supabase.auth.getUser()
+  const userId = data.user?.id ?? null
+  if (!userId || userId === loggedInUserId) return
+  await Purchases.logIn(userId)
+  loggedInUserId = userId
+}
 
 export async function configureRevenueCat() {
-  if (configured || Platform.OS === 'web') return
-
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR)
-  Purchases.configure({ apiKey: REVENUECAT_API_KEY })
-  configured = true
-
+  if (Platform.OS === 'web') return
+  if (!configured) {
+    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR)
+    Purchases.configure({ apiKey: REVENUECAT_API_KEY })
+    configured = true
+  }
   try {
-    const { data } = await supabase?.auth.getUser() ?? { data: { user: null } }
-    if (data.user) await Purchases.logIn(data.user.id)
+    await syncRevenueCatUser()
   } catch (error) {
     console.warn('[RevenueCat] Could not sync authenticated user', error)
+  }
+}
+
+export async function syncRevenueCatAuth() {
+  await configureRevenueCat()
+  try {
+    await syncRevenueCatUser()
+  } catch (error) {
+    console.warn('[RevenueCat] Could not sync auth state', error)
   }
 }
 
