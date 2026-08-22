@@ -1,7 +1,13 @@
+import { useEffect } from 'react'
 import { Tabs } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { configureRevenueCat } from '@/lib/revenuecat'
 
 export default function RootLayout() {
+  useEffect(() => {
+    void configureRevenueCat()
+  }, [])
+
   return (
     <>
       <StatusBar style="light" />
@@ -10,6 +16,7 @@ export default function RootLayout() {
         <Tabs.Screen name="projects" options={{ title: 'Projects' }} />
         <Tabs.Screen name="release" options={{ title: 'Release' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+        <Tabs.Screen name="paywall" options={{ href: null }} />
       </Tabs>
     </>
   )
