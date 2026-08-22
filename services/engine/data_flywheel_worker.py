@@ -26,10 +26,21 @@ class FlywheelError(RuntimeError):
 
 class FlywheelClient:
     def __init__(self) -> None:
-        self.url = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
-        self.key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+        self.url = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_PROJECT_URL") or "").strip().rstrip("/")
+        # Keep service-role credentials preferred. The aliases support existing Render
+        # configurations without ever logging or returning the secret itself.
+        self.key = next((os.getenv(name, "").strip() for name in (
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "SUPABASE_SERVICE_KEY",
+            "SUPABASE_SERVICE_ROLE",
+            "SUPABASE_SECRET_KEY",
+            "SUPABASE_KEY",
+        ) if os.getenv(name, "").strip()), "")
         if not self.url or not self.key:
-            raise FlywheelError("Supabase credentials are not configured")
+            missing = []
+            if not self.url: missing.append("SUPABASE_URL")
+            if not self.key: missing.append("SUPABASE_SERVICE_ROLE_KEY")
+            raise FlywheelError("Supabase credentials are not configured: missing " + ", ".join(missing))
         self.headers = {"apikey": self.key, "Authorization": f"Bearer {self.key}", "Content-Type": "application/json"}
 
     def get(self, table: str, params: dict[str, str] | None = None) -> list[dict[str, Any]]:
