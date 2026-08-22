@@ -6,8 +6,11 @@ import requests
 from fastapi import APIRouter,Header,HTTPException
 from pydantic import BaseModel,Field
 router=APIRouter(prefix='/data-flywheel',tags=['data-flywheel'])
-SUPABASE_URL=os.getenv('SUPABASE_URL') or os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-SUPABASE_KEY=os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+# Accept the canonical production names plus legacy aliases used by older Render
+# environments. Prefer the service-role credential because the flywheel writes
+# to protected tables; never require a client-side NEXT_PUBLIC key for writes.
+SUPABASE_URL=(os.getenv('SUPABASE_URL') or os.getenv('NEXT_PUBLIC_SUPABASE_URL') or '').strip().rstrip('/')
+SUPABASE_KEY=(os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_KEY') or '').strip()
 INGEST_SECRET=os.getenv('DATA_FLYWHEEL_INGEST_SECRET')
 SOURCES='''user_requirements board_dimensions enclosure_dimensions component_locations connector_locations mounting_holes clearance_requirements wall_thickness fastener_selection material_selection manufacturing_method printer_parameters design_revisions validation_results failed_validations engineer_overrides engineer_corrections accepted_recommendations rejected_recommendations manual_edits print_outcomes measured_dimensions warping_measurements fit_tests assembly_results connector_accessibility fastener_fit pcb_insertion component_interference cable_routing thermal_results vibration_results structural_results manufacturing_defects rework_records scrap_records prototype_iterations time_to_success production_results prediction_measurement_delta step_geometry stl_geometry cad_features hole_patterns fillet_patterns wall_distributions clearance_distributions overhang_distributions interference_patterns assembly_relationships successful_geometry_patterns failure_geometry_patterns manufacturing_geometry_patterns cad_version_diffs feature_failure_locations mcp_success mcp_failure mcp_latency mcp_retries mcp_inputs mcp_outputs invalid_inputs workflow_failures app_crashes ui_abandonment repeated_actions unused_features used_features common_workflows error_messages support_requests feature_requests customer_complaints customer_corrections consented_workflow_events reported_manufacturing_problems reported_time_savings reported_accuracy retention expansion public_standards manufacturer_datasheets application_notes manufacturing_guidelines engineering_papers public_cad_examples open_hardware failure_case_studies printing_research materials_data prediction_reality false_positives false_negatives regression_tests edge_case_discovery confidence_calibration failure_clustering version_comparison new_checks closed_loop'''.split()
 class Observation(BaseModel):
@@ -24,7 +27,6 @@ def post(table,payload):
  if r.status_code>=300: raise HTTPException(502,f'Supabase write failed: {r.text[:500]}')
  d=r.json(); return d[0] if isinstance(d,list) and d else d
 def query(table,filters=None,limit=1000):
- """Read-only bounded query helper used by internal product-loop aggregation."""
  params={"select":"*","limit":str(min(max(limit,1),1000))}
  for key,value in (filters or {}).items():
   if value is not None: params[key]=f"eq.{value}"
