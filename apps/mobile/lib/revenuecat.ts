@@ -64,6 +64,6 @@ export async function presentCustomerCenter() {
 }
 
 export function subscribeToCustomerInfo(listener: (info: CustomerInfo) => void) {
-  if (!configured || Platform.OS === 'web') return () => undefined
-  return Purchases.addCustomerInfoUpdateListener(listener)
+  if (!configured || Platform.OS === 'web') return
+  void Purchases.addCustomerInfoUpdateListener(listener)
 }
