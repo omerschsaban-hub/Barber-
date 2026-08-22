@@ -63,7 +63,7 @@ jobs:
         working-directory: services/engine
         run: |
           set -euo pipefail
-          /tmp/fabrient-engineering-venv/bin/uvicorn app:app --host 127.0.0.1 --port 8001 >/tmp/engine-for-mcp.log 2>&1 &
+          /tmp/fabrient-engineering-venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 >/tmp/engine-for-mcp.log 2>&1 &
           pid=$!
           ready=0
           for i in $(seq 1 60); do

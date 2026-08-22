@@ -61,10 +61,26 @@ async def _authenticated_user(request: Request) -> dict[str, Any] | None:
                 return None
             body = entitlement_response.json()
             items = body.get('items', []) if isinstance(body, dict) else []
-            pro = any(
-                (item.get('entitlement') or {}).get('lookup_key') == PRO_ENTITLEMENT
-                for item in items if isinstance(item, dict)
-            )
+            active_ids = {
+                str(item.get('entitlement_id'))
+                for item in items if isinstance(item, dict) and item.get('entitlement_id')
+            }
+            # RevenueCat v2 active_entitlements returns entitlement_id; resolve it
+            # against the project entitlement catalog before comparing the stable lookup key.
+            pro = False
+            if active_ids:
+                catalog = await client.get(
+                    f'https://api.revenuecat.com/v2/projects/{PROJECT_ID}/entitlements',
+                    params={'limit': 100},
+                    headers={'Accept': 'application/json', 'Authorization': f'Bearer {revenuecat_secret}'},
+                )
+                if catalog.status_code != 200:
+                    return None
+                catalog_items = (catalog.json() or {}).get('items', [])
+                pro = any(
+                    str(item.get('id')) in active_ids and item.get('lookup_key') == PRO_ENTITLEMENT
+                    for item in catalog_items if isinstance(item, dict)
+                )
             return {'user_id': user_id, 'pro': pro}
     except (httpx.HTTPError, ValueError):
         return None

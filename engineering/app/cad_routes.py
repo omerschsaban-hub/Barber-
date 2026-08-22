@@ -81,7 +81,7 @@ async def step_geometry(request: Request):
         mins, maxs = arr.min(axis=0), arr.max(axis=0)
         result = {
             "status": "limited",
-            "units": "file_units_assumed_mm",
+            "units": "unknown_source_units",
             "point_count": len(points),
             "bounding_box": {"min": mins.tolist(), "max": maxs.tolist(), "size": (maxs-mins).tolist()},
             "feature_extraction": {"method": "Cartesian-point fallback", "topology_features": None, "status": "limited"},

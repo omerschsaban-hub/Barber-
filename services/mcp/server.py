@@ -12,7 +12,7 @@ os.environ.setdefault("FASTMCP_JSON_RESPONSE", "true")
 os.environ.setdefault("FASTMCP_STREAMABLE_HTTP_PATH", "/mcp")
 
 import httpx
-from mcp.server import MCPServer as FastMCP
+from mcp.server.mcpserver import MCPServer as FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
