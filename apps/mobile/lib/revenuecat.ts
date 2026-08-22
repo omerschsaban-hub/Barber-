@@ -6,7 +6,7 @@ import { supabase } from './supabase'
 export type { PurchasesPackage }
 
 export const FABRINAT_PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
-export const REVENUECAT_API_KEY = 'test_NxIETMKVJqdYpjlVDuWZtwIQtjT'
+const configuredApiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY
 
 let configured = false
 let loggedInUserId: string | null = null
@@ -23,8 +23,9 @@ async function syncRevenueCatUser() {
 export async function configureRevenueCat() {
   if (Platform.OS === 'web') return
   if (!configured) {
+    if (!configuredApiKey) throw new Error('RevenueCat mobile billing is not configured')
     Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR)
-    Purchases.configure({ apiKey: REVENUECAT_API_KEY })
+    Purchases.configure({ apiKey: configuredApiKey })
     configured = true
   }
   try {
