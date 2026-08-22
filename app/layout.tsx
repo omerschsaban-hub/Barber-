@@ -1,4 +1,5 @@
 import './globals.css';
+import './cad-home.css';
 import AppHeader from '@/components/app-header';
 
 export const metadata = {
