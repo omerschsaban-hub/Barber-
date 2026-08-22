@@ -17,8 +17,12 @@
     "expo-linking": "~8.0.0",
     "expo-router": "~6.0.0",
     "expo-status-bar": "~3.0.0",
+    "expo-dev-client": "latest",
+    "expo-status-bar": "~3.0.0",
     "react": "19.1.1",
     "react-native": "0.81.5",
+    "react-native-purchases": "^10.2.0",
+    "react-native-purchases-ui": "^10.2.0",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0"
   },
