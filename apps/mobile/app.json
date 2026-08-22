@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Fabrient",
+    "slug": "fabrient",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "fabrient",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.fabrient.mobile" },
+    "android": { "package": "com.fabrient.mobile" },
+    "web": { "bundler": "metro" }
+  }
+}
