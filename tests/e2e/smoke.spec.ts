@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 const publicRoutes = ['/', '/manufacturing', '/engineering', '/geometry', '/records']
 
-async function assertHealthyPage(page: Parameters<typeof test>[0] extends never ? never : any) {
+function attachDiagnostics(page: Page) {
   const pageErrors: string[] = []
   const failedRequests: string[] = []
   const serverErrors: string[] = []
@@ -17,7 +17,7 @@ async function assertHealthyPage(page: Parameters<typeof test>[0] extends never 
 test.describe('Fabrient browser health', () => {
   for (const route of publicRoutes) {
     test(`${route} renders real content without runtime failures`, async ({ page }) => {
-      const diagnostics = await assertHealthyPage(page)
+      const diagnostics = attachDiagnostics(page)
       const response = await page.goto(route, { waitUntil: 'domcontentloaded' })
       expect(response?.ok(), `HTTP failure for ${route}`).toBeTruthy()
       await expect(page.locator('body')).toBeVisible()
@@ -30,7 +30,7 @@ test.describe('Fabrient browser health', () => {
   }
 
   test('landing page is a simple entry point into the real product loop', async ({ page }) => {
-    const diagnostics = await assertHealthyPage(page)
+    const diagnostics = attachDiagnostics(page)
     await page.goto('/')
     await expect(page.getByRole('link', { name: /START A PROJECT/i })).toBeVisible()
     await expect(page.getByText(/From idea/i)).toBeVisible()
@@ -40,7 +40,7 @@ test.describe('Fabrient browser health', () => {
     expect(diagnostics.pageErrors).toEqual([])
   })
 
-  test('manufacturing surface has a low-friction default path and an explicit advanced path', async ({ page }) => {
+  test('manufacturing surface has a low-friction default path', async ({ page }) => {
     await page.goto('/manufacturing')
     await expect(page.getByRole('heading', { name: /Fix it\. Verify it\. Build it\./i })).toBeVisible()
     await expect(page.getByLabel(/Part name/i)).toHaveValue(/.+/)
