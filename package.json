@@ -39,7 +39,6 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@types/three": "latest",
-    "@types/three": "latest",
     "@types/papaparse": "latest",
     "typescript": "latest",
     "tailwindcss": "latest",
