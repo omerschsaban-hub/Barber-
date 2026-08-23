@@ -11,11 +11,12 @@
 5. **Evidence over claims.** Never invent measurements, confidence, validation, or completion. Preserve provenance and deterministic evidence.
 6. **Test deeply.** Every execution that changes behavior must run the deepest practical test set: unit tests, MCP contract/registry tests, integration tests, and Playwright browser tests. Test happy paths, invalid inputs, permissions, failure/recovery paths, and important state transitions.
 7. **Use the browser.** When UI behavior is involved, use Playwright against a real running app. Do not declare UI work complete from static code inspection alone.
-8. **Simplify aggressively.** Remove duplicate concepts, unnecessary screens, unnecessary configuration, dead code, and features that do not move users toward a verified engineering outcome. Nice-to-haves should be simplified rather than automatically deleted.
-9. **Optimize the whole system.** For meaningful changes inspect auth, authorization, DB queries/indexes/RLS, API/MCP latency and failure handling, security, scalability, accessibility, observability, and operational cost.
-10. **Automate repeated work.** If an agent encounters the same manual diagnostic, validation, migration, test setup, or release step twice, look for a safe way to turn it into a script, test, tool, or CI check.
-11. **Prefer one source of truth.** Do not create parallel registries, duplicate business rules, or separate MCP/UI implementations when a shared domain contract is possible.
-12. **Leave the repository better.** Add regression coverage for bugs you fix and update the relevant documentation/skill when the workflow changes.
+8. **Production browser acceptance is mandatory for release.** Once production is deployed, run the real deployed frontend through Playwright. Do not substitute local browser tests for production acceptance. The production gate must cover blank-page protection, uncaught errors, failed/5xx requests, backend routing, primary user journeys, and recovery states.
+9. **Simplify aggressively.** Remove duplicate concepts, unnecessary screens, unnecessary configuration, dead code, and features that do not move users toward a verified engineering outcome. Nice-to-haves should be simplified rather than automatically deleted.
+10. **Optimize the whole system.** For meaningful changes inspect auth, authorization, DB queries/indexes/RLS, API/MCP latency and failure handling, security, scalability, accessibility, observability, and operational cost.
+11. **Automate repeated work.** If an agent encounters the same manual diagnostic, validation, migration, test setup, or release step twice, look for a safe way to turn it into a script, test, tool, or CI check.
+12. **Prefer one source of truth.** Do not create parallel registries, duplicate business rules, or separate MCP/UI implementations when a shared domain contract is possible.
+13. **Leave the repository better.** Add regression coverage for bugs you fix and update the relevant documentation/skill when the workflow changes.
 
 ## Required execution order
 
@@ -30,6 +31,17 @@ A report must state what was actually changed, what was actually tested, what fa
 - `npm run test:deep`
 - `npm run test:all` for a release-quality pass
 - Python/MCP tests for changed engineering or MCP behavior
+- Production Playwright acceptance after deployment
+
+## Full production acceptance chain
+
+For release-quality work, verify the actual deployed chain:
+
+**human/browser → auth/session → DB → backend → MCP → agent execution → geometry/DFM → fix → verification → manufacturing package → release/acceptance → error/recovery → browser verification**
+
+Also verify all applicable MCP tools with representative valid/invalid inputs, unit/integration/E2E coverage, storage, realtime, payment/integrations, malformed input handling, security boundaries, performance/timeouts, production configuration, and actual deployed URLs/services.
+
+**Acceptance rule: one critical failure means fix it, redeploy, and rerun the relevant gate and then the full acceptance suite. Green CI alone never means Fabrient works.**
 
 If an environment cannot run a required test, add/retain the test and state the exact environment blocker instead of pretending it passed.
 
