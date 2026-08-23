@@ -1,17 +1,15 @@
 import Link from 'next/link';
+import FabrientMark from './fabrient-mark';
 
 /**
  * Keep the global shell server-rendered and dependency-free.
- *
- * The header sits above every route, so a client-side auth SDK failure here
- * can blank the entire application after first paint. Authentication belongs
- * on the routes that actually need it; the global navigation must always be
- * renderable.
+ * Authentication belongs on routes that actually need it; the global
+ * navigation must always be renderable.
  */
 export default function AppHeader() {
   return (
     <header className="topbar">
-      <Link href="/" className="brand">FABRIENT</Link>
+      <FabrientMark />
       <nav>
         <Link href="/workspace">Workspace</Link>
         <Link href="/projects">Projects</Link>
