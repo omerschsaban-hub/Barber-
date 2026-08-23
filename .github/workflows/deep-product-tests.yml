@@ -1,0 +1,66 @@
+name: Deep Product Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deep-product-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-unit-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run test:unit
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENGINEERING_URL: http://127.0.0.1:8000
+          FABRIENT_WEB_ORIGIN: http://127.0.0.1:3000
+
+  mcp-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip pytest
+      - run: pytest -q tests/mcp
+
+  browser:
+    needs: web-unit-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENGINEERING_URL: http://127.0.0.1:8000
+          FABRIENT_WEB_ORIGIN: http://127.0.0.1:3000
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
