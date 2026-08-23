@@ -14,19 +14,15 @@ if str(REPO_ROOT) not in sys.path:
 
 from engineering.app.composed import app  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
-from services.engine.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
+from services.engine.data_flywheel_postgres import start_scheduler, run_once  # noqa: E402
 
+# Production flywheel is enabled only when the new PostgreSQL data plane exists.
+# This deliberately prevents a half-migrated deployment from silently falling back to Supabase.
 _flywheel_explicitly_enabled = os.getenv("FLYWHEEL_ENABLE_PRODUCTION", "false").strip().lower() == "true"
-if not _flywheel_explicitly_enabled:
+if not _flywheel_explicitly_enabled or not os.getenv("DATABASE_URL"):
     os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
 else:
-    _supabase_url = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_PROJECT_URL") or "").strip()
-    _supabase_key = next((os.getenv(name, "").strip() for name in (
-        "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SERVICE_ROLE",
-        "SUPABASE_SECRET_KEY", "SUPABASE_KEY",
-    ) if os.getenv(name, "").strip()), "")
-    if not (_supabase_url and _supabase_key):
-        os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
+    os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "true"
 
 start_scheduler()
 
@@ -43,7 +39,7 @@ def service_root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "fabrient-engineering"}
+    return {"status": "ok", "service": "fabrient-engineering", "database": "postgresql" if os.getenv("DATABASE_URL") else "not-configured"}
 
 @app.get("/internal/data-flywheel/run")
 def manual_flywheel_run(token: str | None = None):
