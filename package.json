@@ -12,7 +12,8 @@
     "test:deep": "npm run agent:preflight && npm run test:unit && npm run test:e2e",
     "test:all": "npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",
     "agent:preflight": "node scripts/agent-preflight.mjs",
-    "agent:loop": "node scripts/agent-loop.mjs"
+    "agent:loop": "node scripts/agent-loop.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs"
   },
   "dependencies": {
     "@react-three/drei": "latest",
@@ -28,13 +29,16 @@
     "three": "latest",
     "lucide-react": "latest",
     "papaparse": "latest",
-    "pdf-lib": "latest"
+    "pdf-lib": "latest",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "latest",
+    "@types/pg": "^8.15.5",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/three": "latest",
     "@types/three": "latest",
     "@types/papaparse": "latest",
     "typescript": "latest",
