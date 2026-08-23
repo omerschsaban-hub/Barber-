@@ -11,6 +11,11 @@ router = APIRouter(tags=["compatibility"])
 def blocked(operation: str, reason: str):
     return {"operation": operation, "status": "blocked", "reason": reason, "engineering_claims": False}
 
+@router.get("/")
+@router.head("/")
+def service_root():
+    return {"ok": True, "service": "fabrient-engineering", "status": "ready", "health": "/health", "docs": "/docs", "purpose": "deterministic engineering execution API"}
+
 @router.post("/v1/simulate")
 def simulate(payload: dict[str, Any]):
     nominal = float(payload.get("nominal_mm", 0))
