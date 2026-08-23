@@ -2,6 +2,23 @@
 
 Fabrient is engineering software for machine-specific dimensional drift in FDM production.
 
+## Agent operating contract
+
+All coding/automation agents must read `AGENTS.md` before every execution. `CLAUDE.md` points Claude-compatible agents to the same contract. The product principles, deep execution/testing standard, and simplification rules are in:
+
+- `docs/PRODUCT_EXECUTION_PRINCIPLES.md`
+- `docs/DEEP_EXECUTION_STANDARD.md`
+- `docs/PRODUCT_SIMPLIFICATION.md`
+- `.claude/skills/playwright/SKILL.md`
+
+Run `npm run agent:preflight` to verify that the required operating contract is present.
+
+## Product north star
+
+Fabrient turns bounded physical-engineering jobs from requests into verified real-world outcomes, for humans and increasingly autonomous agents.
+
+The canonical lifecycle is **Define → Analyze → Fix → Verify → Build → Release**. A workflow is not complete because an intermediate tool succeeded; it must produce and verify the requested outcome or expose a truthful actionable blocker.
+
 ## Authentication
 
 Fabrient uses passwordless Gmail OTP authentication. Users enter a Gmail address, receive a one-time six-digit code, can open Gmail with one tap, paste/type the code, and are sent directly to the Workspace. Fabrient does not request Gmail inbox access.
@@ -52,6 +69,18 @@ The primary user journey is deliberately short:
 
 A successful release produces a manufacturing package and a simple physical build guide. Deterministic fixes are shown to the user; geometry/topology changes remain human-gated.
 
+## Testing
+
+The repository has explicit deep testing commands:
+
+- `npm run test:unit` — frontend/domain unit tests
+- `npm run test:e2e` — Playwright browser tests
+- `npm run test:deep` — unit + browser tests
+- `npm run test:all` — lint + build + unit + browser tests
+- `pytest -q tests/mcp` — MCP registry/contract tests
+
+The Playwright skill requires real-browser verification for UI work, and CI installs Chromium and runs the browser suite. Important workflows should also have integration tests against real authenticated/test infrastructure rather than relying only on mocks.
+
 ## Engineering honesty
 
 LLMs may parse natural language, coordinate bounded agents, and explain results. They do not generate engineering numbers, pass/fail decisions, confidence, measurements, or calibration evidence.
@@ -62,6 +91,7 @@ Real observations are ground truth. Synthetic data is never stored or presented 
 
 ```bash
 npm install
+npm run agent:preflight
 npm run dev
 cd engineering
 pip install -r requirements.txt
