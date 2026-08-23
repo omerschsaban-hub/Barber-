@@ -2,6 +2,7 @@ import './globals.css';
 import './cad-home.css';
 import './fabrient-ux.css';
 import './fabrient-start.css';
+import './fabrinat-design.css';
 import AppHeader from '@/components/app-header';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
