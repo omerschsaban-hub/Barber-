@@ -1,0 +1,85 @@
+name: Fabrient Production Release
+
+on:
+  # Five scheduled release windows per UTC day. Git commits themselves never deploy.
+  schedule:
+    - cron: '0 0 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 10 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: fabrient-production-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deep-validation:
+    name: Deep validation gate
+    uses: ./.github/workflows/deep-product-tests.yml
+
+  release:
+    name: Deploy latest main to Production
+    needs: deep-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Verify deployment credentials are configured
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN repository secret'; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo 'Missing VERCEL_ORG_ID repository secret'; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo 'Missing VERCEL_PROJECT_ID repository secret'; exit 1; }
+
+      - name: Enforce five-release rolling 24h safety cap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d '24 hours ago' +%s)
+          count=0
+          while IFS= read -r ts; do
+            [ -z "$ts" ] && continue
+            epoch=$(date -u -d "$ts" +%s)
+            if [ "$epoch" -ge "$cutoff" ]; then count=$((count+1)); fi
+          done < <(gh run list --workflow production-release.yml --limit 20 --json startedAt --jq '.[].startedAt')
+          echo "Production-release workflow runs in rolling 24h: $count"
+          if [ "$count" -gt 5 ]; then
+            echo 'More than five release windows were started in the rolling 24h window; refusing another deployment.'
+            exit 1
+          fi
+
+      - name: Pull Production environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+
+      - name: Build exactly what will be shipped
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt artifact to Production only
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
