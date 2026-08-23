@@ -1,0 +1,53 @@
+name: PostgreSQL migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      destructive_restore:
+        description: 'Allow pg_restore --clean --if-exists (only for final cutover)'
+        required: true
+        default: false
+        type: boolean
+      verify_only:
+        description: 'Only compare source and target; do not restore'
+        required: true
+        default: false
+        type: boolean
+  schedule:
+    - cron: '17 3 * * *'
+
+concurrency:
+  group: fabrient-postgres-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-migration:
+    # Scheduled runs are verification-only. Manual runs can perform the restore.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SOURCE_DATABASE_URL: ${{ secrets.SOURCE_DATABASE_URL }}
+      TARGET_DATABASE_URL: ${{ secrets.TARGET_DATABASE_URL }}
+      ALLOW_DESTRUCTIVE_RESTORE: ${{ github.event_name == 'workflow_dispatch' && inputs.destructive_restore || false }}
+      VERIFY_ONLY: ${{ github.event_name == 'schedule' && 'true' || inputs.verify_only }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Validate migration secrets exist
+        run: |
+          test -n "$SOURCE_DATABASE_URL"
+          test -n "$TARGET_DATABASE_URL"
+
+      - name: Run migration / verification
+        run: bash scripts/postgres_cutover.sh
