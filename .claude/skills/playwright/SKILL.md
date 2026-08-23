@@ -16,6 +16,7 @@ Do not claim a UI feature works from code inspection. Start the app and exercise
 6. Test at least one invalid/error path for important workflows.
 7. Save a trace/screenshot on failure.
 8. Fix root causes and rerun.
+9. After production deployment, run the same critical suite against the real deployed URL. Local green is never production acceptance.
 
 ## Test design
 
@@ -30,6 +31,11 @@ Prefer stable role/name/label selectors. Avoid brittle CSS selectors and arbitra
 - engineering/geometry/records routes are reachable when their prerequisites are satisfied
 - no uncaught page errors in the smoke journey
 - authenticated flows are covered in an environment with test credentials
+- production browser run verifies the deployed frontend, backend routing, blank-state protection, and recovery behavior
+
+## Release acceptance
+
+Production browser acceptance must fail on blank/empty critical pages, uncaught page errors, failed critical requests, unexpected 5xx responses, localhost backend routing in production, broken primary journeys, or unrecoverable error states. A production browser pass is necessary but not sufficient: combine it with MCP, engineering, auth/DB/storage, security, performance, and manufacturing acceptance.
 
 ## Safety
 
