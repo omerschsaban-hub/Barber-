@@ -1,0 +1,63 @@
+name: Fabrient Production Browser Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fabrient-production-browser-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  production-browser:
+    name: Production Playwright — real deployed app
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - name: Require production target
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.FABRIENT_WEB_URL }}
+        run: |
+          test -n "$PLAYWRIGHT_BASE_URL" || { echo 'FABRIENT_WEB_URL GitHub secret is required for production browser acceptance.'; exit 1; }
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify production frontend before browser suite
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.FABRIENT_WEB_URL }}
+        run: |
+          code=$(curl -sS -L -o /tmp/frontend.html -w '%{http_code}' --max-time 30 "$PLAYWRIGHT_BASE_URL/")
+          case "$code" in 2??|3??) ;; *) cat /tmp/frontend.html; exit 1;; esac
+          test -s /tmp/frontend.html
+          ! grep -Eiq 'Application error|Unhandled Runtime Error|Internal Server Error' /tmp/frontend.html
+      - name: Run real production Playwright suite
+        env:
+          CI: 'true'
+          PLAYWRIGHT_BASE_URL: ${{ secrets.FABRIENT_WEB_URL }}
+          NEXT_PUBLIC_ENGINEERING_API: https://fabrient-engineering.onrender.com
+          NEXT_PUBLIC_ENGINEERING_URL: https://fabrient-engineering.onrender.com
+          FABRIENT_WEB_ORIGIN: ${{ secrets.FABRIENT_WEB_URL }}
+        run: npm run test:e2e
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabrient-production-playwright-${{ github.sha }}
+          path: test-results/
+          if-no-files-found: warn
+      - name: Acceptance summary
+        if: always()
+        run: |
+          echo '# Production Browser Acceptance' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Real deployed frontend target was exercised with Playwright.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- The suite fails on blank content, uncaught page errors, failed requests, 5xx responses, localhost backend routing, and critical workflow failures.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- A green result is not a substitute for the separate MCP/engineering/full manufacturing acceptance gates.' >> "$GITHUB_STEP_SUMMARY"
