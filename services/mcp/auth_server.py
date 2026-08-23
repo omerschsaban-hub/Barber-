@@ -11,7 +11,9 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Mount, Route
 
-from server import CAPABILITY_REGISTRY, app as mcp_app
+# This module is executed as services.mcp.auth_server, so use the package-relative
+# import. The old absolute import only worked when services/mcp was on sys.path.
+from .server import CAPABILITY_REGISTRY, app as mcp_app
 
 PROJECT_ID = os.getenv("REVENUECAT_PROJECT_ID", "projb138a8db")
 PRO_ENTITLEMENT = os.getenv("FABRIENT_PRO_ENTITLEMENT", "create_an_app_called_fabrinat_pro")
