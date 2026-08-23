@@ -1,0 +1,79 @@
+name: Fabrient Auto Merge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: fabrient-auto-merge-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: Enable safe auto-merge
+    if: >-
+      github.event.pull_request.draft == false &&
+      (github.event_name != 'pull_request_review' || github.event.review.state == 'approved')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Wait for repository CI checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for CI on $PR_URL"
+          for i in $(seq 1 70); do
+            data=$(gh pr checks "$PR_URL" --json name,state,bucket 2>/dev/null || true)
+            if [ -n "$data" ]; then
+              pending=$(echo "$data" | jq '[.[] | select(.bucket == "pending")] | length')
+              failed=$(echo "$data" | jq '[.[] | select(.bucket == "fail")] | length')
+              echo "pending=$pending failed=$failed"
+              if [ "$failed" -gt 0 ]; then
+                echo 'A CI check failed; refusing auto-merge.'
+                exit 1
+              fi
+              if [ "$pending" -eq 0 ]; then
+                break
+              fi
+            fi
+            sleep 30
+          done
+
+      - name: Verify approval and clean merge state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            review_state=$(gh pr view "$PR_URL" --json reviews --jq '[.reviews[] | select(.state == "APPROVED")] | length')
+            mergeable=$(gh pr view "$PR_URL" --json mergeable --jq '.mergeable')
+            merge_state=$(gh pr view "$PR_URL" --json mergeStateStatus --jq '.mergeStateStatus')
+            echo "approvals=$review_state mergeable=$mergeable mergeState=$merge_state"
+            if [ "$review_state" -ge 1 ] && [ "$mergeable" = "MERGEABLE" ] && [ "$merge_state" = "CLEAN" ]; then
+              break
+            fi
+            if [ "$mergeable" = "CONFLICTING" ]; then
+              echo 'Merge conflict detected; refusing to merge.'
+              exit 1
+            fi
+            sleep 10
+          done
+          test "${review_state:-0}" -ge 1
+          test "${mergeable:-UNKNOWN}" = MERGEABLE
+          test "${merge_state:-UNKNOWN}" = CLEAN
+
+      - name: Enable GitHub auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --auto --squash
