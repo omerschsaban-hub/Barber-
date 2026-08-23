@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from services.mcp.server import CAPABILITY_REGISTRY, app as mcp_app
+from server import CAPABILITY_REGISTRY, app as mcp_app
 
 PROJECT_ID = os.getenv("REVENUECAT_PROJECT_ID", "projb138a8db")
 PRO_ENTITLEMENT = os.getenv("FABRIENT_PRO_ENTITLEMENT", "create_an_app_called_fabrinat_pro")
