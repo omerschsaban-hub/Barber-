@@ -1,6 +1,6 @@
 # Fabrient Product Execution Principles
 
-These are product requirements, not marketing claims.
+These are product requirements, not marketing claims. Every agent must read this document before executing work.
 
 ## 1. Human-first, agent-native
 
@@ -43,6 +43,21 @@ Selection criteria:
 
 Avoid competing primarily on generic text generation, generic copilots, dashboards, or workflows where existing software already completes the hard part.
 
+## 4. Relentless quality: test, simplify, harden, automate
+
+Every meaningful change must be treated as a full-system change, not a code diff.
+
+- Deeply test the affected feature and its dependencies every time.
+- Use unit, integration, MCP contract, and Playwright browser tests where applicable.
+- Test happy paths, invalid inputs, permissions, stale state, retries, upstream failures, recovery, and completion states.
+- For UI changes, actually operate the app in a real browser; static inspection is not acceptance testing.
+- After correctness, simplify the experience and remove unnecessary complexity.
+- After simplification, harden auth, RLS, DB performance, scalability, security, observability, idempotency, and error handling.
+- Automate repeated manual work discovered during implementation or testing.
+- Add regression coverage for every important bug found.
+
+See `docs/DEEP_EXECUTION_STANDARD.md` for the mandatory execution/testing standard and `docs/PRODUCT_SIMPLIFICATION.md` for product-level simplification rules.
+
 ## Product north star
 
 **Fabrient turns bounded physical-engineering jobs from requests into verified real-world outcomes, for humans and increasingly autonomous agents.**
@@ -51,9 +66,11 @@ Avoid competing primarily on generic text generation, generic copilots, dashboar
 
 Before shipping a feature, ask:
 1. Does this help complete a real engineering job?
-2. Can an agent use it as a reliable primitive?
+2. Can an agent use it as a reliable primitive or workflow?
 3. Is the result backed by deterministic computation or real evidence where required?
 4. Does it move the job closer to a verified physical outcome?
-5. If it cannot complete the job, does it fail honestly and identify the exact blocker?
+5. Does it remain simple enough for a human to understand and operate?
+6. Has it been deeply tested, including failure and recovery paths?
+7. If it cannot complete the job, does it fail honestly and identify the exact blocker?
 
 If the answer is no to most of these, the feature is not core Fabrient work.
