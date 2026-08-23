@@ -16,12 +16,6 @@ from engineering.app.composed import app  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
 from services.engine.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
 
-# The flywheel is an optional persistence integration. Keep it off by default in
-# the engineering API; production operation must explicitly opt in after both
-# Supabase credentials and the required persistence path have been provisioned.
-# This prevents a misconfigured environment from generating repeated runtime
-# failures while leaving the manual endpoint available for an explicitly
-# configured deployment.
 _flywheel_explicitly_enabled = os.getenv("FLYWHEEL_ENABLE_PRODUCTION", "false").strip().lower() == "true"
 if not _flywheel_explicitly_enabled:
     os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
@@ -35,6 +29,21 @@ else:
         os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
 
 start_scheduler()
+
+@app.get("/")
+def service_root():
+    return {
+        "status": "ok",
+        "service": "fabrient-engineering",
+        "message": "Fabrient Engineering API is running.",
+        "health": "/health",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+    }
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "fabrient-engineering"}
 
 @app.get("/internal/data-flywheel/run")
 def manual_flywheel_run(token: str | None = None):
