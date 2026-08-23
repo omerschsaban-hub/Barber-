@@ -1,0 +1,83 @@
+/* Fabrinat visual refinement: original design language, deliberately independent of external brand assets. */
+:root{
+  --design-bg:#f4f5ee;
+  --design-surface:#fbfbf7;
+  --design-ink:#172019;
+  --design-muted:#687169;
+  --design-accent:#8bc34a;
+  --design-accent-strong:#3d6b2f;
+  --design-rule:#cdd4c7;
+  --design-soft:#e8ede1;
+}
+
+html,body{background:var(--design-bg)!important;color:var(--design-ink)!important}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;background-image:none!important}
+body:before{display:none!important}
+
+.topbar{height:68px!important;padding:0 34px!important;border-bottom:1px solid var(--design-rule)!important;background:rgba(244,245,238,.94)!important;backdrop-filter:blur(14px)}
+.topbar:after{display:none!important}
+.brand{color:var(--design-ink)!important;letter-spacing:.08em!important;font-size:13px!important}
+.brand:after{color:var(--design-muted)!important}
+.topbar nav,.nav-secondary{color:var(--design-muted)!important;font-weight:600!important}
+.topbar nav a,.nav-secondary a{transition:color .18s ease!important}
+.topbar nav a:hover,.nav-secondary a:hover{color:var(--design-ink)!important;transform:none!important}
+.user{color:var(--design-muted)!important}
+
+.cad-home{max-width:1380px!important;padding:34px 42px 86px!important;color:var(--design-ink)!important}
+.cad-hero{min-height:620px!important;gap:72px!important;border-bottom:1px solid var(--design-rule)!important;padding-bottom:58px!important}
+.cad-kicker{color:var(--design-muted)!important;letter-spacing:.18em!important}
+.live-dot{width:6px!important;height:6px!important;background:var(--design-accent)!important;border:0!important;border-radius:50%!important}
+.cad-intro h1{font-size:clamp(58px,7vw,104px)!important;line-height:.9!important;letter-spacing:-.065em!important;color:var(--design-ink)!important;margin:28px 0!important}
+.cad-intro h1 em{color:var(--design-accent-strong)!important;-webkit-text-stroke:0!important}
+.cad-intro p{font-size:16px!important;line-height:1.7!important;color:var(--design-muted)!important;max-width:570px!important}
+.cad-actions{gap:12px!important;margin-top:32px!important}
+.cad-button{border:1px solid var(--design-ink)!important;border-radius:8px!important;padding:13px 16px!important;background:var(--design-surface)!important;color:var(--design-ink)!important;box-shadow:none!important;transition:transform .18s ease,background .18s ease!important}
+.cad-button:hover{transform:translateY(-2px)!important;box-shadow:none!important;background:var(--design-soft)!important}
+.cad-button-main{background:var(--design-ink)!important;color:var(--design-surface)!important;border-color:var(--design-ink)!important}
+.cad-button-main:hover{background:var(--design-accent-strong)!important;color:white!important}
+.friendly-note{margin-top:24px!important;color:var(--design-muted)!important;font-size:11px!important;max-width:470px}
+
+.cad-stage{height:500px!important;background:var(--design-surface)!important;border:1px solid var(--design-rule)!important;border-radius:2px!important;box-shadow:0 18px 50px rgba(23,32,25,.06)!important}
+.cad-stage:before{background-image:linear-gradient(rgba(61,107,47,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(61,107,47,.07) 1px,transparent 1px)!important;background-size:32px 32px!important}
+.cad-floor{border-color:var(--design-rule)!important;box-shadow:none!important}
+.part{border:1px solid var(--design-ink)!important;background:rgba(232,237,225,.88)!important;box-shadow:8px 10px 0 rgba(23,32,25,.08)!important;color:var(--design-ink)!important}
+.part-board{background:rgba(139,195,74,.22)!important}
+.part-board i{border-color:var(--design-accent-strong)!important}
+.part-side{border-color:var(--design-ink)!important;background:var(--design-accent)!important}
+.dimension,.cad-axis{color:var(--design-muted)!important}
+.dimension:before,.dimension:after{background:var(--design-rule)!important}
+.cad-tag{border:1px solid var(--design-rule)!important;background:var(--design-surface)!important;color:var(--design-ink)!important;box-shadow:none!important}
+.tag-pass{background:var(--design-accent-strong)!important;color:white!important;border-color:var(--design-accent-strong)!important}
+
+.cad-pipeline{border-bottom:1px solid var(--design-rule)!important;margin-bottom:72px!important}
+.cad-stage-row{border-right:1px solid var(--design-rule)!important}
+.stage-num{color:var(--design-accent-strong)!important}
+.cad-stage-row strong{color:var(--design-ink)!important}
+.cad-stage-row small{color:var(--design-muted)!important}
+.stage-line{background:var(--design-rule)!important}
+
+.cad-section-head{border-bottom:1px solid var(--design-rule)!important}
+.cad-section-head span,.cad-section-head>a{color:var(--design-muted)!important}
+.cad-section-head h2{color:var(--design-ink)!important;font-size:30px!important}
+.cad-grid{border-left:1px solid var(--design-rule)!important;border-bottom:1px solid var(--design-rule)!important}
+.cad-card{background:var(--design-surface)!important;border-right:1px solid var(--design-rule)!important;border-bottom:1px solid var(--design-rule)!important;min-height:280px!important}
+.cad-card header{border-bottom:1px solid var(--design-rule)!important;color:var(--design-muted)!important}
+.cad-card header b{color:var(--design-accent-strong)!important}
+.card-value{color:var(--design-ink)!important}
+.cad-card p{color:var(--design-muted)!important;font-size:11px!important}
+.card-link{color:var(--design-ink)!important;border-bottom:1px solid var(--design-accent)!important}
+.release-line strong{color:var(--design-ink)!important}
+.release-line span{color:var(--design-muted)!important}
+
+.friendly-bottom{margin-top:34px!important;border-top:1px solid var(--design-rule)!important;padding-top:28px!important;display:flex;justify-content:space-between;gap:24px;align-items:center;color:var(--design-muted)}
+.friendly-bottom strong{font-size:18px;color:var(--design-ink)}
+.friendly-bottom a{font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--design-ink);border-bottom:1px solid var(--design-accent);padding-bottom:4px}
+
+@media(max-width:900px){
+  .topbar{padding:0 18px!important}
+  .cad-home{padding:26px 18px 60px!important}
+  .cad-hero{gap:30px!important}
+  .cad-stage{height:430px!important}
+  .friendly-bottom{align-items:flex-start;flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
