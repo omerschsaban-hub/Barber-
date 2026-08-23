@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import os
 from typing import Any
 
@@ -7,7 +8,7 @@ import httpx
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
 
 from server import CAPABILITY_REGISTRY, app as mcp_app
@@ -20,7 +21,8 @@ SUPABASE_OAUTH_DISCOVERY = f"{SUPABASE_URL}/.well-known/oauth-authorization-serv
 MCP_HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME", "fabrient-mcp.onrender.com")
 MCP_RESOURCE_URL = os.getenv("FABRIENT_MCP_RESOURCE_URL", f"https://{MCP_HOST}/mcp").rstrip("/")
 MCP_RESOURCE_METADATA_URL = f"https://{MCP_HOST}/.well-known/oauth-protected-resource"
-OAUTH_SCOPES = ["openid", "email", "profile"]
+# Fabrient authentication is email-code only. There is intentionally no Google OAuth/provider button here.
+OAUTH_SCOPES = ["openid", "email"]
 PUBLIC_EMAIL_DOMAINS = {"gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com", "icloud.com", "proton.me", "protonmail.com"}
 ENTERPRISE_DOMAINS = {x.strip().lower() for x in os.getenv("FABRIENT_ENTERPRISE_DOMAINS", "").split(",") if x.strip()}
 STARTUP_DOMAINS = {x.strip().lower() for x in os.getenv("FABRIENT_STARTUP_DOMAINS", "").split(",") if x.strip()}
@@ -127,7 +129,7 @@ async def capabilities(request: Request) -> JSONResponse:
         "gated_tool_count": len(CAPABILITY_REGISTRY) - len(available),
         "registry_authoritative": True,
         "access_policy": "free_core_plus_paid_advanced_tools",
-        "oauth": {"issuer": SUPABASE_AUTH_ISSUER, "discovery": SUPABASE_OAUTH_DISCOVERY, "resource": MCP_RESOURCE_URL, "scopes": OAUTH_SCOPES},
+        "oauth": {"issuer": SUPABASE_AUTH_ISSUER, "discovery": SUPABASE_OAUTH_DISCOVERY, "resource": MCP_RESOURCE_URL, "scopes": OAUTH_SCOPES, "login_method": "email_otp"},
     })
 
 
@@ -139,7 +141,7 @@ async def account(request: Request) -> JSONResponse:
 
 
 async def health(_: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "fabrient-mcp-auth-wrapper", "tool_count": len(CAPABILITY_REGISTRY), "oauth_discovery": SUPABASE_OAUTH_DISCOVERY})
+    return JSONResponse({"status": "ok", "service": "fabrient-mcp-auth-wrapper", "tool_count": len(CAPABILITY_REGISTRY), "oauth_discovery": SUPABASE_OAUTH_DISCOVERY, "login_method": "email_otp", "google_oauth": False})
 
 
 async def protected_resource(_: Request) -> JSONResponse:
@@ -155,18 +157,34 @@ async def oauth_discovery(_: Request) -> JSONResponse:
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.get(SUPABASE_OAUTH_DISCOVERY)
         response.raise_for_status()
-        return JSONResponse(response.json())
+        metadata = response.json()
+        # Keep the authorization server's OAuth endpoints, but advertise email-only identity scopes.
+        metadata["scopes_supported"] = OAUTH_SCOPES
+        return JSONResponse(metadata)
+
+
+async def login(request: Request) -> HTMLResponse:
+    """Human-facing email-code screen. It deliberately has no Google sign-in control."""
+    next_url = request.query_params.get("next", "/")
+    safe_next = html.escape(next_url, quote=True)
+    return HTMLResponse(f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fabrient — Sign in</title>
+<style>body{{font-family:system-ui,-apple-system,sans-serif;background:#0b0d10;color:#f4f5f7;display:grid;place-items:center;min-height:100vh;margin:0}}main{{width:min(420px,calc(100% - 40px));padding:32px;border:1px solid #272b33;border-radius:18px;background:#11141a}}h1{{margin:0 0 8px}}p{{color:#a8afbb;line-height:1.5}}input{{box-sizing:border-box;width:100%;padding:13px 14px;border-radius:10px;border:1px solid #363c46;background:#0c0f14;color:white;margin:10px 0 12px}}button,a{{display:block;width:100%;box-sizing:border-box;text-align:center;padding:13px;border-radius:10px;border:0;font-weight:650;text-decoration:none;cursor:pointer}}button{{background:#fff;color:#0b0d10}}a{{margin-top:10px;background:#242a33;color:white}}small{{display:block;color:#737b88;margin-top:14px}}</style></head>
+<body><main><h1>Sign in to Fabrient</h1><p>Enter your email and we'll send you a one-time code. No Google sign-in.</p>
+<form action="{safe_next}" method="get"><input name="email" type="email" autocomplete="email" placeholder="you@example.com" required><button type="submit">Send me a code</button></form>
+<a href="https://mail.google.com/" target="_blank" rel="noopener">Open Gmail</a><small>Already received your code? Return to the MCP authorization window and enter it there.</small></main></body></html>""")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in {"/health", "/", "/capabilities", "/account", "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server"}:
+        public = {"/health", "/", "/capabilities", "/account", "/login", "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server"}
+        if request.url.path in public:
             return await call_next(request)
         if request.url.path.startswith("/mcp"):
             identity = await _authenticated_user(request)
             if identity is None:
                 return JSONResponse(
-                    {"error": "Unauthorized", "message": "A valid Supabase OAuth access token is required."},
+                    {"error": "Unauthorized", "message": "A valid Supabase email-code access token is required."},
                     status_code=401,
                     headers={"WWW-Authenticate": f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}"'},
                 )
@@ -179,6 +197,7 @@ app = Starlette(
         Route("/health", health, methods=["GET"]),
         Route("/capabilities", capabilities, methods=["GET"]),
         Route("/account", account, methods=["GET"]),
+        Route("/login", login, methods=["GET"]),
         Route("/.well-known/oauth-protected-resource", protected_resource, methods=["GET"]),
         Route("/.well-known/oauth-protected-resource/mcp", protected_resource, methods=["GET"]),
         Route("/.well-known/oauth-authorization-server", oauth_discovery, methods=["GET"]),
