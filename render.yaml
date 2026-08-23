@@ -1,19 +1,55 @@
+databases:
+  - name: fabrient-postgres
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: 18
+    databaseName: fabrient_postgres
+    user: fabrient_postgres_user
+
 services:
   - type: web
     name: fabrient-engineering
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    runtime: python
+    buildCommand: pip install -r services/engine/requirements.txt
+    startCommand: uvicorn services.engine.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fabrient-postgres
+          property: connectionString
+      - key: FLYWHEEL_ENABLE_PRODUCTION
+        value: "true"
+      - key: FLYWHEEL_SCHEDULER_ENABLED
+        value: "false"
+      - key: FLYWHEEL_INTERVAL_SECONDS
+        value: "1800"
 
   - type: web
     name: fabrient-mcp
-    runtime: docker
-    dockerfilePath: ./services/mcp/Dockerfile
-    dockerContext: .
+    runtime: python
+    buildCommand: pip install -r services/mcp/requirements.txt
+    startCommand: uvicorn services.mcp.server:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fabrient-postgres
+          property: connectionString
+
+  - type: cron
+    name: fabrient-data-flywheel-cron
+    runtime: python
+    schedule: "*/30 * * * *"
+    buildCommand: pip install -r services/engine/requirements.txt
+    startCommand: python -c "from services.engine.data_flywheel_postgres import run_once; print(run_once())"
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fabrient-postgres
+          property: connectionString
