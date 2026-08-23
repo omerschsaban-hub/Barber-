@@ -1,0 +1,50 @@
+name: Ensure MCP production auth wrapper
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wire-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wire wrapper around existing MCP app
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('services/mcp/server.py')
+          s = p.read_text()
+          marker = '# FABRIENT_PRODUCTION_AUTH_WRAPPED'
+          if marker in s:
+              print('already wrapped')
+              raise SystemExit(0)
+          idx = s.rfind('\napp =')
+          if idx < 0:
+              raise SystemExit('Could not locate the authoritative FastMCP app assignment')
+          line_end = s.find('\n', idx + 1)
+          if line_end < 0:
+              raise SystemExit('Could not parse app assignment')
+          assignment = s[idx + 1:line_end]
+          if not assignment.startswith('app ='):
+              raise SystemExit('Unexpected app assignment: ' + assignment)
+          s = s[:idx + 1] + assignment.replace('app =', '_mcp_app =', 1) + s[line_end:]
+          s += '''\n\n# FABRIENT_PRODUCTION_AUTH_WRAPPED\nfrom services.mcp.production_auth import wrap_app as _fabrient_wrap_app\napp = _fabrient_wrap_app(_mcp_app, CAPABILITY_REGISTRY)\n'''
+          p.write_text(s)
+          PY
+      - name: Compile and import-check
+        run: |
+          python -m py_compile services/mcp/server.py services/mcp/production_auth.py
+      - name: Commit wrapper wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add services/mcp/server.py
+          git diff --cached --quiet || git commit -m 'Wire production OAuth wrapper into MCP runtime'
+          git push
