@@ -6,11 +6,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run",
+    "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
-    "test:deep": "npm run test:unit && npm run test:e2e",
-    "test:all": "npm run lint && npm run build && npm run test:deep",
+    "test:deep": "npm run agent:preflight && npm run test:unit && npm run test:e2e",
+    "test:all": "npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",
     "agent:preflight": "node scripts/agent-preflight.mjs"
   },
   "dependencies": {
