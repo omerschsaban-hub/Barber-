@@ -1,4 +1,4 @@
-name: Deep Product Tests
+name: Deep Frontend Product Tests
 
 on:
   push:
@@ -8,11 +8,15 @@ on:
   workflow_call:
 
 concurrency:
-  group: deep-product-tests-${{ github.ref }}
+  group: deep-frontend-tests-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   web-unit-and-build:
+    name: Frontend unit/build/functionality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,17 +34,8 @@ jobs:
           NEXT_PUBLIC_ENGINEERING_URL: http://127.0.0.1:8000
           FABRIENT_WEB_ORIGIN: http://127.0.0.1:3000
 
-  mcp-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install --upgrade pip pytest
-      - run: pytest -q tests/mcp
-
   browser:
+    name: Frontend browser/E2E functionality
     needs: web-unit-and-build
     runs-on: ubuntu-latest
     steps:
@@ -65,3 +60,44 @@ jobs:
           name: playwright-diagnostics
           path: test-results/
           if-no-files-found: ignore
+
+  frontend-security-and-scaling:
+    name: Frontend security/scaling/technical checks
+    needs: web-unit-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+      - name: Production build integrity
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENGINEERING_URL: http://127.0.0.1:8000
+          FABRIENT_WEB_ORIGIN: http://127.0.0.1:3000
+      - name: Frontend production-footgun scan
+        run: |
+          set -e
+          if grep -RInE 'console\.log\(|TODO.*security|FIXME.*security|dangerouslySetInnerHTML' app components src 2>/dev/null; then
+            echo 'Potential frontend production issue found; inspect before release.'
+            exit 1
+          fi
+      - name: Check for oversized frontend assets
+        run: |
+          set -e
+          if [ -d .next/static ]; then
+            max_bytes=$((2 * 1024 * 1024))
+            bad=$(find .next/static -type f -size +2M -print)
+            if [ -n "$bad" ]; then
+              echo 'Frontend asset exceeds 2MB:'
+              echo "$bad"
+              exit 1
+            fi
+          fi
