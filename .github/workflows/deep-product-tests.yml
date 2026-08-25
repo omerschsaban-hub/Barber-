@@ -1,14 +1,11 @@
 name: Deep Frontend Product Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
   workflow_call:
+  workflow_dispatch:
 
 concurrency:
-  group: deep-frontend-tests-${{ github.ref }}
+  group: deep-frontend-tests-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -93,7 +90,6 @@ jobs:
         run: |
           set -e
           if [ -d .next/static ]; then
-            max_bytes=$((2 * 1024 * 1024))
             bad=$(find .next/static -type f -size +2M -print)
             if [ -n "$bad" ]; then
               echo 'Frontend asset exceeds 2MB:'
