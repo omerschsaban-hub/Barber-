@@ -7,8 +7,8 @@ export default function Home() {
       <div className="cad-intro">
         <div className="cad-kicker"><span className="live-dot" /> FABRINAT</div>
         <h1>From idea<br /><em>to real product.</em></h1>
-        <p>Fabrinat connects the digital design, engineering checks, physical build, testing and real-world results in one simple loop.</p>
-        <div className="cad-actions"><Link href="/manufacturing" className="cad-button cad-button-main">START A PROJECT <span>→</span></Link><Link href="/workspace" className="cad-button">SEE MY PROJECT</Link></div>
+        <p>Fabrient connects intent, CAD, engineering checks, physical build, testing and evidence in one controlled loop.</p>
+        <div className="cad-actions"><Link href="/login?redirect=/workspace" className="cad-button cad-button-main">GET STARTED <span>→</span></Link><Link href="/login?redirect=/workspace" className="cad-button">LOG IN</Link></div>
         <div className="friendly-note"><span className="live-dot" /> The complicated engineering stays in the background until you need it.</div>
       </div>
       <div className="cad-stage friendly-stage" aria-label="product lifecycle preview">
@@ -21,14 +21,14 @@ export default function Home() {
     </section>
 
     <section className="cad-work">
-      <div className="cad-section-head"><div><span>THE PRODUCT LOOP</span><h2>One project. One source of truth.</h2></div><Link href="/engineering">SEE DETAILS →</Link></div>
+      <div className="cad-section-head"><div><span>THE PRODUCT LOOP</span><h2>One project. One source of truth.</h2></div><Link href="/login?redirect=/workspace">GET STARTED →</Link></div>
       <div className="cad-grid">
         <article className="cad-card large"><header><span>01 / CHECK</span><b>EARLY</b></header><div className="card-value">Catch problems before the printer or factory does.</div><p>Fit, geometry, tolerances and manufacturing checks stay attached to the exact revision that was tested.</p></article>
         <article className="cad-card"><header><span>02 / PROVE</span><b>TRACEABLE</b></header><div className="card-value">Every important answer has evidence.</div><p>Measurements, checks, assumptions and decisions stay together.</p></article>
-        <article className="cad-card"><header><span>03 / BUILD</span><b>HANDOFF</b></header><div className="card-value">Ready-to-make package.</div><p>Files, requirements, build instructions and inspection criteria travel together.</p></article>
-        <article className="cad-card wide-card"><header><span>04 / LEARN</span><b className="yellow-state">CLOSE THE LOOP</b></header><div className="release-line"><strong>Real build result → next revision</strong><span>physical → digital</span></div><p>Inspection results and test outcomes become part of the product history instead of disappearing in a spreadsheet or chat.</p><Link href="/records" className="card-link">SEE THE EVIDENCE →</Link></article>
+        <article className="cad-card"><header><span>03 / BUILD</span><b>HANDOFF</b></header><div className="card-value">Ready-to-make package.</div><p>STEP, requirements, build instructions and inspection criteria travel together.</p></article>
+        <article className="cad-card wide-card"><header><span>04 / LEARN</span><b className="yellow-state">CLOSE THE LOOP</b></header><div className="release-line"><strong>Real build result → next revision</strong><span>physical → digital</span></div><p>Inspection results and test outcomes become part of the product history instead of disappearing in a spreadsheet or chat.</p><Link href="/login?redirect=/workspace" className="card-link">GET STARTED →</Link></article>
       </div>
     </section>
-    <section className="friendly-bottom"><strong>Simple on the surface. Serious underneath.</strong><span>Start with a check. Grow into the full physical + digital product loop when you need it.</span><Link href="/workspace">OPEN FABRINAT →</Link></section>
+    <section className="friendly-bottom"><strong>Simple on the surface. Serious underneath.</strong><span>Start with intent. Fabrient coordinates CAD, deterministic engineering, ML and evidence behind the scenes.</span><Link href="/login?redirect=/workspace">GET STARTED →</Link></section>
   </main>
 }
