@@ -25,52 +25,60 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install backend dependencies
+      - name: Install engineering backend dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          pip install -r engineering/requirements.txt
           pip install pytest pytest-asyncio httpx ruff
 
       - name: Backend lint
-        run: ruff check .
+        run: ruff check engineering services/mcp tests
 
       - name: Backend unit and API tests
-        run: pytest -q
+        run: pytest -q tests/unit tests/mcp
 
-      - name: MCP contract tests
-        run: pytest -q tests/mcp
-
-      - name: Backend import/startup smoke test
+      - name: Engineering application import and health contract
         run: |
           python - <<'PY'
-          import importlib.util
-          from pathlib import Path
-          candidates = [
-              Path('backend/main.py'),
-              Path('app/main.py'),
-              Path('main.py'),
-              Path('src/main.py'),
-          ]
-          for p in candidates:
-              if p.exists():
-                  spec = importlib.util.spec_from_file_location('fabrient_backend_smoke', p)
-                  module = importlib.util.module_from_spec(spec)
-                  spec.loader.exec_module(module)
-                  print(f'Imported backend entrypoint: {p}')
-                  break
-          else:
-              print('No conventional backend entrypoint found; pytest/API tests remain the startup gate.')
+          import sys
+          sys.path.insert(0, 'engineering')
+          from app.composed import app
+          from fastapi.testclient import TestClient
+
+          client = TestClient(app)
+          response = client.get('/health')
+          assert response.status_code == 200, response.text
+          print('engineering /health:', response.status_code, response.text)
           PY
 
-      - name: Search for obvious production footguns
+      - name: MCP application import smoke test
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'services/mcp')
+          import auth_server
+          assert getattr(auth_server, 'app', None) is not None
+          print('MCP auth_server.app imported successfully')
+          PY
+
+      - name: Backend security checks
         run: |
           set -e
-          if grep -RInE 'TODO.*security|FIXME.*security|debug *= *True|allow_origins *= *\["\*"\]' backend app src 2>/dev/null; then
-            echo 'Potential backend production footgun found.'
+          if grep -RInE 'debug *= *True|allow_origins *= *\["\*"\]|verify *= *False|ssl_verify *= *False' engineering services/mcp 2>/dev/null; then
+            echo 'Potential insecure production configuration found.'
             exit 1
           fi
 
-      - name: Render deploy configuration sanity
+      - name: Backend production-footgun scan
         run: |
-          test -f render.yaml || test -f render.yml || echo 'No render.yaml/render.yml found; deployment may be configured in Render dashboard.'
+          set -e
+          if grep -RInE 'TODO.*security|FIXME.*security|password *= *["'"'][^$]' engineering services/mcp 2>/dev/null; then
+            echo 'Potential backend production footgun found; inspect before release.'
+            exit 1
+          fi
+
+      - name: Render configuration sanity
+        run: |
+          test -f render.yaml || test -f render.yml
+          grep -q 'fabrient-engineering' render.yaml 2>/dev/null || grep -q 'fabrient-engineering' render.yml
+          grep -q 'fabrient-mcp' render.yaml 2>/dev/null || grep -q 'fabrient-mcp' render.yml
