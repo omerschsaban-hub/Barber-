@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+const REAL_PHOTO = 'https://images.pexels.com/photos/22491107/pexels-photo-22491107.jpeg?auto=compress&cs=tinysrgb&w=1600'
+
 export default function Home() {
   return (
     <main className="cad-home">
@@ -12,15 +14,13 @@ export default function Home() {
             <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">GET STARTED <span>→</span></Link>
             <Link href="/login?redirect=/workspace" className="cad-button">LOG IN</Link>
           </div>
-          <div className="friendly-note"><span className="live-dot" /> This page is informational only. Nothing is analyzed, generated or submitted here.</div>
+          <div className="friendly-note"><span className="live-dot" /> Informational entry point only. Nothing is analyzed, generated, changed or submitted here.</div>
         </div>
-        <div className="cad-stage friendly-stage" aria-label="Fabrient workflow preview">
-          <div className="cad-floor" />
-          <div className="part part-top"><span>INTENT</span></div>
-          <div className="part part-board"><span>CAD + ENGINEERING</span><i /></div>
-          <div className="part part-bottom"><span>REAL PRODUCT</span></div>
-          <div className="cad-tag tag-pass">EVIDENCE ✓</div>
-          <div className="cad-tag tag-rev">NEXT REVISION →</div>
+        <div className="cad-stage friendly-stage" aria-label="Real electronics manufacturing photograph">
+          <img src={REAL_PHOTO} alt="Real 3D printer mechanism used for precision manufacturing" loading="eager" referrerPolicy="no-referrer" />
+          <div className="photo-credit">Real manufacturing photo · Pexels</div>
+          <div className="cad-tag tag-pass">REAL HARDWARE</div>
+          <div className="cad-tag tag-rev">ENGINE → EVIDENCE</div>
         </div>
       </section>
       <section className="cad-work">
