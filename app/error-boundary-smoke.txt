@@ -1,0 +1,1 @@
+Production hardening marker: verify Next.js error boundaries and browser acceptance before release. This file is intentionally non-runtime and may be removed after the hardening pass.
