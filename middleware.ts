@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: {
       getAll: () => request.cookies.getAll(),
-      setAll(cookies) => {
+      setAll: (cookies) => {
         cookies.forEach(({name, value}) => request.cookies.set(name, value))
         response = securityHeaders(NextResponse.next({request: {headers: new Headers(request.headers)}}))
         cookies.forEach(({name, value, options}) => response.cookies.set(name, value, options))
@@ -47,8 +47,6 @@ export async function middleware(request: NextRequest) {
     return securityHeaders(NextResponse.redirect(login))
   }
 
-  // The old feature routes remain in source for compatibility and backend/API
-  // contracts, but the user-facing product is now one authenticated workspace.
   if (isFeatureRoute && !isWorkspace) return securityHeaders(NextResponse.redirect(new URL('/workspace', request.url)))
   return response
 }
