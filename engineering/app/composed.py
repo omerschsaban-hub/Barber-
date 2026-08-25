@@ -50,6 +50,7 @@ install_universal_quality(app)
 import ast
 from pathlib import Path
 from fastapi import Request
+from .cv_json import detect_line_candidates_json
 
 _registry_path = Path(__file__).resolve().parents[2] / "services" / "mcp" / "server.py"
 _registry_source = _registry_path.read_text(encoding="utf-8")
@@ -73,6 +74,8 @@ if len({name for name, _, _ in CAPABILITY_REGISTRY}) != 100:
     raise RuntimeError("Authoritative MCP registry contains duplicate tool names")
 
 _existing_paths = {route.path for route in app.routes if hasattr(route, "path")}
+if "/v1/cv/detect-line-candidates-json" not in _existing_paths:
+    app.add_api_route("/v1/cv/detect-line-candidates-json", detect_line_candidates_json, methods=["POST"], name="detect_line_candidates_json_compat")
 
 def _make_mcp_compat_handler(operation: str):
     async def _handler(request: Request):
@@ -93,3 +96,10 @@ def _make_mcp_compat_handler(operation: str):
 for _name, _description, _path in CAPABILITY_REGISTRY:
     if _path not in _existing_paths:
         app.add_api_route(_path, _make_mcp_compat_handler(_name), methods=["POST"], name=f"mcp_compat_{_name}")
+
+# FastAPI 0.1xx can retain internal include-wrapper objects in app.routes.
+# Give those wrappers a harmless sentinel path so compatibility consumers that
+# enumerate route.path remain stable; real APIRoute entries are unchanged.
+for _route in app.routes:
+    if not hasattr(_route, "path"):
+        setattr(_route, "path", "")

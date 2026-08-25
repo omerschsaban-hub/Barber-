@@ -93,9 +93,9 @@ def residuals_from_measurements(
             continue
         predicted = float(predictions[quantity])
         observed = float(observed)
-        residual = observed - predicted
+        residual = round(observed - predicted, 12)
         sigma = uncertainties.get(quantity)
-        normalized = residual / sigma if sigma and sigma > 0 else None
+        normalized = round(residual / sigma, 12) if sigma and sigma > 0 else None
         result.append(
             Residual(
                 quantity=quantity,

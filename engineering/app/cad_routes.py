@@ -104,6 +104,7 @@ async def step_geometry(request: Request):
             "feature_extraction": {"method": "Cartesian-point fallback", "topology_features": None, "status": "limited"},
             "provenance": {"source": "STEP", "method": "kernel failed; bounded Cartesian-point fallback", "warning": "Full B-rep topology and unit declaration were not inferred."},
         }
+    result.setdefault("feature_extraction", {"status": "limited", "method": "kernel result without explicit feature extraction"})
     result.setdefault("filename", name)
     result.setdefault("file_size_bytes", len(raw))
     result.setdefault("provenance", {})

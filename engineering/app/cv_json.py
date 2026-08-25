@@ -104,7 +104,11 @@ def detect_line_candidates_json(payload: dict):
     candidates = []
     if lines is not None:
         for row in lines[:200]:
-            p1, p2 = [int(row[0][0]), int(row[0][1])], [int(row[0][2]), int(row[0][3])]
+            coordinates = np.asarray(row).reshape(-1)
+            if coordinates.size < 4:
+                continue
+            x1, y1, x2, y2 = (int(value) for value in coordinates[:4])
+            p1, p2 = [x1, y1], [x2, y2]
             candidates.append({"p1": p1, "p2": p2, "length_px": float(math.dist(p1, p2))})
     candidates.sort(key=lambda item: item["length_px"], reverse=True)
     return {"status": "candidates", "candidates": candidates[:50], "requires_user_selection": True, "quality": quality, "provenance": {"algorithm": "opencv-canny-hough", "cv_version": REAL_CV_VERSION, "ground_truth_mm": False}}
