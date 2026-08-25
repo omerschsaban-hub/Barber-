@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
-const publicRoutes = ['/', '/manufacturing', '/engineering', '/geometry', '/records']
+const publicRoutes = ['/', '/login']
+const legacyRoutes = ['/manufacturing', '/engineering', '/geometry', '/records', '/calibration', '/experiments', '/graph', '/import', '/projects', '/risk-map']
 
 function attachDiagnostics(page: Page) {
   const pageErrors: string[] = []
@@ -29,51 +30,23 @@ test.describe('Fabrient browser health', () => {
     })
   }
 
-  test('landing page is a simple entry point into the real product loop', async ({ page }) => {
+  test('landing page has exactly two execution CTAs and neither executes work', async ({ page }) => {
     const diagnostics = attachDiagnostics(page)
     await page.goto('/')
-    await expect(page.getByRole('link', { name: /START A PROJECT/i })).toBeVisible()
-    await expect(page.getByText(/From idea/i)).toBeVisible()
-    await expect(page.getByText(/real product/i)).toBeVisible()
-    await page.getByRole('link', { name: /START A PROJECT/i }).click()
-    await expect(page).toHaveURL(/\/manufacturing$/)
+    const ctas = page.locator('main .cad-actions a')
+    await expect(ctas).toHaveCount(2)
+    await expect(page.getByRole('link', { name: /GET STARTED/i })).toHaveAttribute('href', /\/login\?redirect=%2Fworkspace/)
+    await expect(page.getByRole('link', { name: /^LOG IN$/i })).toHaveAttribute('href', /\/login\?redirect=%2Fworkspace/)
+    await expect(page.getByText(/informational entry point only/i)).toBeVisible()
+    await expect(page.getByAltText(/Real 3D printer mechanism/i)).toBeVisible()
     expect(diagnostics.pageErrors).toEqual([])
   })
 
-  test('manufacturing surface has a low-friction default path', async ({ page }) => {
-    await page.goto('/manufacturing')
-    await expect(page.getByRole('heading', { name: /Fix it\. Verify it\. Build it\./i })).toBeVisible()
-    await expect(page.getByLabel(/Part name/i)).toHaveValue(/.+/)
-    await expect(page.getByLabel(/Material/i)).toHaveValue(/.+/)
-    await expect(page.getByLabel(/Machine/i)).toHaveValue(/.+/)
-    await expect(page.getByRole('button', { name: /Self-fix \+ verify/i })).toBeVisible()
-  })
-
-  test('manufacturing workflow recovers from an engineering API failure', async ({ page }) => {
-    await page.route('**/v1/dfm/self-fix', async route => {
-      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'temporary upstream failure' }) })
+  for (const route of legacyRoutes) {
+    test(`${route} is no longer a disconnected product destination`, async ({ page }) => {
+      const response = await page.goto(route, { waitUntil: 'domcontentloaded' })
+      expect(response?.status()).toBeLessThan(400)
+      await expect(page).toHaveURL(/\/login|\/workspace/)
     })
-    await page.goto('/manufacturing')
-    await page.getByRole('button', { name: /Self-fix \+ verify/i }).click()
-    await expect(page.getByText(/temporary upstream failure/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /Self-fix \+ verify/i })).toBeEnabled()
-  })
-
-  test('manufacturing workflow can execute a bounded self-fix and show evidence', async ({ page }) => {
-    await page.route('**/v1/dfm/self-fix', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          changes: [{ issue: 'Wall too thin', field: 'wall_thickness_mm', before: 1, after: 1.2, reason: 'Within deterministic scalar fix bound' }],
-          refused: [],
-          after: { status: 'PASS', blocker_count: 0 },
-        }),
-      })
-    })
-    await page.goto('/manufacturing')
-    await page.getByRole('button', { name: /Self-fix \+ verify/i }).click()
-    await expect(page.getByText('Wall too thin')).toBeVisible()
-    await expect(page.getByText(/Verification: PASS/i)).toBeVisible()
-  })
+  }
 })
