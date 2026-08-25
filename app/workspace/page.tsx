@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import {useEffect, useMemo, useState} from 'react'
 
 const View3D = dynamic(() => import('@/components/geometry-viewer'), {
@@ -165,7 +166,7 @@ export default function Workspace() {
       <div className="row">
         <a className="button primary" href="/manufacturing">Continue to manufacturing</a>
         <a className="button" href="/engineering">Open engineering tools</a>
-        <a className="button" href="/projects">Projects</a>
+        <Link className="button" href="/projects">Projects</Link>
       </div>
     </section>
 

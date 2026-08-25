@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "npm run test:unit",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run tests/unit",
     "test:e2e": "playwright test",
     "test:deep": "npm run agent:preflight && npm run test:unit && npm run test:e2e",
     "test:all": "npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",

@@ -1,8 +1,9 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const params = useSearchParams()
   const appUserId = params.get('app_user_id')
   const redeemUrl = params.get('redeem_url')
@@ -16,9 +17,7 @@ export default function BillingSuccessPage() {
         <p className="muted" style={{ marginTop: 12 }}>
           RevenueCat has received your purchase. Your Fabrient account will use the RevenueCat entitlement state as the subscription source of truth.
         </p>
-        {appUserId && (
-          <p className="muted">Account: {appUserId}</p>
-        )}
+        {appUserId && <p className="muted">Account: {appUserId}</p>}
         {redeemUrl && (
           <p className="muted">
             If RevenueCat provided a redemption link for this purchase, use it from the hosted purchase experience to associate the purchase with your account or app.
@@ -29,5 +28,13 @@ export default function BillingSuccessPage() {
         </a>
       </section>
     </main>
+  )
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={<main className="page" style={{ maxWidth: 720 }}><div className="eyebrow">FABRIENT / BILLING</div><h1 className="title">Loading purchase status…</h1></main>}>
+      <BillingSuccessContent />
+    </Suspense>
   )
 }
