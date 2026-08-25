@@ -1,76 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
-
-type Provider = { id: string; name: string; description: string; auth: string; endpoint: string; docs: string; configured?: boolean; kind?: string };
-type Tool = { provider: string; name?: string; description?: string };
-
-export default function IntegrationsPage() {
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [query, setQuery] = useState('');
-  const [toolQuery, setToolQuery] = useState('');
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function load(q = '') {
-    const r = await fetch(`/integrations/search?query=${encodeURIComponent(q)}`);
-    const data = await r.json();
-    setProviders(data.results || []);
-  }
-
-  useEffect(() => { load(); }, []);
-  useEffect(() => { const t = setTimeout(() => load(query), 180); return () => clearTimeout(t); }, [query]);
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      const r = await fetch(`/integrations/search-tools?query=${encodeURIComponent(toolQuery)}`);
-      const data = await r.json();
-      setTools(data.tools || []);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [toolQuery]);
-
-  async function connect(p: Provider) {
-    setBusy(p.id); setStatus('');
-    try {
-      const r = await fetch('/integrations/auth/start', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ provider: p.id }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || 'Unable to start connection');
-      if (data.auth_url) {
-        window.open(data.auth_url, '_blank', 'noopener,noreferrer');
-        setStatus(`${p.name}: official MCP endpoint opened.`);
-      } else {
-        if (data.docs) window.open(data.docs, '_blank', 'noopener,noreferrer');
-        setStatus(`${p.name}: use the provider's official MCP authorization flow.`);
-      }
-    } catch(e) {
-      setStatus(e instanceof Error ? e.message : 'Connection failed');
-    } finally { setBusy(null); }
-  }
-
-  return <main className="page-shell">
-    <h1>Connect your tools</h1>
-    <p>Fabrient only lists MCP integrations with a verified, vendor-published MCP endpoint.</p>
-    <section className="card">
-      <input aria-label="Search integrations" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search CAD, PLM, documentation, repositories…" />
-    </section>
-    <section className="grid">
-      {providers.map(p=><article className="card" key={p.id}>
-        <h2>{p.name}</h2>
-        <p>{p.description}</p>
-        <small>{p.kind?.replaceAll('_',' ')}</small>
-        <div><button disabled={busy===p.id} onClick={()=>connect(p)}>{busy===p.id?'Opening…':p.configured?'Connected':'Connect'}</button></div>
-      </article>)}
-    </section>
-    <section className="card">
-      <h2>Find a tool for the job</h2>
-      <p>Search what you need done; Fabrient searches the live tool names and descriptions from connected official MCP servers.</p>
-      <input aria-label="Search connected tools" value={toolQuery} onChange={e=>setToolQuery(e.target.value)} placeholder="e.g. search documentation, inspect repository" />
-      {tools.length>0&&<ul>{tools.map((t,i)=><li key={`${t.provider}-${t.name}-${i}`}><strong>{t.name}</strong> — {t.description} <small>({t.provider})</small></li>)}</ul>}
-    </section>
-    {status&&<p role="status">{status}</p>}
-  </main>;
-}
+import {useEffect,useState} from 'react';
+type Provider={id:string;name:string;description:string;auth:string;endpoint:string;docs:string;configured?:boolean;kind?:string};type Tool={provider:string;name?:string;description?:string};
+const MCP_URL='https://fabrient-mcp.onrender.com/mcp';
+export default function IntegrationsPage(){const[providers,setProviders]=useState<Provider[]>([]),[query,setQuery]=useState(''),[toolQuery,setToolQuery]=useState(''),[tools,setTools]=useState<Tool[]>([]),[status,setStatus]=useState(''),[busy,setBusy]=useState<string|null>(null),[copied,setCopied]=useState(false);
+ async function load(q=''){try{const r=await fetch(`/integrations/search?query=${encodeURIComponent(q)}`,{cache:'no-store'});const data=await r.json();setProviders(data.results||[])}catch(e){setStatus('Could not load integration catalog.')}} useEffect(()=>{load()},[]);useEffect(()=>{const t=setTimeout(()=>load(query),180);return()=>clearTimeout(t)},[query]);useEffect(()=>{const t=setTimeout(async()=>{try{const r=await fetch(`/integrations/search-tools?query=${encodeURIComponent(toolQuery)}`);const data=await r.json();setTools(data.tools||[])}catch{}},250);return()=>clearTimeout(t)},[toolQuery]);
+ async function connect(p:Provider){setBusy(p.id);setStatus('');try{const r=await fetch('/integrations/auth/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:p.id})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Unable to start connection');if(data.auth_url)window.open(data.auth_url,'_blank','noopener,noreferrer');else if(data.docs)window.open(data.docs,'_blank','noopener,noreferrer');setStatus(`${p.name}: authorization flow opened.`)}catch(e){setStatus(e instanceof Error?e.message:'Connection failed')}finally{setBusy(null)}}
+ async function copyMcp(){try{await navigator.clipboard.writeText(MCP_URL);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setStatus('Copy failed; select the URL manually.')}}
+ return <main className="page-shell"><h1>Connect your tools</h1><p>Connect Fabrient to MCP-compatible clients while keeping the engineering evidence boundary intact.</p>
+ <section className="card"><h2>Fabrient MCP server</h2><p>Copy this URL into an MCP client. The endpoint exposes the authenticated Fabrient engineering tool surface.</p><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><code style={{padding:'12px',border:'1px solid currentColor',borderRadius:8}}>{MCP_URL}</code><button onClick={copyMcp}>{copied?'Copied ✓':'Copy MCP URL'}</button></div><details style={{marginTop:16}}><summary><strong>How to connect</strong></summary><div style={{display:'grid',gap:12,marginTop:12}}><div><strong>ChatGPT</strong><p>Add an MCP/connector server in the client's developer/connectors settings and paste the URL above. Authenticate when prompted.</p></div><div><strong>Claude</strong><p>In Claude's MCP connector/server settings, add a remote MCP server and paste the URL above, then complete authentication.</p></div><div><strong>Codex</strong><p>In Codex MCP configuration, add a remote HTTP MCP server using the URL above. Keep credentials in the client configuration, never in source code.</p></div><div><strong>Cursor</strong><p>Open Cursor MCP settings, add a remote HTTP server, paste the URL, save, then verify the Fabrient tools appear.</p></div><div><strong>Other MCP clients</strong><p>Choose Streamable HTTP/remote MCP, use the URL above, authenticate, and confirm the Fabrient tool list loads.</p></div></div></details></section>
+ <section className="card"><input aria-label="Search integrations" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search CAD, PLM, documentation, repositories…" /></section><section className="grid">{providers.map(p=><article className="card" key={p.id}><h2>{p.name}</h2><p>{p.description}</p><small>{p.kind?.replaceAll('_',' ')}</small><div><button disabled={busy===p.id} onClick={()=>connect(p)}>{busy===p.id?'Opening…':p.configured?'Connected':'Connect'}</button></div></article>)}</section>
+ <section className="card"><h2>Find a tool for the job</h2><p>Search live tool names and descriptions from connected official MCP servers.</p><input aria-label="Search connected tools" value={toolQuery} onChange={e=>setToolQuery(e.target.value)} placeholder="e.g. inspect repository" />{tools.length>0&&<ul>{tools.map((t,i)=><li key={`${t.provider}-${t.name}-${i}`}><strong>{t.name}</strong> — {t.description} <small>({t.provider})</small></li>)}</ul>}</section>{status&&<p role="status">{status}</p>}</main>}
