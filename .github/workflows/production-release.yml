@@ -45,6 +45,24 @@ jobs:
           test -n "$VERCEL_ORG_ID" || { echo 'Missing VERCEL_ORG_ID repository secret'; exit 1; }
           test -n "$VERCEL_PROJECT_ID" || { echo 'Missing VERCEL_PROJECT_ID repository secret'; exit 1; }
 
+      - name: Enforce 50-release rolling 24h safety cap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d '24 hours ago' +%s)
+          count=0
+          while IFS= read -r ts; do
+            [ -z "$ts" ] && continue
+            epoch=$(date -u -d "$ts" +%s)
+            if [ "$epoch" -ge "$cutoff" ]; then count=$((count+1)); fi
+          done < <(gh run list --workflow production-release.yml --limit 100 --json startedAt --jq '.[].startedAt')
+          echo "Production-release workflow runs in rolling 24h: $count"
+          if [ "$count" -ge 50 ]; then
+            echo '50 production-release workflow runs have already been started in the rolling 24h window; refusing another deployment.'
+            exit 1
+          fi
+
       - name: Pull Production environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
