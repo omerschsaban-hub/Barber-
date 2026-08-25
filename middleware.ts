@@ -31,7 +31,9 @@ function withSecurityHeaders(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
-  let { response, requestHeaders } = withSecurityHeaders(request)
+  const security = withSecurityHeaders(request)
+  let { response } = security
+  const { requestHeaders } = security
 
   if (!request.nextUrl.pathname.startsWith('/projects')) {
     return response
