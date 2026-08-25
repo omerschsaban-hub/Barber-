@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
 function withSecurityHeaders(request: NextRequest) {
-  const nonce = crypto.randomUUID().replace(/-/g, '')
+  // Next.js 15 emits small inline bootstrap/hydration scripts. The previous
+  // per-request nonce CSP was not being attached to those generated scripts
+  // in production, so the browser blocked them after the initial HTML paint
+  // and the app became a white page. Keep the CSP explicit, but permit the
+  // framework's inline bootstrap scripts. All other hardening headers remain.
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://*.supabase.co https://va.vercel-scripts.com`,
+    "script-src 'self' 'unsafe-inline' https://*.supabase.co https://va.vercel-scripts.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
@@ -19,9 +23,6 @@ function withSecurityHeaders(request: NextRequest) {
   ].join('; ')
 
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-nonce', nonce)
-  requestHeaders.set('Content-Security-Policy', csp)
-
   const response = NextResponse.next({
     request: { headers: requestHeaders }
   })
@@ -50,7 +51,7 @@ export async function middleware(request: NextRequest) {
         setAll(cookies) {
           cookies.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request: { headers: requestHeaders } })
-          response.headers.set('Content-Security-Policy', requestHeaders.get('Content-Security-Policy')!)
+          response.headers.set('Content-Security-Policy', cspForProjects())
           cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         }
       }
@@ -61,11 +62,28 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     const redirect = NextResponse.redirect(new URL('/login', request.url))
-    redirect.headers.set('Content-Security-Policy', requestHeaders.get('Content-Security-Policy')!)
+    redirect.headers.set('Content-Security-Policy', cspForProjects())
     return redirect
   }
 
   return response
+}
+
+function cspForProjects() {
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://*.supabase.co https://va.vercel-scripts.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data: https:",
+    "connect-src 'self' https://*.supabase.co https://api.openai.com https://va.vercel-scripts.com",
+    "frame-src 'self' https://*.supabase.co",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'"
+  ].join('; ')
 }
 
 export const config = {
