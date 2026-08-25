@@ -1,0 +1,47 @@
+name: MCP 100-tool surface acceptance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-tool-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: engineering/requirements.txt
+      - name: Install engineering dependencies
+        run: python -m pip install --upgrade pip && pip install -r engineering/requirements.txt -r requirements.txt
+      - name: Start isolated engineering API
+        run: |
+          set -euo pipefail
+          uvicorn main:app --app-dir engineering --host 127.0.0.1 --port 8001 >/tmp/fabrient-engine.log 2>&1 &
+          pid=$!
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8001/health >/dev/null; then ready=1; break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/fabrient-engine.log; exit 1; fi
+      - name: Probe every registered MCP backend operation
+        env:
+          FABRIENT_ENGINE_URL: http://127.0.0.1:8001
+        run: pytest -q tests/mcp/test_live_tool_surface.py -m live
+      - name: Upload engineering log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-tool-surface-engine-log
+          path: /tmp/fabrient-engine.log
+          if-no-files-found: ignore
