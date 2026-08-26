@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const API = process.env.FABRIENT_API_URL
+const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
 export async function GET() {
   if (!API) return NextResponse.json({ error: 'Authentication backend is not configured' }, { status: 503 })
   const token = (await cookies()).get('fabrient_session')?.value

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const API = process.env.FABRIENT_API_URL
+const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
 const COOKIE = 'fabrient_session'
 
 export async function POST(request: Request) {

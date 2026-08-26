@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const API = process.env.FABRIENT_API_URL
+const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
 export async function POST() {
   const out = NextResponse.json({ ok: true })
   const token = (await cookies()).get('fabrient_session')?.value

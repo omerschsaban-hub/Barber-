@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const API = process.env.FABRIENT_API_URL
+const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
 
 export async function POST(request: Request) {
   if (!API) return NextResponse.json({ error: 'Authentication backend is not configured' }, { status: 503 })

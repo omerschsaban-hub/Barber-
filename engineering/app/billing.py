@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Header, HTTPException, Request
 
-from .owned_auth import _session, COOKIE_NAME
+from .owned_auth import _bearer, user_from_token, COOKIE_NAME
 from .postgres import fetch_one, transaction
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -47,8 +47,8 @@ def _event_time(event: dict) -> datetime | None:
 
 
 @router.get("/access")
-def access(session: str | None = Cookie(default=None, alias=COOKIE_NAME)):
-    identity = _session(session)
+def access(request: Request, authorization: str | None = Header(default=None), session: str | None = Cookie(default=None, alias=COOKIE_NAME)):
+    identity = user_from_token(_bearer(request, authorization) or session)
     if not identity:
         raise HTTPException(401, "Unauthorized")
     row = fetch_one(

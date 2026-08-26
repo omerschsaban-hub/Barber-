@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   FABRINAT_PRO_ENTITLEMENT,
-  getWebCustomerInfo,
   getWebOffering,
-  hasProEntitlement,
   purchaseWebPackage,
 } from '@/lib/revenuecat-web'
 
@@ -16,6 +14,13 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  async function getBackendAccess() {
+    const response = await fetch('/api/revenuecat/access', { cache: 'no-store' })
+    const body = await response.json() as { pro?: boolean; error?: string }
+    if (!response.ok) throw new Error(body.error || 'Unable to verify subscription access')
+    return Boolean(body.pro)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -28,13 +33,13 @@ export default function BillingPage() {
         if (!id) throw new Error('Sign in before purchasing Fabrient Pro')
         if (cancelled) return
         setUserId(id)
-        const [offering, info] = await Promise.all([
+        const [offering, backendPro] = await Promise.all([
           getWebOffering(id),
-          getWebCustomerInfo(id),
+          getBackendAccess(),
         ])
         if (cancelled) return
         setPackageInfo(offering?.availablePackages?.[0] ?? null)
-        setPro(hasProEntitlement(info))
+        setPro(backendPro)
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? 'Unable to load billing')
       } finally {
@@ -50,8 +55,18 @@ export default function BillingPage() {
     setBusy(true)
     setError('')
     try {
-      const result = await purchaseWebPackage(userId, packageInfo)
-      setPro(hasProEntitlement(result.customerInfo))
+      await purchaseWebPackage(userId, packageInfo)
+      // RevenueCat delivers the entitlement asynchronously through the signed webhook.
+      // Never grant Pro from client-side customer info alone.
+      setError('Purchase completed. Waiting for entitlement confirmation…')
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+        if (await getBackendAccess()) {
+          setPro(true)
+          setError('')
+          break
+        }
+      }
     } catch (e: any) {
       if (!e?.userCancelled) setError(e?.message ?? 'Purchase failed')
     } finally {
