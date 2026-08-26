@@ -4,7 +4,7 @@ function withSecurityHeaders(request: NextRequest) {
   const nonce = crypto.randomUUID().replace(/-/g, '')
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://va.vercel-scripts.com`,
+    `script-src 'self' 'nonce-${nonce}'${process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
