@@ -78,8 +78,8 @@ async def authorize(r: Request):
 
 async def details(r: Request):
     with _pool().connection() as db:
-        row = db.execute("select r.id,r.client_id,c.client_name,r.redirect_uri,r.scope,r.expires_at from oauth_authorization_requests r join oauth_clients c on c.client_id=r.client_id where r.id=%s", (r.path_params['id'],)).fetchone()
-    if not row or row['expires_at'] <= datetime.now(timezone.utc) or row['approved_at'] if 'approved_at' in row else False:
+        row = db.execute("select r.id,r.client_id,c.client_name,r.redirect_uri,r.scope,r.state,r.expires_at,r.approved_at,r.denied_at from oauth_authorization_requests r join oauth_clients c on c.client_id=r.client_id where r.id=%s", (r.path_params['id'],)).fetchone()
+    if not row or row['expires_at'] <= datetime.now(timezone.utc) or row['approved_at'] or row['denied_at']:
         return JSONResponse({'error': 'invalid_request'}, 400)
     return JSONResponse({'authorization_id': str(row['id']), 'client': {'client_id': row['client_id'], 'name': row['client_name']}, 'redirect_uri': row['redirect_uri'], 'scope': row['scope']})
 
