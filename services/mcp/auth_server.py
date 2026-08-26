@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import os
 from typing import Any
 
@@ -8,15 +7,14 @@ import httpx
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from server import CAPABILITY_REGISTRY, app as mcp_app
+# Render starts this module as services.mcp.auth_server, so the MCP server must
+# be imported as a package-relative module. The old bare `from server` import
+# worked only when the process cwd happened to contain services/mcp.
+from .server import CAPABILITY_REGISTRY, app as mcp_app
 
-# Transitional wrapper: the next cutover will replace the Supabase identity
-# issuer with Fabrient's owned auth issuer. Keep this file independently
-# importable in the Render image; the previous relative import could crash the
-# container because Docker runs `uvicorn auth_server:app` from /app.
 PROJECT_ID = os.getenv("REVENUECAT_PROJECT_ID", "projb138a8db")
 PRO_ENTITLEMENT = os.getenv("FABRIENT_PRO_ENTITLEMENT", "create_an_app_called_fabrinat_pro")
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "https://gphmefejeqvlemzvmade.supabase.co").rstrip("/")
