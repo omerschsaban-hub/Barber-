@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createBrowserSupabase } from '@/lib/supabase-browser'
 import {
   FABRINAT_PRO_ENTITLEMENT,
   getWebCustomerInfo,
@@ -22,15 +21,16 @@ export default function BillingPage() {
     let cancelled = false
     async function load() {
       try {
-        const supabase = createBrowserSupabase()
-        if (!supabase) throw new Error('Authentication is not configured')
-        const { data, error: authError } = await supabase.auth.getUser()
-        if (authError || !data.user) throw new Error('Sign in before purchasing Fabrinat Pro')
+        const auth = await fetch('/api/auth/me', { cache: 'no-store' })
+        if (!auth.ok) throw new Error('Sign in before purchasing Fabrient Pro')
+        const body = await auth.json() as { user?: { id?: string } }
+        const id = body.user?.id
+        if (!id) throw new Error('Sign in before purchasing Fabrient Pro')
         if (cancelled) return
-        setUserId(data.user.id)
+        setUserId(id)
         const [offering, info] = await Promise.all([
-          getWebOffering(data.user.id),
-          getWebCustomerInfo(data.user.id),
+          getWebOffering(id),
+          getWebCustomerInfo(id),
         ])
         if (cancelled) return
         setPackageInfo(offering?.availablePackages?.[0] ?? null)
