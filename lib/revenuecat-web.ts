@@ -1,6 +1,6 @@
 'use client'
 
-import Purchases from '@revenuecat/purchases-js'
+import { Purchases } from '@revenuecat/purchases-js'
 
 export const FABRINAT_PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
 
