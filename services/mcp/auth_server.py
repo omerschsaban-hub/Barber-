@@ -1,128 +1,88 @@
 from __future__ import annotations
-
-import os
+import base64,hashlib,hmac,os,secrets
+from datetime import datetime,timezone
+from urllib.parse import urlencode
 from typing import Any
-
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.responses import JSONResponse,RedirectResponse
+from starlette.routing import Mount,Route
+from server import CAPABILITY_REGISTRY,app as mcp_app
+from auth_db import user_from_bearer,_pool
+MCP_HOST=os.getenv('RENDER_EXTERNAL_HOSTNAME','fabrient-mcp.onrender.com')
+RESOURCE=os.getenv('FABRIENT_MCP_RESOURCE_URL',f'https://{MCP_HOST}/mcp').rstrip('/')
+ISSUER=os.getenv('FABRIENT_MCP_OAUTH_ISSUER',f'https://{MCP_HOST}').rstrip('/')
+SCOPES={'openid','email','profile','mcp:use'}
+FREE={'inspect_part','analyze_dfm','verify_fixes','validate_material','validate_machine_envelope','validate_dimension','check_wall_thickness','check_clearances','check_holes','check_overhangs','check_orientation','check_tolerances','check_fit','check_first_layer','check_bed_adhesion','check_revision_consistency','compare_revisions','trace_provenance','build_inspection_plan','estimate_risk','next_experiment'}
+if len(CAPABILITY_REGISTRY)!=100 or len({x[0] for x in CAPABILITY_REGISTRY})!=100: raise RuntimeError('MCP registry must contain exactly 100 unique tools')
 
-from server import CAPABILITY_REGISTRY, app as mcp_app
-from auth_db import user_from_bearer, _pool
-
-PROJECT_ID = "projb138a8db"
-PRO_ENTITLEMENT = "create_an_app_called_fabrinat_pro"
-MCP_HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME", "fabrient-mcp.onrender.com")
-MCP_RESOURCE_URL = os.getenv("FABRIENT_MCP_RESOURCE_URL", f"https://{MCP_HOST}/mcp").rstrip("/")
-MCP_RESOURCE_METADATA_URL = f"https://{MCP_HOST}/.well-known/oauth-protected-resource/mcp"
-OAUTH_ISSUER = os.getenv("FABRIENT_MCP_OAUTH_ISSUER", f"https://{MCP_HOST}").rstrip("/")
-OAUTH_SCOPES = ["openid", "email", "profile"]
-
-FREE_TOOL_NAMES = {
-    "inspect_part", "analyze_dfm", "verify_fixes", "validate_material",
-    "validate_machine_envelope", "validate_dimension", "check_wall_thickness",
-    "check_clearances", "check_holes", "check_overhangs", "check_orientation",
-    "check_tolerances", "check_fit", "check_first_layer", "check_bed_adhesion",
-    "check_revision_consistency", "compare_revisions", "trace_provenance",
-    "build_inspection_plan", "estimate_risk", "next_experiment",
-}
-
-TOOL_BY_NAME = {name: (description, path) for name, description, path in CAPABILITY_REGISTRY}
-if not FREE_TOOL_NAMES.issubset(TOOL_BY_NAME):
-    raise RuntimeError("Free MCP tool allowlist contains an unknown tool")
-
-
-def _billing_state(user_id: str) -> bool:
-    with _pool().connection() as conn:
-        row = conn.execute(
-            """select 1 from billing_entitlements
-               where user_id=%s and entitlement_id=%s and active=true
-                 and (expires_at is null or expires_at>now())
-               limit 1""",
-            (user_id, PRO_ENTITLEMENT),
-        ).fetchone()
-        return row is not None
-
-
-def _authenticated_user(request: Request) -> dict[str, Any] | None:
-    authorization = request.headers.get("authorization")
-    if not authorization or not authorization.lower().startswith("bearer "):
-        return None
-    identity = user_from_bearer(authorization[7:].strip())
-    if not identity:
-        return None
-    try:
-        identity["pro"] = _billing_state(identity["user_id"])
-        return identity
-    except Exception:
-        return None
-
-
-async def capabilities(request: Request) -> JSONResponse:
-    identity = _authenticated_user(request)
-    if identity is None:
-        return JSONResponse(
-            {"error": "Unauthorized"},
-            status_code=401,
-            headers={"WWW-Authenticate": f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}", scope="mcp:use"'},
-        )
-    available = list(CAPABILITY_REGISTRY) if identity["pro"] else [
-        item for item in CAPABILITY_REGISTRY if item[0] in FREE_TOOL_NAMES
-    ]
-    return JSONResponse({
-        "name": "Fabrient Engineering",
-        "authenticated": True,
-        "pro": identity["pro"],
-        "entitlement": PRO_ENTITLEMENT,
-        "tool_count": len(available),
-        "total_tool_count": len(CAPABILITY_REGISTRY),
-        "tools": [name for name, _, _ in available],
-        "gated_tool_count": len(CAPABILITY_REGISTRY) - len(available),
-        "registry_authoritative": True,
-        "access_policy": "free_core_plus_pro_advanced_tools",
-        "oauth": {"issuer": OAUTH_ISSUER, "resource": MCP_RESOURCE_URL, "scopes": OAUTH_SCOPES},
-    })
-
-
-async def health(_: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "fabrient-mcp-auth-wrapper", "tool_count": len(CAPABILITY_REGISTRY)})
-
-
-async def protected_resource(_: Request) -> JSONResponse:
-    return JSONResponse({
-        "resource": MCP_RESOURCE_URL,
-        "authorization_servers": [OAUTH_ISSUER],
-        "scopes_supported": OAUTH_SCOPES,
-        "bearer_methods_supported": ["header"],
-    })
-
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path in {"/health", "/", "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"}:
-            return await call_next(request)
-        if request.url.path == "/capabilities":
-            return await call_next(request)
-        if request.url.path.startswith("/mcp"):
-            identity = _authenticated_user(request)
-            if identity is None:
-                return JSONResponse(
-                    {"error": "Unauthorized", "message": "A valid Fabrient OAuth/session bearer token is required."},
-                    status_code=401,
-                    headers={"WWW-Authenticate": f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}", scope="mcp:use"'},
-                )
-        return await call_next(request)
-
-
-app = Starlette(
-    routes=[
-        Route("/health", health, methods=["GET"]),
-        Route("/capabilities", capabilities, methods=["GET"]),
-        Route("/.well-known/oauth-protected-resource", protected_resource, methods=["GET"]),
-        Route("/.well-known/oauth-protected-resource/mcp", protected_resource, methods=["GET"]),
-        Mount("/", app=mcp_app),
-    ],
-)
-app.add_middleware(AuthMiddleware)
+def digest(v:str)->bytes:return hashlib.sha256(v.encode()).digest()
+def pkce(v:str)->str:return base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).decode().rstrip('=')
+def client(cid:str):
+ with _pool().connection() as c:return c.execute('select client_id,client_name,redirect_uris,client_secret_hash,public_client from oauth_clients where client_id=%s',(cid,)).fetchone()
+def user(req:Request)->dict[str,Any]|None:
+ a=req.headers.get('authorization','')
+ return user_from_bearer(a[7:].strip()) if a.lower().startswith('bearer ') else None
+def pro(uid:str)->bool:
+ with _pool().connection() as c:return c.execute("select 1 from billing_entitlements where user_id=%s and entitlement_id='create_an_app_called_fabrinat_pro' and active=true and (expires_at is null or expires_at>now()) limit 1",(uid,)).fetchone() is not None
+async def health(_:Request):return JSONResponse({'status':'ok','service':'fabrient-mcp-auth-wrapper','tool_count':100})
+async def caps(r:Request):
+ u=user(r)
+ if not u:return JSONResponse({'error':'Unauthorized'},401,headers={'WWW-Authenticate':f'Bearer resource_metadata="{ISSUER}/.well-known/oauth-protected-resource/mcp", scope="mcp:use"'})
+ ispro=pro(u['user_id']); tools=list(CAPABILITY_REGISTRY) if ispro else [x for x in CAPABILITY_REGISTRY if x[0] in FREE]
+ return JSONResponse({'name':'Fabrient Engineering','authenticated':True,'pro':ispro,'tool_count':len(tools),'total_tool_count':100,'tools':[x[0] for x in tools],'gated_tool_count':100-len(tools),'registry_authoritative':True})
+async def protected(_:Request):return JSONResponse({'resource':RESOURCE,'authorization_servers':[ISSUER],'scopes_supported':sorted(SCOPES),'bearer_methods_supported':['header']})
+async def metadata(_:Request):return JSONResponse({'issuer':ISSUER,'authorization_endpoint':f'{ISSUER}/oauth/authorize','token_endpoint':f'{ISSUER}/oauth/token','revocation_endpoint':f'{ISSUER}/oauth/revoke','response_types_supported':['code'],'grant_types_supported':['authorization_code'],'code_challenge_methods_supported':['S256'],'scopes_supported':sorted(SCOPES)})
+async def authorize(r:Request):
+ q=r.query_params; cid=q.get('client_id',''); ru=q.get('redirect_uri',''); rt=q.get('response_type'); scope=q.get('scope','openid email'); state=q.get('state'); ch=q.get('code_challenge'); cm=q.get('code_challenge_method'); c=client(cid)
+ if not c or rt!='code' or ru not in (c['redirect_uris'] or []):return JSONResponse({'error':'invalid_request'},400)
+ if not set(scope.split()).issubset(SCOPES):return JSONResponse({'error':'invalid_scope'},400)
+ if ch and cm!='S256':return JSONResponse({'error':'invalid_request','error_description':'Only S256 PKCE is supported'},400)
+ if c['public_client'] and not ch:return JSONResponse({'error':'invalid_request','error_description':'PKCE is required for public clients'},400)
+ with _pool().connection() as db:
+  row=db.execute("insert into oauth_authorization_requests(client_id,redirect_uri,scope,state,code_challenge,code_challenge_method,expires_at) values(%s,%s,%s,%s,%s,%s,now()+interval '10 minutes') returning id",(cid,ru,' '.join(sorted(set(scope.split()))),state,ch,cm)).fetchone()
+ return RedirectResponse(f"{os.getenv('FABRIENT_WEB_ORIGIN','https://fabrient.com').rstrip('/')}/oauth/consent?authorization_id={row['id']}",302)
+async def details(r:Request):
+ with _pool().connection() as db: row=db.execute("select r.id,r.client_id,c.client_name,r.redirect_uri,r.scope,r.expires_at from oauth_authorization_requests r join oauth_clients c on c.client_id=r.client_id where r.id=%s",(r.path_params['id'],)).fetchone()
+ if not row or row['expires_at']<=datetime.now(timezone.utc):return JSONResponse({'error':'invalid_request'},400)
+ return JSONResponse({'authorization_id':str(row['id']),'client':{'client_id':row['client_id'],'name':row['client_name']},'redirect_uri':row['redirect_uri'],'scope':row['scope']})
+async def decide(r:Request):
+ u=user(r)
+ if not u:return JSONResponse({'error':'Unauthorized'},401)
+ rid=r.path_params['id']; decision=r.path_params['decision']
+ with _pool().connection() as db:
+  with db.transaction():
+   row=db.execute('select * from oauth_authorization_requests where id=%s for update',(rid,)).fetchone()
+   if not row or row['expires_at']<=datetime.now(timezone.utc) or row['approved_at'] or row['denied_at']:return JSONResponse({'error':'invalid_request'},400)
+   if decision=='deny':
+    db.execute('update oauth_authorization_requests set denied_at=now(),user_id=%s where id=%s',(u['user_id'],rid)); target=row['redirect_uri']+('&' if '?' in row['redirect_uri'] else '?')+urlencode({'error':'access_denied','state':row['state'] or ''});return JSONResponse({'redirect_url':target})
+   code=secrets.token_urlsafe(48)
+   db.execute("insert into oauth_authorization_codes(code_hash,client_id,user_id,redirect_uri,code_challenge,code_challenge_method,scope,expires_at) values(%s,%s,%s,%s,%s,%s,%s,now()+interval '60 seconds')",(digest(code),row['client_id'],u['user_id'],row['redirect_uri'],row['code_challenge'],row['code_challenge_method'],row['scope']))
+   db.execute('update oauth_authorization_requests set approved_at=now(),user_id=%s where id=%s',(u['user_id'],rid));target=row['redirect_uri']+('&' if '?' in row['redirect_uri'] else '?')+urlencode({'code':code,'state':row['state'] or ''});return JSONResponse({'redirect_url':target})
+async def token(r:Request):
+ f=await r.form(); cid=str(f.get('client_id') or '');code=str(f.get('code') or '');ru=str(f.get('redirect_uri') or '');ver=str(f.get('code_verifier') or '');c=client(cid)
+ if not c:return JSONResponse({'error':'invalid_client'},401)
+ with _pool().connection() as db:
+  with db.transaction():
+   row=db.execute('select * from oauth_authorization_codes where code_hash=%s and client_id=%s for update',(digest(code),cid)).fetchone()
+   if not row or row['consumed_at'] or row['expires_at']<=datetime.now(timezone.utc) or row['redirect_uri']!=ru:return JSONResponse({'error':'invalid_grant'},400)
+   if row['code_challenge'] and (not ver or not hmac.compare_digest(pkce(ver),row['code_challenge'])):return JSONResponse({'error':'invalid_grant'},400)
+   if not c['public_client']:
+    secret=str(f.get('client_secret') or '');stored=bytes(c['client_secret_hash'] or b'')
+    if not secret or not hmac.compare_digest(digest(secret),stored):return JSONResponse({'error':'invalid_client'},401)
+   tok=secrets.token_urlsafe(48);db.execute('update oauth_authorization_codes set consumed_at=now() where code_hash=%s',(digest(code),));db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')",(digest(tok),cid,row['user_id'],row['scope']));return JSONResponse({'access_token':tok,'token_type':'Bearer','expires_in':3600,'scope':row['scope']})
+async def revoke(r:Request):
+ f=await r.form();t=str(f.get('token') or '')
+ if t:
+  with _pool().connection() as db:db.execute('update oauth_access_tokens set revoked_at=now() where token_hash=%s',(digest(t),))
+ return JSONResponse({})
+class Auth(BaseHTTPMiddleware):
+ async def dispatch(self,r,call_next):
+  public={'/','/health','/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp','/.well-known/oauth-authorization-server','/oauth/authorize','/oauth/token','/oauth/revoke'}
+  if r.url.path in public or r.url.path.startswith('/oauth/details/') or r.url.path.startswith('/oauth/decide/'):return await call_next(r)
+  if r.url.path=='/capabilities':return await call_next(r)
+  if r.url.path.startswith('/mcp') and not user(r):return JSONResponse({'error':'Unauthorized'},401,headers={'WWW-Authenticate':f'Bearer resource_metadata="{ISSUER}/.well-known/oauth-protected-resource/mcp", scope="mcp:use"'})
+  return await call_next(r)
+routes=[Route('/',health),Route('/health',health),Route('/capabilities',caps),Route('/.well-known/oauth-protected-resource',protected),Route('/.well-known/oauth-protected-resource/mcp',protected),Route('/.well-known/oauth-authorization-server',metadata),Route('/oauth/authorize',authorize),Route('/oauth/token',token,methods=['POST']),Route('/oauth/revoke',revoke,methods=['POST']),Route('/oauth/details/{id}',details),Route('/oauth/decide/{id}/{decision}',decide,methods=['POST']),Mount('/',app=mcp_app)]
+app=Starlette(routes=routes);app.add_middleware(Auth)
