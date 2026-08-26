@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-import httpx
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -11,139 +10,119 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from server import CAPABILITY_REGISTRY, app as mcp_app
+from auth_db import user_from_bearer, _pool
 
-PROJECT_ID = 'projb138a8db'
-PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
-SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL', 'https://gphmefejeqvlemzvmade.supabase.co').rstrip('/')
-SUPABASE_AUTH_ISSUER = f'{SUPABASE_URL}/auth/v1'
-MCP_HOST = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'fabrient-mcp.onrender.com')
-MCP_RESOURCE_URL = os.getenv('FABRIENT_MCP_RESOURCE_URL', f'https://{MCP_HOST}/mcp').rstrip('/')
-MCP_RESOURCE_METADATA_URL = f'https://{MCP_HOST}/.well-known/oauth-protected-resource/mcp'
-OAUTH_SCOPES = ['openid', 'email', 'profile']
+PROJECT_ID = "projb138a8db"
+PRO_ENTITLEMENT = "create_an_app_called_fabrinat_pro"
+MCP_HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME", "fabrient-mcp.onrender.com")
+MCP_RESOURCE_URL = os.getenv("FABRIENT_MCP_RESOURCE_URL", f"https://{MCP_HOST}/mcp").rstrip("/")
+MCP_RESOURCE_METADATA_URL = f"https://{MCP_HOST}/.well-known/oauth-protected-resource/mcp"
+OAUTH_ISSUER = os.getenv("FABRIENT_MCP_OAUTH_ISSUER", f"https://{MCP_HOST}").rstrip("/")
+OAUTH_SCOPES = ["openid", "email", "profile"]
 
-# Core MCP tools stay available to authenticated free users. The advanced set is
-# only advertised to users whose RevenueCat entitlement is active.
 FREE_TOOL_NAMES = {
-    'inspect_part', 'analyze_dfm', 'verify_fixes', 'validate_material',
-    'validate_machine_envelope', 'validate_dimension', 'check_wall_thickness',
-    'check_clearances', 'check_holes', 'check_overhangs', 'check_orientation',
-    'check_tolerances', 'check_fit', 'check_first_layer', 'check_bed_adhesion',
-    'check_revision_consistency', 'compare_revisions', 'trace_provenance',
-    'build_inspection_plan', 'estimate_risk', 'next_experiment',
+    "inspect_part", "analyze_dfm", "verify_fixes", "validate_material",
+    "validate_machine_envelope", "validate_dimension", "check_wall_thickness",
+    "check_clearances", "check_holes", "check_overhangs", "check_orientation",
+    "check_tolerances", "check_fit", "check_first_layer", "check_bed_adhesion",
+    "check_revision_consistency", "compare_revisions", "trace_provenance",
+    "build_inspection_plan", "estimate_risk", "next_experiment",
 }
 
 TOOL_BY_NAME = {name: (description, path) for name, description, path in CAPABILITY_REGISTRY}
 if not FREE_TOOL_NAMES.issubset(TOOL_BY_NAME):
-    raise RuntimeError('Free MCP tool allowlist contains an unknown tool')
+    raise RuntimeError("Free MCP tool allowlist contains an unknown tool")
 
-async def _authenticated_user(request: Request) -> dict[str, Any] | None:
-    authorization = request.headers.get('authorization')
-    supabase_anon_key = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
-    revenuecat_secret = os.getenv('REVENUECAT_SECRET_API_KEY')
-    if not authorization or not authorization.lower().startswith('bearer '):
-        return None
-    if not supabase_anon_key or not revenuecat_secret:
-        return None
 
+def _billing_state(user_id: str) -> bool:
+    with _pool().connection() as conn:
+        row = conn.execute(
+            """select 1 from billing_entitlements
+               where user_id=%s and entitlement_id=%s and active=true
+                 and (expires_at is null or expires_at>now())
+               limit 1""",
+            (user_id, PRO_ENTITLEMENT),
+        ).fetchone()
+        return row is not None
+
+
+def _authenticated_user(request: Request) -> dict[str, Any] | None:
+    authorization = request.headers.get("authorization")
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    identity = user_from_bearer(authorization[7:].strip())
+    if not identity:
+        return None
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            user_response = await client.get(
-                f'{SUPABASE_AUTH_ISSUER}/user',
-                headers={'apikey': supabase_anon_key, 'Authorization': authorization},
-            )
-            if user_response.status_code != 200:
-                return None
-            user = user_response.json()
-            user_id = user.get('id')
-            if not user_id:
-                return None
-
-            entitlement_response = await client.get(
-                f'https://api.revenuecat.com/v2/projects/{PROJECT_ID}/customers/{user_id}/active_entitlements',
-                headers={'Accept': 'application/json', 'Authorization': f'Bearer {revenuecat_secret}'},
-            )
-            if entitlement_response.status_code != 200:
-                return None
-            body = entitlement_response.json()
-            items = body.get('items', []) if isinstance(body, dict) else []
-            active_ids = {
-                str(item.get('entitlement_id'))
-                for item in items if isinstance(item, dict) and item.get('entitlement_id')
-            }
-            pro = False
-            if active_ids:
-                catalog = await client.get(
-                    f'https://api.revenuecat.com/v2/projects/{PROJECT_ID}/entitlements',
-                    params={'limit': 100},
-                    headers={'Accept': 'application/json', 'Authorization': f'Bearer {revenuecat_secret}'},
-                )
-                if catalog.status_code != 200:
-                    return None
-                catalog_items = (catalog.json() or {}).get('items', [])
-                pro = any(
-                    str(item.get('id')) in active_ids and item.get('lookup_key') == PRO_ENTITLEMENT
-                    for item in catalog_items if isinstance(item, dict)
-                )
-            return {'user_id': user_id, 'pro': pro}
-    except (httpx.HTTPError, ValueError):
+        identity["pro"] = _billing_state(identity["user_id"])
+        return identity
+    except Exception:
         return None
+
 
 async def capabilities(request: Request) -> JSONResponse:
-    identity = await _authenticated_user(request)
+    identity = _authenticated_user(request)
     if identity is None:
-        return JSONResponse({'error': 'Unauthorized'}, status_code=401, headers={'WWW-Authenticate': f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}", scope="email"'})
-
-    available = list(CAPABILITY_REGISTRY) if identity['pro'] else [
+        return JSONResponse(
+            {"error": "Unauthorized"},
+            status_code=401,
+            headers={"WWW-Authenticate": f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}", scope="mcp:use"'},
+        )
+    available = list(CAPABILITY_REGISTRY) if identity["pro"] else [
         item for item in CAPABILITY_REGISTRY if item[0] in FREE_TOOL_NAMES
     ]
     return JSONResponse({
-        'name': 'Fabrient Engineering',
-        'authenticated': True,
-        'pro': identity['pro'],
-        'entitlement': PRO_ENTITLEMENT,
-        'tool_count': len(available),
-        'total_tool_count': len(CAPABILITY_REGISTRY),
-        'tools': [name for name, _, _ in available],
-        'gated_tool_count': len(CAPABILITY_REGISTRY) - len(available),
-        'registry_authoritative': True,
-        'access_policy': 'free_core_plus_pro_advanced_tools',
-        'oauth': {'issuer': SUPABASE_AUTH_ISSUER, 'resource': MCP_RESOURCE_URL, 'scopes': OAUTH_SCOPES},
+        "name": "Fabrient Engineering",
+        "authenticated": True,
+        "pro": identity["pro"],
+        "entitlement": PRO_ENTITLEMENT,
+        "tool_count": len(available),
+        "total_tool_count": len(CAPABILITY_REGISTRY),
+        "tools": [name for name, _, _ in available],
+        "gated_tool_count": len(CAPABILITY_REGISTRY) - len(available),
+        "registry_authoritative": True,
+        "access_policy": "free_core_plus_pro_advanced_tools",
+        "oauth": {"issuer": OAUTH_ISSUER, "resource": MCP_RESOURCE_URL, "scopes": OAUTH_SCOPES},
     })
 
+
 async def health(_: Request) -> JSONResponse:
-    return JSONResponse({'status': 'ok', 'service': 'fabrient-mcp-auth-wrapper', 'tool_count': len(CAPABILITY_REGISTRY)})
+    return JSONResponse({"status": "ok", "service": "fabrient-mcp-auth-wrapper", "tool_count": len(CAPABILITY_REGISTRY)})
+
 
 async def protected_resource(_: Request) -> JSONResponse:
     return JSONResponse({
-        'resource': MCP_RESOURCE_URL,
-        'authorization_servers': [SUPABASE_AUTH_ISSUER],
-        'scopes_supported': OAUTH_SCOPES,
-        'bearer_methods_supported': ['header'],
+        "resource": MCP_RESOURCE_URL,
+        "authorization_servers": [OAUTH_ISSUER],
+        "scopes_supported": OAUTH_SCOPES,
+        "bearer_methods_supported": ["header"],
     })
+
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in {'/health', '/', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'}:
+        if request.url.path in {"/health", "/", "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"}:
             return await call_next(request)
-        if request.url.path == '/capabilities':
+        if request.url.path == "/capabilities":
             return await call_next(request)
-        if request.url.path.startswith('/mcp'):
-            identity = await _authenticated_user(request)
+        if request.url.path.startswith("/mcp"):
+            identity = _authenticated_user(request)
             if identity is None:
                 return JSONResponse(
-                    {'error': 'Unauthorized', 'message': 'A valid Supabase OAuth access token is required.'},
+                    {"error": "Unauthorized", "message": "A valid Fabrient OAuth/session bearer token is required."},
                     status_code=401,
-                    headers={'WWW-Authenticate': f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}", scope="email"'},
+                    headers={"WWW-Authenticate": f'Bearer resource_metadata="{MCP_RESOURCE_METADATA_URL}", scope="mcp:use"'},
                 )
         return await call_next(request)
 
+
 app = Starlette(
     routes=[
-        Route('/health', health, methods=['GET']),
-        Route('/capabilities', capabilities, methods=['GET']),
-        Route('/.well-known/oauth-protected-resource', protected_resource, methods=['GET']),
-        Route('/.well-known/oauth-protected-resource/mcp', protected_resource, methods=['GET']),
-        Mount('/', app=mcp_app),
+        Route("/health", health, methods=["GET"]),
+        Route("/capabilities", capabilities, methods=["GET"]),
+        Route("/.well-known/oauth-protected-resource", protected_resource, methods=["GET"]),
+        Route("/.well-known/oauth-protected-resource/mcp", protected_resource, methods=["GET"]),
+        Mount("/", app=mcp_app),
     ],
 )
 app.add_middleware(AuthMiddleware)
