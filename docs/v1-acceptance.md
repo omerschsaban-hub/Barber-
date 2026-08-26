@@ -2,36 +2,15 @@
 
 ## Ground truth
 - Physical inspection measurements are authoritative.
-- Synthetic simulation samples are never inserted as calibration observations.
-- Literature numbers must carry source/material/method provenance.
+- Synthetic simulation samples are not physical acceptance evidence.
+- PostgreSQL is the target production database.
+- Database acceptance must be proven against the actual PostgreSQL deployment, not an old or deprecated database service.
 
-## Calibration
-- <3 real paired observations: `not_calibrated`.
-- 3–9 observations: `limited` unless explicitly validated by a held-out protocol.
-- A residual model may only become `validated` after held-out evaluation and sufficient real observations.
+## Authentication and authorization
+- Browser clients use the application's authenticated user sessions.
+- Database authorization must be enforced by the production PostgreSQL authorization model and application/API boundaries.
+- Privileged database credentials remain server-side only.
 
-## Acceptance/refusal
-- Refuse when the combined uncertainty interval crosses the engineering acceptance band.
-- Refuse when measurement uncertainty consumes the available margin.
-- Refuse unsupported materials/process ranges instead of extrapolating silently.
-
-## Re-verification
-- Interval requires an observed production drift rate.
-- Production drift and service wear are separate clocks.
-- The recommendation is a decision aid, not a certification or standards claim.
-
-## Experiments
-- Select experiments from measured uncertainty/information value.
-- Physical execution is human-approved in v1.
-- Every run records provenance, algorithm/model version and source measurements.
-
-## Geometry
-- STEP files are never assigned invented units or topology.
-- Limited extraction is labelled limited.
-- A CAD kernel is required for authoritative BREP/topology operations.
-
-## Security
-- Browser clients use Supabase user sessions and RLS.
-- Service secrets never ship to the browser.
-- Uploaded files are size-limited and content-validated.
-- External actions require explicit approval.
+## Release evidence
+- Every engineering release requires the applicable deterministic, measurement, uncertainty, provenance and manufacturing evidence gates.
+- A green status is valid only when the underlying evidence exists and can be reproduced.
