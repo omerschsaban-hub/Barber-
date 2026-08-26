@@ -3,31 +3,30 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-import requests
 from fastapi import APIRouter, HTTPException
 
-from .data_flywheel import SUPABASE_URL, headers
+from .postgres import fetch_all
 
 router = APIRouter(prefix="/moat", tags=["engineering-moat"])
 
 
-def _query(path: str, params: dict[str, str]) -> list[dict[str, Any]]:
-    if not SUPABASE_URL:
-        raise HTTPException(503, "Supabase is not configured")
-    r = requests.get(f"{SUPABASE_URL}/rest/v1/{path}", headers=headers(), params=params, timeout=20)
-    if r.status_code >= 300:
-        raise HTTPException(502, f"Supabase read failed: {r.status_code}")
-    return r.json()
+def _query(params: dict[str, Any]) -> list[dict[str, Any]]:
+    source_key = params.get("source_key")
+    if not source_key:
+        raise HTTPException(400, "source_key is required")
+    return fetch_all(
+        "select id from data_observations where source_key=%s order by observed_at desc limit %s",
+        (source_key, int(params.get("limit", 1000))),
+    )
 
 
 def _count(source_key: str, limit: int = 1000) -> int:
-    rows = _query("data_observations", {"source_key": f"eq.{source_key}", "select": "id", "limit": str(limit)})
-    return len(rows)
+    return len(_query({"source_key": source_key, "limit": limit}))
 
 
 @router.get("/health")
 def moat_health() -> dict[str, Any]:
-    """Product-facing summary of the engineering moat, using only stored evidence."""
+    """Product-facing summary of the engineering moat using only PostgreSQL evidence."""
     physical = sum(_count(k) for k in ("print_outcomes", "measured_dimensions", "fit_tests", "assembly_results"))
     failures = sum(_count(k) for k in ("failed_validations", "false_negatives", "false_positives", "edge_case_discovery"))
     calibration = sum(_count(k) for k in ("prediction_reality", "confidence_calibration", "version_comparison"))
@@ -58,9 +57,7 @@ def moat_health() -> dict[str, Any]:
 @router.get("/priorities")
 def moat_priorities() -> dict[str, Any]:
     health = moat_health()
-    layers = health["layers"]
-    # Prioritize the weakest evidence layer so the product continuously closes gaps.
-    ranked = sorted(layers.items(), key=lambda item: item[1])
+    ranked = sorted(health["layers"].items(), key=lambda item: item[1])
     return {
         "priorities": [
             {"layer": name, "evidence_events": count, "reason": "Increase verified evidence and feedback in the weakest moat layer."}
@@ -72,7 +69,7 @@ def moat_priorities() -> dict[str, Any]:
 
 @router.get("/graph")
 def moat_graph() -> dict[str, Any]:
-    """Expose the product's compounding loop to the UI/MCP without inventing evidence."""
+    """Expose the product's compounding loop without inventing evidence."""
     return {
         "nodes": [
             "requirements", "design", "prediction", "validation", "manufacturing",
