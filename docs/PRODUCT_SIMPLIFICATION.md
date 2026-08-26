@@ -1,6 +1,6 @@
 # Product Simplification Pass
 
-Fabrient should feel simple without becoming shallow.
+Fabrient should feel simple without becoming shallow. The public product story should expose the depth of the engineering system without turning it into a checklist.
 
 ## Keep — core
 
@@ -9,7 +9,16 @@ Fabrient should feel simple without becoming shallow.
 - Evidence, provenance, deterministic checks, refusal gates.
 - Human approval for consequential geometry/topology changes.
 - Agent/MCP access to the same underlying capabilities.
-- Manufacturing package, physical build guide, inspection evidence.
+- Manufacturing package, physical build guide and inspection evidence.
+- A technical explanation of how deterministic engineering, real measurements and bounded ML interact.
+
+## Show intelligently — technical depth
+
+The landing page may expose the architecture and actual methods as a system narrative:
+
+**intent → deterministic baseline → measured reality → learned residual → uncertainty → verification → release**.
+
+When technical methods are shown, name the implementation honestly: CadQuery/OCCT for CAD, Ridge regression + leave-one-out validation for current system identification, OpenCV Canny/Hough primitives for real-image measurement, and explicit uncertainty/error-budget logic. Do not imply capabilities that are not implemented.
 
 ## Simplify — valuable but too complex
 
