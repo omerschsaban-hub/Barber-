@@ -35,6 +35,59 @@ def _auth(secret: str | None) -> None:
         raise HTTPException(401, "Invalid ingestion secret")
 
 
+def _content_hash(source_key: str, event_type: str, payload: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps({"s": source_key, "e": event_type, "p": payload}, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _insert_observation(
+    source_key: str,
+    event_type: str,
+    payload: dict[str, Any],
+    project_id: str | None = None,
+    entity_type: str = "product_request",
+    entity_id: str | None = None,
+    provenance: dict[str, Any] | None = None,
+) -> tuple[str, bool]:
+    content_hash = _content_hash(source_key, event_type, payload)
+    with transaction() as conn:
+        inserted = conn.execute(
+            """insert into data_observations(project_id,source_key,observed_at,entity_type,entity_id,event_type,raw_payload,normalized_payload,provenance,consent_state,validation_state,quality_score,content_hash)
+               values(%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,'validated',1.0,%s)
+               on conflict(source_key,event_type,content_hash) do nothing
+               returning id""",
+            (project_id, source_key, datetime.now(timezone.utc), entity_type, entity_id, event_type, json.dumps(payload), json.dumps(payload), json.dumps(provenance or {}), "not_applicable", content_hash),
+        ).fetchone()
+        if inserted:
+            return str(inserted["id"]), False
+        existing = conn.execute(
+            "select id from data_observations where source_key=%s and event_type=%s and content_hash=%s",
+            (source_key, event_type, content_hash),
+        ).fetchone()
+        if not existing:
+            raise RuntimeError("Observation conflict could not be resolved")
+        return str(existing["id"]), True
+
+
+def post(source_key: str, observation: dict[str, Any]) -> dict[str, Any]:
+    """Internal application writer; bypasses the HTTP ingestion boundary but uses the same DB contract."""
+    if source_key not in SOURCES:
+        return {"accepted": False, "reason": "unknown_source"}
+    event_type = str(observation.get("event_type", "internal_event"))
+    payload = dict(observation)
+    observation_id, deduplicated = _insert_observation(
+        source_key,
+        event_type,
+        payload,
+        project_id=observation.get("project_id"),
+        entity_type=str(observation.get("entity_type", "product_request")),
+        entity_id=observation.get("entity_id"),
+        provenance=observation.get("provenance"),
+    )
+    return {"accepted": True, "observation_id": observation_id, "deduplicated": deduplicated}
+
+
 def _seed() -> int:
     for key in SOURCES:
         execute(
@@ -61,32 +114,16 @@ def ingest(o: Observation, x_fabrient_ingest_secret: str | None = Header(default
         raise HTTPException(400, "Consent required")
 
     payload = o.normalized_payload or o.raw_payload
-    content_hash = hashlib.sha256(
-        json.dumps({"s": o.source_key, "e": o.event_type, "p": payload}, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-
-    with transaction() as conn:
-        inserted = conn.execute(
-            """insert into data_observations(project_id,source_key,observed_at,entity_type,entity_id,event_type,raw_payload,normalized_payload,provenance,consent_state,validation_state,quality_score,content_hash)
-               values(%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,'validated',1.0,%s)
-               on conflict(source_key,event_type,content_hash) do nothing
-               returning id""",
-            (o.project_id, o.source_key, o.observed_at or datetime.now(timezone.utc), o.entity_type, o.entity_id, o.event_type, json.dumps(o.raw_payload), json.dumps(o.normalized_payload), json.dumps(o.provenance), o.consent_state, content_hash),
-        ).fetchone()
-        if inserted:
-            observation_id = inserted["id"]
-            deduplicated = False
-        else:
-            existing = conn.execute(
-                "select id from data_observations where source_key=%s and event_type=%s and content_hash=%s",
-                (o.source_key, o.event_type, content_hash),
-            ).fetchone()
-            if not existing:
-                raise HTTPException(409, "Observation conflict could not be resolved")
-            observation_id = existing["id"]
-            deduplicated = True
-
-    return {"accepted": True, "observation_id": str(observation_id), "source_key": o.source_key, "deduplicated": deduplicated}
+    observation_id, deduplicated = _insert_observation(
+        o.source_key,
+        o.event_type,
+        payload,
+        project_id=o.project_id,
+        entity_type=o.entity_type or "product_request",
+        entity_id=o.entity_id,
+        provenance=o.provenance,
+    )
+    return {"accepted": True, "observation_id": observation_id, "source_key": o.source_key, "deduplicated": deduplicated}
 
 
 @router.post("/seed-catalog")
