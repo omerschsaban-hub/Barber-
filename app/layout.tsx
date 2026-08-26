@@ -8,19 +8,19 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata = {
-  title: 'Fabrient — Engineering Release System',
-  description: 'From part definition to verified manufacturing release.'
+  metadataBase: new URL('https://getfabrient.com'),
+  title: 'Fabrient — Engineering System for Physical Products',
+  description: 'Turn bounded physical-engineering jobs into verified outcomes with deterministic computation, CAD/DFM validation, real measurement, machine learning and auditable manufacturing release.',
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'Fabrient — Engineering System for Physical Products',
+    description: 'Deterministic engineering, real evidence and bounded agents from intent to manufacturing release.',
+    url: 'https://getfabrient.com',
+    siteName: 'Fabrient',
+    type: 'website'
+  }
 };
 
-/**
- * Keep the root document deterministic and dependency-light.
- *
- * Analytics/SpeedInsights are intentionally not mounted in the root shell:
- * they are client components and add post-hydration JavaScript to every route.
- * A production shell must be able to render even when an optional telemetry
- * bundle is unavailable or fails. Telemetry can be mounted in a dedicated
- * client-safe provider later without making the entire application depend on it.
- */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
