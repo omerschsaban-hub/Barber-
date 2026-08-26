@@ -105,7 +105,7 @@ async def health(_: Request) -> JSONResponse:
 async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
-app = mcp.streamable_http_app(
+_mcp_app = mcp.streamable_http_app(
     streamable_http_path="/mcp",
     json_response=True,
     stateless_http=True,
@@ -114,3 +114,8 @@ app = mcp.streamable_http_app(
 )
 
 # Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.
+
+
+# FABRIENT_PRODUCTION_AUTH_WRAPPED
+from services.mcp.production_auth import wrap_app as _fabrient_wrap_app
+app = _fabrient_wrap_app(_mcp_app, CAPABILITY_REGISTRY)
