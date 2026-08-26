@@ -106,14 +106,17 @@ A release is a usable engineering artifact with evidence and blockers, not simpl
 ## Architecture
 
 - Next.js + TypeScript frontend
-- Supabase/Postgres + passwordless email OTP
+- **PostgreSQL production database**
+- passwordless email OTP authentication
 - Python/FastAPI engineering service
 - CadQuery/OCCT CAD kernel
 - NumPy + scikit-learn engineering ML
 - OpenCV real-image measurement primitives
-- provenance/audit records and RLS
+- provenance/audit records and PostgreSQL authorization/RLS where applicable
 - authenticated MCP engineering tools
 - GitHub Actions CI and browser acceptance tests
+
+**Database architecture is canonical:** PostgreSQL/Postgres is the target and production database. Supabase is not the target database architecture. If legacy Supabase references remain in code or configuration, agents must audit why they remain before changing or removing them; they must not build new production database functionality around Supabase or use Supabase connectivity as migration proof.
 
 ## Engineering honesty
 
