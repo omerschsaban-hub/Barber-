@@ -9,5 +9,6 @@ reportlab==4.4.3
 httpx==0.28.1
 requests==2.32.4
 numpy==2.2.6
+psycopg[binary,pool]==3.2.9
 # OCCT/BREP-backed CAD kernel for authoritative STEP topology/geometry operations.
 cadquery==2.8.0
