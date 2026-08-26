@@ -7,7 +7,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "npm run test:unit",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run tests/unit",
     "test:e2e": "playwright test",
     "test:deep": "npm run agent:preflight && npm run test:unit && npm run test:e2e",
     "test:all": "npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",
@@ -31,7 +31,7 @@
     "pdf-lib": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
+    "@playwright/test": "1.55.0",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
@@ -41,6 +41,7 @@
     "tailwindcss": "latest",
     "postcss": "latest",
     "eslint": "latest",
-    "eslint-config-next": "15.5.21"
+    "eslint-config-next": "15.5.21",
+    "vitest": "^4.1.11"
   }
 }
