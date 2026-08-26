@@ -11,6 +11,6 @@ npm install
 npx expo start
 ```
 
-Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for Supabase-backed features.
+Configure the mobile client with the public Fabrient API/base URL required by the current deployment. Database access must go through the authenticated Fabrient API; the mobile client must not connect directly to PostgreSQL with privileged credentials.
 
-The mobile client intentionally reuses the existing Fabrient backend and engineering APIs rather than duplicating engineering logic. Expo Router provides native navigation, deep linking and a shared route model for native/web clients. 
+The production database is PostgreSQL. Supabase is not the target database architecture.
