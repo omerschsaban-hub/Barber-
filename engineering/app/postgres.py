@@ -13,14 +13,22 @@ MIGRATIONS_DIR = ROOT / "db" / "migrations"
 _POOL: ConnectionPool | None = None
 
 
+def _dsn() -> str:
+    dsn = os.environ["DATABASE_URL"].strip()
+    # Render PostgreSQL requires TLS. Enforce it for every environment so staging
+    # cannot silently pass locally and fail once deployed. Preserve any explicit
+    # sslmode chosen by the operator.
+    if "sslmode=" not in dsn:
+        separator = "&" if "?" in dsn else "?"
+        dsn = f"{dsn}{separator}sslmode=require"
+    return dsn
+
+
 def pool() -> ConnectionPool:
     global _POOL
     if _POOL is None:
-        dsn = os.environ["DATABASE_URL"]
-        if os.getenv("ENVIRONMENT", "production") == "production" and "sslmode=" not in dsn:
-            raise RuntimeError("DATABASE_URL must specify sslmode for production")
         _POOL = ConnectionPool(
-            conninfo=dsn,
+            conninfo=_dsn(),
             min_size=int(os.getenv("DB_POOL_MIN", "1")),
             max_size=int(os.getenv("DB_POOL_MAX", "8")),
             kwargs={"row_factory": dict_row},
