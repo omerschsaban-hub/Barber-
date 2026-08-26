@@ -16,6 +16,10 @@ def blocked(operation: str, reason: str):
 def service_root():
     return {"ok": True, "service": "fabrient-engineering", "status": "ready", "health": "/health", "docs": "/docs", "purpose": "deterministic engineering execution API"}
 
+@router.get("/v1/health")
+def versioned_health():
+    return {"ok": True, "service": "fabrient-engineering", "status": "ready", "health": "/health"}
+
 @router.post("/v1/simulate")
 def simulate(payload: dict[str, Any]):
     nominal = float(payload.get("nominal_mm", 0))
