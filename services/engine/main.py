@@ -15,7 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 from engineering.app.composed import app  # noqa: E402
 from engineering.app.postgres import ensure_schema  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
-from services.engine.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
+from engineering.app.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
 
 # A database is required for production. Bootstrap is idempotent and protected by
 # PostgreSQL transactional DDL/advisory locking inside the migration file.

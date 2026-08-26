@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
 from server import CAPABILITY_REGISTRY, app as mcp_app
-from auth_db import user_from_bearer, _pool
+from auth_db import user_from_bearer, _pool, _hash
 
 MCP_HOST = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'fabrient-mcp.onrender.com')
 RESOURCE = os.getenv('FABRIENT_MCP_RESOURCE_URL', f'https://{MCP_HOST}/mcp').rstrip('/')
@@ -32,6 +32,9 @@ def client(cid: str):
 def user(req: Request) -> dict[str, Any] | None:
     a = req.headers.get('authorization', '')
     return user_from_bearer(a[7:].strip()) if a.lower().startswith('bearer ') else None
+
+def has_scope(identity: dict[str, Any] | None, required: str) -> bool:
+    return bool(identity and required in set(str(identity.get('scope') or '').split()))
 
 def pro(uid: str) -> bool:
     with _pool().connection() as c:
@@ -127,7 +130,7 @@ async def token(r: Request):
                     return JSONResponse({'error': 'invalid_client'}, 401)
             tok = secrets.token_urlsafe(48)
             db.execute('update oauth_authorization_codes set consumed_at=now() where code_hash=%s', (digest(code),))
-            db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (digest(tok), cid, row['user_id'], row['scope']))
+            db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (_hash(tok), cid, row['user_id'], row['scope']))
             return JSONResponse({'access_token': tok, 'token_type': 'Bearer', 'expires_in': 3600, 'scope': row['scope']})
 
 async def revoke(r: Request):
@@ -135,7 +138,7 @@ async def revoke(r: Request):
     t = f.get('token','')
     if t:
         with _pool().connection() as db:
-            db.execute('update oauth_access_tokens set revoked_at=now() where token_hash=%s', (digest(t),))
+            db.execute('update oauth_access_tokens set revoked_at=now() where token_hash=%s', (_hash(t),))
     return JSONResponse({})
 
 class Auth(BaseHTTPMiddleware):
@@ -143,8 +146,12 @@ class Auth(BaseHTTPMiddleware):
         public = {'/', '/health', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/oauth/authorize', '/oauth/token', '/oauth/revoke'}
         if r.url.path in public or r.url.path.startswith('/oauth/details/') or r.url.path.startswith('/oauth/decide/') or r.url.path == '/capabilities':
             return await call_next(r)
-        if r.url.path.startswith('/mcp') and not user(r):
-            return JSONResponse({'error': 'Unauthorized'}, 401, headers={'WWW-Authenticate': f'Bearer resource_metadata="{ISSUER}/.well-known/oauth-protected-resource/mcp", scope="mcp:use"'})
+        if r.url.path.startswith('/mcp'):
+            identity = user(r)
+            if not identity:
+                return JSONResponse({'error': 'Unauthorized'}, 401, headers={'WWW-Authenticate': f'Bearer resource_metadata="{ISSUER}/.well-known/oauth-protected-resource/mcp", scope="mcp:use"'})
+            if not has_scope(identity, 'mcp:use'):
+                return JSONResponse({'error': 'insufficient_scope'}, 403, headers={'WWW-Authenticate': 'Bearer error="insufficient_scope", scope="mcp:use"'})
         return await call_next(r)
 
 routes = [Route('/', health), Route('/health', health), Route('/capabilities', caps), Route('/.well-known/oauth-protected-resource', protected), Route('/.well-known/oauth-protected-resource/mcp', protected), Route('/.well-known/oauth-authorization-server', metadata), Route('/oauth/authorize', authorize), Route('/oauth/token', token, methods=['POST']), Route('/oauth/revoke', revoke, methods=['POST']), Route('/oauth/details/{id}', details), Route('/oauth/decide/{id}/{decision}', decide, methods=['POST']), Mount('/', app=mcp_app)]

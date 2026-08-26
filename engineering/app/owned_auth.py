@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter,Header,HTTPException,Request
 from pydantic import BaseModel,Field
-from .postgres import execute,fetch_all,transaction
+from .postgres import execute,fetch_all,fetch_one,transaction
 router=APIRouter(prefix='/auth',tags=['owned-auth'])
 COOKIE_NAME='fabrient_session'; OTP_TTL_SECONDS=600; SESSION_TTL_SECONDS=2592000; MAX_OTP_ATTEMPTS=5
 def _secret()->bytes:
