@@ -20,6 +20,7 @@ from .integration_gateway import router as integration_gateway_router
 from .product_intelligence import install_product_intelligence
 from .competitive_product_loop import router as competitive_product_loop_router
 from .customer_obsession import router as customer_obsession_router
+from .owned_auth import router as owned_auth_router
 
 app.include_router(advanced_router)
 app.include_router(real_cv_sim2real_router)
@@ -40,6 +41,7 @@ app.include_router(moat_intelligence_router)
 app.include_router(integration_gateway_router)
 app.include_router(competitive_product_loop_router)
 app.include_router(customer_obsession_router)
+app.include_router(owned_auth_router)
 install_product_intelligence(app)
 install_universal_quality(app)
 
@@ -97,9 +99,6 @@ for _name, _description, _path in CAPABILITY_REGISTRY:
     if _path not in _existing_paths:
         app.add_api_route(_path, _make_mcp_compat_handler(_name), methods=["POST"], name=f"mcp_compat_{_name}")
 
-# FastAPI 0.1xx can retain internal include-wrapper objects in app.routes.
-# Give those wrappers a harmless sentinel path so compatibility consumers that
-# enumerate route.path remain stable; real APIRoute entries are unchanged.
 for _route in app.routes:
     if not hasattr(_route, "path"):
         setattr(_route, "path", "")

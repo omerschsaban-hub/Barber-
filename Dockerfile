@@ -10,6 +10,7 @@ COPY engineering/requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt
 
 COPY engineering/app ./app
+COPY services/mcp/server.py ./services/mcp/server.py
 
 EXPOSE 8000
 ENV PORT=8000
