@@ -1,132 +1,147 @@
 # Fabrient
 
-Fabrient is an engineering system for turning bounded physical-product jobs into verified real-world outcomes.
+**Build it. Prove it.**
 
-**North star:** **Define → Analyze → Fix → Verify → Build → Release**.
+Fabrient helps people building physical products get from an engineering idea to something they can actually make, test, improve and trust.
 
-The product is intentionally hybrid: language models coordinate intent and bounded agents, while deterministic engineering code, CAD kernels, real measurements and explicit evidence gates remain the authorities for engineering claims.
+You can start with a plain-English request, the CAD you already have, measurements, manufacturing information, or a problem you are trying to solve. Fabrient helps work through the job instead of making you translate everything into a maze of separate engineering tools.
 
-## What Fabrient does today
+## What Fabrient is for
 
-A user can describe an engineering job, provide dimensions/CAD and process context, and move through a single workspace that connects:
+Think of Fabrient as a place where the digital and physical sides of engineering finally meet.
 
-- natural-language engineering intent normalization;
-- deterministic dimensional and manufacturing validation;
-- parametric CAD generation through CadQuery/OCCT with STEP exchange validation;
-- STEP ingestion and computed geometry summaries;
-- DFM analysis and bounded deterministic self-fix workflows;
-- physical build guidance and an auditable manufacturing package;
-- inspection-record normalization plus CSV/PDF export;
-- scale-gated computer vision measurement from real images;
-- machine/process system identification from real observations;
-- interpretable residual ML with held-out validation;
-- combined uncertainty and refusal gates;
-- bounded engineering-agent orchestration;
-- provenance, audit state and consent-gated data collection;
-- an engineering MCP surface exposing the same underlying capabilities to agents.
+It can help you:
 
-Fabrient is not a generic chatbot. The language layer can plan and explain, but it does not get to invent measurements, engineering numbers, confidence, calibration evidence or tolerance overrides.
+- turn an engineering request into a clear job;
+- work with real CAD and dimensions;
+- find design and manufacturing problems before they become expensive physical iterations;
+- make safe, bounded improvements and show what changed;
+- prepare a part for manufacturing;
+- keep build notes, inspections and measurements with the project;
+- compare what was predicted with what actually happened;
+- learn useful patterns from real machine/process observations;
+- turn images and inspection records into supporting evidence;
+- keep a clear record of why something passed, failed or still needs attention;
+- give both humans and software agents access to the same underlying engineering workflows.
 
-## The engineering stack
+The point is not to make another AI chat window. The point is to help finish real engineering work.
 
-### Deterministic layer
+## How it works
 
-Engineering authority is implemented in explicit code rather than model output. The current stack includes:
+The core loop is deliberately simple:
 
-- **CadQuery / OCCT** for deterministic parametric CAD and STEP exchange;
-- explicit unit/range/tolerance validation;
-- geometry and topology gates before manufacturing release;
-- deterministic DFM analysis and bounded self-fix operations;
-- Monte Carlo/domain-randomization workflows where parameters are explicitly declared and seeded;
-- physical-build and release gates that fail closed when required evidence is missing.
+**Start → Understand → Check → Improve → Build → Prove**
 
-### Machine learning layer
+You describe what you are trying to accomplish. Fabrient works through the information it has, checks the parts that can be checked automatically, helps identify what needs changing, and keeps the evidence together.
 
-ML is used as a bounded correction and system-identification layer around engineering baselines.
+When you make the physical thing, reality comes back into the loop. Measurements, fit, failures and corrections can then improve the next decision.
 
-- **Ridge regression** currently performs machine/process system identification from real observations using layer height, print speed, nozzle temperature, ambient temperature, humidity and axis.
-- **Leave-one-out cross-validation** reports held-out mean absolute error before a fitted system model is treated as validated.
-- **Residual modeling** estimates remaining error after the deterministic baseline rather than replacing it.
-- **Combined uncertainty** accounts for physics, measurement, model and empirical residual components and reports a bounded 95% interval.
-- Real-observation thresholds prevent unsupported calibration claims; insufficient evidence produces a limited/not-calibrated state instead of fabricated confidence.
+If the evidence is not strong enough, Fabrient should tell you that. It should never hide uncertainty behind a confident-looking answer.
 
-### Computer vision
+## What is underneath
 
-The current real-CV path uses OpenCV primitives with explicit physical scale:
+The experience is intentionally simple, but the system underneath it is not a toy.
 
-- image decoding and quality gates for size, contrast and sharpness;
-- **Canny edge detection + Hough line candidates**;
-- user-selected reference and target geometry;
-- explicit mm-per-pixel scale from a physical reference;
-- measurement uncertainty propagated from pixel and reference uncertainty;
-- provenance that distinguishes image-derived evidence from physical ground truth.
+### Engineering and CAD
 
-CV is evidence, not a final physical acceptance authority by itself.
+Fabrient uses deterministic engineering code and CAD tooling for the things that need repeatable answers. The current implementation uses **CadQuery / OCCT** for parametric CAD and STEP exchange, explicit dimensional checks, geometry/topology validation, manufacturing checks and bounded self-fix workflows.
 
-## The bounded agent loop
+That means an AI response is not allowed to quietly become the engineering truth. The actual engineering layer produces the result that matters.
 
-The engineering agent graph currently separates responsibilities across context/evidence collection, physics, deterministic validation, measurement CV, system identification, residual ML, uncertainty/risk gating, experiment selection and a critic/falsification step.
+### Machine learning
 
-The loop is:
+ML is used where real observations can make the engineering baseline better.
 
-**OBSERVE → UNDERSTAND → GENERATE OPTIONS → PRIORITIZE → ACT → MEASURE → EVALUATE → LEARN → UPDATE → REPEAT**
+The current implementation can learn machine/process behavior from real observations and can model remaining error after a deterministic baseline. It uses held-out validation before treating a learned model as useful, and it keeps uncertainty visible.
 
-Consequential geometry/topology changes remain human-gated. The system explicitly prohibits fabricated measurements, fabricated confidence, automatic tolerance overrides and unbounded execution.
+In plain English: **the system can learn from what your machine really did, but it does not get to invent the evidence.**
 
-## Reality data flywheel
+### Images and measurement
 
-Fabrient's data model is designed around prediction versus reality rather than synthetic demonstrations. The current catalog covers design requirements, CAD/geometry, manufacturing conditions, measurements, fit/assembly outcomes, failures/rework, prediction deltas, engineer corrections, workflow outcomes and other provenance-bearing observations.
+Real images can be useful when there is a physical reference that establishes scale. Fabrient checks image quality, finds measurable geometry and keeps the measurement separate from ground truth.
 
-Observations are normalized, consent-gated and content-hashed for deduplication before ingestion. Synthetic data is never presented as calibration evidence.
+A photograph can support an engineering decision. It does not magically become a perfect measurement just because an AI looked at it.
 
-## Manufacturing release
+### Physical learning loop
 
-The manufacturing workflow requires a real validated STEP artifact before engineering release. The current flow can:
+Fabrient is designed around the difference between **what we expected** and **what actually happened**.
 
-1. generate or attach STEP;
-2. validate the STEP exchange artifact and geometry/topology state;
-3. run DFM analysis;
-4. apply bounded self-fixes where allowed;
-5. generate a physical build guide;
-6. produce a manufacturing package containing the validated CAD, release manifest, DFM report, build guide, manufacturing notes and inspection plan.
+A useful loop looks like this:
 
-A release is a usable engineering artifact with evidence and blockers, not simply a green status badge.
+**Design → Predict → Build → Measure → Learn**
 
-## Routes
+The system keeps provenance around those observations so a later decision can be traced back to where the evidence came from. Synthetic examples are not presented as real calibration evidence.
 
-- `/` — technical product overview
-- `/login` — passwordless Gmail OTP access
-- `/workspace` — integrated engineering workspace
-- `/manufacturing` — CAD/DFM/self-fix/build/release workflow
-- `/geometry` — STEP geometry extraction and computed 3D view
-- `/records` — auditable inspection records and exports
-- `/graph` — bounded engineering agent graph
-- `/projects` — project history and state
+## Manufacturing
+
+Fabrient's manufacturing workflow is intended to take a design beyond “the CAD looks okay.”
+
+The workflow can move through:
+
+1. create or bring in the CAD;
+2. check the geometry and exchange file;
+3. look for manufacturing problems;
+4. make allowed, bounded fixes;
+5. prepare build guidance;
+6. collect inspection information;
+7. produce a manufacturing package when the required checks pass.
+
+That package can include the validated CAD, release information, manufacturing findings, build guidance, notes and an inspection plan.
+
+A green screen is not the definition of done. **The useful outcome is an artifact you can actually hand to someone and build from.**
+
+## AI and agents
+
+Fabrient is designed so humans and software agents can work with the same engineering system.
+
+An agent can help gather context, choose the next bounded action, run an engineering operation, look at the result and continue. The system still keeps hard boundaries around consequential changes and unsupported conclusions.
+
+The basic rule is simple:
+
+> **AI can help decide what to do next. Engineering evidence decides what is true.**
+
+Fabrient does not intentionally:
+
+- make up measurements;
+- make up confidence or calibration evidence;
+- silently change tolerances;
+- pretend a simulation is the same as a physical build;
+- claim a manufacturing release while required evidence is still missing;
+- make consequential geometry/topology changes without the required human gate.
+
+## Current product areas
+
+- `/` — the public product experience
+- `/login` — passwordless email access
+- `/workspace` — the main engineering workspace
+- `/manufacturing` — design, manufacturing checks, build and release
+- `/geometry` — CAD/STEP geometry work
+- `/records` — inspection records and exports
+- `/graph` — the agent workflow
+- `/projects` — project history
 
 ## Architecture
 
-- Next.js + TypeScript frontend
-- **PostgreSQL production database**
-- passwordless email OTP authentication
-- Python/FastAPI engineering service
-- CadQuery/OCCT CAD kernel
-- NumPy + scikit-learn engineering ML
-- OpenCV real-image measurement primitives
-- provenance/audit records and PostgreSQL authorization/RLS where applicable
+The current production architecture uses:
+
+- Next.js + TypeScript
+- PostgreSQL
+- passwordless email authentication
+- Python/FastAPI engineering services
+- CadQuery / OCCT
+- NumPy + scikit-learn
+- OpenCV measurement tooling
+- provenance and audit records
 - authenticated MCP engineering tools
-- GitHub Actions CI and browser acceptance tests
+- GitHub Actions and Playwright acceptance testing
 
-**Database architecture is canonical:** PostgreSQL/Postgres is the target and production database. Supabase is not the target database architecture. If legacy Supabase references remain in code or configuration, agents must audit why they remain before changing or removing them; they must not build new production database functionality around Supabase or use Supabase connectivity as migration proof.
+PostgreSQL is the canonical production database architecture. Legacy Supabase references are treated as migration/compatibility material and must be audited before removal; new production database functionality should not be built around Supabase.
 
-## Engineering honesty
+## For developers
 
-LLMs may parse natural language, coordinate bounded agents and explain results. They do **not** generate engineering numbers, pass/fail decisions, confidence, measurements or calibration evidence.
+Agents and contributors should read `AGENTS.md` before making changes.
 
-Real observations are ground truth. Literature values retain their source and applicability context. Unsupported extrapolation is refused.
-
-## Agent operating contract
-
-All coding/automation agents must read `AGENTS.md` before execution. The product requirements and execution standards are in:
+The main product documents are:
 
 - `docs/PRODUCT_EXECUTION_PRINCIPLES.md`
 - `docs/DEEP_EXECUTION_STANDARD.md`
@@ -134,17 +149,18 @@ All coding/automation agents must read `AGENTS.md` before execution. The product
 - `docs/PRODUCT_SURFACE.md`
 - `.claude/skills/playwright/SKILL.md`
 
-Run `npm run agent:preflight` to verify the required operating contract.
+Useful checks:
 
-## Testing
+```bash
+npm run agent:preflight
+npm run test:unit
+npm run test:e2e
+npm run test:deep
+npm run test:all
+pytest -q tests/mcp
+```
 
-- `npm run test:unit` — frontend/domain unit tests
-- `npm run test:e2e` — Playwright browser tests
-- `npm run test:deep` — unit + browser tests
-- `npm run test:all` — lint + build + unit + browser tests
-- `pytest -q tests/mcp` — MCP registry/contract tests
-
-For UI work, acceptance requires real-browser verification rather than static inspection alone.
+For UI changes, use a real browser for acceptance. A page that merely builds is not automatically a page that works.
 
 ## Local development
 
@@ -157,8 +173,8 @@ pip install -r requirements.txt
 uvicorn app.composed:app --reload --port 8000
 ```
 
-Set `NEXT_PUBLIC_ENGINEERING_API` when the engineering service is not on `http://localhost:8000`.
+Set `NEXT_PUBLIC_ENGINEERING_API` when the engineering service is not running on `http://localhost:8000`.
 
 ## Public URL
 
-The intended public canonical hostname is **getfabrient.com**. The repository metadata now uses that hostname for canonical/Open Graph URLs; DNS/domain attachment still has to be completed in the hosting account before it becomes the live production hostname.
+The intended public hostname is **getfabrient.com**. Application metadata uses that hostname as the canonical/Open Graph URL. The domain still needs to be attached and configured in the hosting account before it becomes the live production hostname.
