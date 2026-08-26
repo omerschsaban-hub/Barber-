@@ -1,3 +1,4 @@
+from . import env_bootstrap  # noqa: F401  # load minimal deployment config before integration imports
 from .main import app
 from .advanced import router as advanced_router
 from .real_cv_sim2real import router as real_cv_sim2real_router
