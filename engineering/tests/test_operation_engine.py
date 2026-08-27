@@ -1,10 +1,12 @@
+from pytest import approx
+
 from services.engine.operation_engine import run_tool_operation
 
 
 def test_dimension_validation_computes_result():
     result = run_tool_operation("validate_dimension", {"nominal_mm": 10, "measured_mm": 10.04, "tolerance_mm": 0.05})
     assert result["status"] == "pass"
-    assert result["deviation_mm"] == 0.03999999999999915
+    assert result["deviation_mm"] == approx(0.04)
 
 
 def test_wall_check_fails_when_below_limit():
