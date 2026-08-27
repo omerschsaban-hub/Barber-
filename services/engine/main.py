@@ -122,6 +122,7 @@ if not allowed and os.getenv("NODE_ENV", "production") == "production":
     allowed = [
         "https://getfabrient.com",
         "https://www.getfabrient.com",
+        "https://fabrinat-omega.vercel.app",
         "https://fabrinat-omerschsaban-hubs-projects.vercel.app",
         "https://fabrinat-git-main-omerschsaban-hubs-projects.vercel.app",
     ]

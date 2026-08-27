@@ -6,10 +6,13 @@ cache-safe headers, and an explicit evidence/release boundary.
 """
 from __future__ import annotations
 
+import logging
 import math
 import time
 import uuid
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -58,9 +61,10 @@ class UniversalQualityMiddleware(BaseHTTPMiddleware):
                 status_code=422,
                 headers={"X-Request-ID": request_id},
             )
-        except Exception as exc:
+        except Exception:
+            logger.exception("engineering route failed request_id=%s", request_id)
             return JSONResponse(
-                {"status": "error", "reason": "engineering route failed", "detail": str(exc)[:1000], "request_id": request_id},
+                {"status": "error", "reason": "engineering route failed", "request_id": request_id},
                 status_code=500,
                 headers={"X-Request-ID": request_id},
             )

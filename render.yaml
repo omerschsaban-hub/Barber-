@@ -6,6 +6,17 @@ services:
     dockerContext: .
     healthCheckPath: /health
     autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: GMAIL_OAUTH_JSON
+        sync: false
+      - key: REVENUECAT_CONFIG
+        sync: false
+      - key: FABRIENT_ALLOWED_ORIGINS
+        value: https://fabrinat-omega.vercel.app,https://getfabrient.com,https://www.getfabrient.com
 
   - type: web
     name: fabrient-mcp

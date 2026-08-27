@@ -21,6 +21,10 @@ DEFAULT_ENTITLEMENTS = {
     "startup": ("fabrinat_startup",),
     "enterprise": ("fabrinat_enterprise",),
 }
+DEFAULT_PRODUCTS = {
+    "hobbyist": ("hobby_monthly",),
+    "startup": ("startup_monthly", "startup_monthly_v2"),
+}
 
 
 def _csv(name: str) -> set[str]:
@@ -34,7 +38,9 @@ def _configured_entitlements(plan: str) -> set[str]:
 
 
 def _configured_products(plan: str) -> set[str]:
-    return _csv(f"FABRIENT_{plan.upper()}_PRODUCT_IDS")
+    values = set(DEFAULT_PRODUCTS.get(plan, ()))
+    values.update(_csv(f"FABRIENT_{plan.upper()}_PRODUCT_IDS"))
+    return values
 
 
 def active_entitlements(user_id: str) -> list[dict[str, Any]]:
