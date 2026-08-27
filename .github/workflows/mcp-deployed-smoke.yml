@@ -66,6 +66,7 @@ jobs:
       - name: Execute every deployed tool individually
         env:
           MCP_URL: https://fabrient-mcp.onrender.com/mcp
+          FABRIENT_MCP_AUTH_TOKEN: ${{ secrets.FABRIENT_MCP_AUTH_TOKEN }}
         run: |
           set -o pipefail
           python smoke_test.py 2>&1 | tee /tmp/mcp-100.log

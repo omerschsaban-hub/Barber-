@@ -58,7 +58,9 @@ def fixture(name: str) -> dict:
 
 async def main() -> None:
     url = os.getenv("MCP_URL", "http://127.0.0.1:8000/mcp")
-    async with streamable_http_client(url) as streams:
+    token = os.getenv("FABRIENT_MCP_AUTH_TOKEN", "").strip()
+    headers = {"Authorization": f"Bearer {token}"} if token else None
+    async with streamable_http_client(url, headers=headers) as streams:
         read_stream, write_stream = streams[:2]
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
