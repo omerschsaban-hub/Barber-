@@ -38,14 +38,15 @@ jobs:
           set -euo pipefail
           cutoff=$(date -u -d '24 hours ago' +%s)
           count=0
-          while IFS= read -r ts; do
+          while IFS=$'\t' read -r ts conclusion; do
             [ -z "$ts" ] && continue
+            [ "$conclusion" = "success" ] || continue
             epoch=$(date -u -d "$ts" +%s)
             if [ "$epoch" -ge "$cutoff" ]; then count=$((count+1)); fi
-          done < <(gh run list --workflow production-release.yml --limit 100 --json startedAt --jq '.[].startedAt')
-          echo "Production-release workflow runs in rolling 24h: $count"
+          done < <(gh run list --workflow production-release.yml --limit 100 --json startedAt,conclusion --jq '.[] | [.startedAt,.conclusion] | @tsv')
+          echo "Successful production-release deployments in rolling 24h: $count"
           if [ "$count" -ge 50 ]; then
-            echo '50 production-release workflow runs have already been started in the rolling 24h window; refusing another verification.'
+            echo '50 successful production-release deployments have already occurred in the rolling 24h window; refusing another verification.'
             exit 1
           fi
 
