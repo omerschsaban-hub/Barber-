@@ -11,7 +11,9 @@ import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
-APP_VERSION = "0.3.4"
+from .operation_engine import run_tool_operation
+
+APP_VERSION = "0.3.5"
 PHYSICS_VERSION = "fdm-shrinkage-3"
 app = FastAPI(title="Fabrient Engineering Service", version=APP_VERSION)
 MAX_UPLOAD_BYTES = 25_000_000
@@ -90,7 +92,6 @@ def extract(p):
         try: raw=base64.b64decode(enc,validate=True)
         except Exception as e: raise HTTPException(422,"invalid base64") from e
         return payload_file(str(p.pop("filename","upload.step")),raw,p)
-    # Explicitly reject inaccessible remote paths instead of pretending they are files.
     if p.get("file_path"):
         raise HTTPException(422,"file_path is not readable by the engineering service; send file_base64 or multipart upload")
     return p
@@ -110,26 +111,6 @@ def compute_risk_map(findings,uncertainty_sigma_mm=0.,tolerance_mm=0.):
         ranked.append({"id":str(finding.get("id",f"finding-{i+1}")),"category":str(finding.get("category","engineering")),"message":str(finding.get("message","No description supplied")),"risk_score":score,"level":risk_level(score),"source":str(finding.get("source","supplied engineering evidence")),"position":finding.get("position",[0,0,0])})
     ranked.sort(key=lambda x:(-x["risk_score"],x["id"]))
     return {"risk_map":ranked,"summary":{k:sum(x["level"]==k for x in ranked) for k in ("critical","high","medium","low")},"provenance":{"method":"deterministic finding ranking","uncertainty_sigma_mm":float(uncertainty_sigma_mm),"tolerance_mm":float(tolerance_mm),"physical_acceptance":"not evaluated by risk map"}}
-
-CHECK_RULES={"check_wall_thickness":("wall_thickness_mm","minimum_wall_thickness_mm"),"check_clearances":("clearance_mm","minimum_clearance_mm"),"check_holes":("hole_diameter_mm","minimum_hole_diameter_mm"),"check_overhangs":("overhang_angle_deg","maximum_overhang_angle_deg"),"check_bridges":("bridge_length_mm","maximum_bridge_length_mm"),"check_tolerances":("measured_mm","tolerance_mm"),"check_fit":("measured_mm","target_mm")}
-def _generic_tool_result(operation,p,topo):
-    if operation in CHECK_RULES:
-        measured_key,limit_key=CHECK_RULES[operation]
-        if measured_key in p and limit_key in p:
-            try:
-                measured=float(p[measured_key]); limit=float(p[limit_key]); passed=measured>=limit if operation!="check_overhangs" else measured<=limit
-                return {"operation":operation,"status":"pass" if passed else "fail","measured":measured,"limit":limit,"evidence":"caller-supplied measurement"}
-            except (TypeError,ValueError): return {"operation":operation,"status":"blocked","reason":"numeric inputs are invalid","engineering_claims":False}
-        return {"operation":operation,"status":"blocked","reason":f"{measured_key} and {limit_key} are required","engineering_claims":False}
-    if operation.startswith("check_") or operation.startswith("cad_"): return {"operation":operation,"status":"pass" if topo else "blocked","topology_verified":topo,"reason":None if topo else "verified geometry evidence is required","engineering_claims":bool(topo)}
-    if operation in {"validate_material","validate_machine_envelope"}:
-        required="material" if operation=="validate_material" else "machine_envelope"; return {"operation":operation,"status":"pass" if p.get(required) else "blocked","required_input":required,"engineering_claims":bool(p.get(required))}
-    if operation in {"trace_provenance","manufacturing_provenance"}: return {"operation":operation,"status":"pass" if p else "blocked","provenance":p.get("provenance",p),"engineering_claims":False}
-    if operation in {"release_manufacturing_package","manufacturing_release_gate","manufacturing_release_candidate"}: return {"operation":operation,"status":"human_release_required","released":False,"engineering_claims":False}
-    if operation in {"auto_fix_dfm","manufacturing_dfm_fix_verify","dfm_self_fix"}: return {"operation":operation,"status":"blocked","reason":"bounded geometry fix plus post-fix kernel verification is required","engineering_claims":False}
-    if operation.startswith("ml_") or operation in {"calibrate_from_observations","calibration_fit","system_identification","final_system_identification","residual_uncertainty"}:
-        n=len(p.get("observations",p.get("real_observations",[]))); return {"operation":operation,"status":"validated" if n>=3 else "blocked","observations":n,"source":"real_observations_only","engineering_claims":n>=3}
-    return {"operation":operation,"status":"blocked","reason":"operation is callable but requires operation-specific engineering evidence","engineering_claims":False}
 
 @app.get("/health")
 def health(): return {"ok":True,"version":APP_VERSION,"physics_version":PHYSICS_VERSION}
@@ -160,11 +141,12 @@ def risk_map(payload:dict[str,Any]):
     return compute_risk_map(findings,float(payload.get("uncertainty_sigma_mm",0.)),float(payload.get("tolerance_mm",0.)))
 @app.post("/v1/toolbox/{operation}")
 def toolbox(operation:str,payload:dict[str,Any]|None=None):
-    p=extract(payload or {}); g=p.get("step_inspection") or {}; topo=bool(g.get("topology_verified",False))
-    if operation in {"inspect_part","analyze_geometry","extract_features"}: return {"operation":operation,"geometry":g,"status":"pass" if topo else "blocked","evidence_required":not topo}
-    if operation in {"analyze_dfm","find_manufacturing_risks","score_manufacturability"}: return {"operation":operation,"risks":[] if topo else [{"code":"TOPOLOGY_UNVERIFIED","severity":"high"}],"status":"pass" if topo else "blocked","provenance":"kernel-derived geometry required"}
-    if operation=="risk_map": return compute_risk_map(p.get("findings",[]),float(p.get("uncertainty_sigma_mm",0)),float(p.get("tolerance_mm",0)))
-    return _generic_tool_result(operation,p,topo)
+    p=extract(payload or {})
+    g=p.get("step_inspection") or {}
+    topo=bool(g.get("topology_verified",False))
+    if operation == "risk_map":
+        return compute_risk_map(p.get("findings",[]),float(p.get("uncertainty_sigma_mm",0)),float(p.get("tolerance_mm",0)))
+    return run_tool_operation(operation,p,topology_verified=topo)
 @app.post("/v1/dfm/analyze")
 def dfm(payload:dict[str,Any]): return toolbox("analyze_dfm",payload)
 @app.post("/v1/dfm/self-fix")
@@ -177,7 +159,7 @@ def sim2real(payload:dict[str,Any]):
 @app.post("/v1/cv/measure")
 async def cv_measure(image:UploadFile=File(...),reference_length_mm:float|None=None,reference_pixel_span:float|None=None):
     if not reference_length_mm or not reference_pixel_span or reference_length_mm<=0 or reference_pixel_span<=0: raise HTTPException(422,"Calibrated physical reference length and pixel span required")
-    data=await image.read();
+    data=await image.read()
     if len(data)>MAX_UPLOAD_BYTES: raise HTTPException(413,"uploaded image exceeds 25 MB")
     import cv2
     arr=np.frombuffer(data,np.uint8); img=cv2.imdecode(arr,cv2.IMREAD_GRAYSCALE)
@@ -187,8 +169,11 @@ async def cv_measure(image:UploadFile=File(...),reference_length_mm:float|None=N
 def package(payload:dict[str,Any]):
     p=extract(payload); a=toolbox("analyze_dfm",p); return {"release_status":"HUMAN_RELEASE_REQUIRED","candidate":True,"contents":["geometry.step","dfm.json","inspection-plan.json","traceability.json","release-notes.txt"],"analysis":a,"physical_acceptance":"PENDING_REAL_BUILD"}
 @app.post("/v1/manufacturing/build-guide")
-def guide(payload:dict[str,Any]): return {"title":"Fabrient Physical Build & Acceptance Guide","steps":["lock revision and provenance","manufacture controlled sample","measure calibrated critical dimensions","perform physical fit test","capture CV images with scale reference","record measurements","run held-out sim-to-real validation","review inspection report","human release gate"],"release":"not_authorized_until_physical_evidence"}
+def guide(payload:dict[str,Any]): return run_tool_operation("generate_physical_build_guide",payload)
 @app.post("/v1/acceptance")
-def acceptance(payload:dict[str,Any]): return {"accepted":False,"status":"HUMAN_PHYSICAL_ACCEPTANCE_REQUIRED"}
+def acceptance(payload:dict[str,Any]): return run_tool_operation("acceptance_gate",payload)
 @app.post("/v1/agents/fleet")
-def fleet(payload:dict[str,Any]): return {"status":"completed_with_gates","agents":["geometry","dfm","physics","cv","sim2real","critic"],"evidence_policy":"measured evidence only"}
+def fleet(payload:dict[str,Any]):
+    operations=["inspect_part","analyze_dfm","run_bounded_engineering_review","fit_residual_model"]
+    results=[run_tool_operation(op,payload,topology_verified=bool(payload.get("geometry_verified"))) for op in operations]
+    return {"status":"completed_with_gates","agents":["geometry","dfm","physics","cv","sim2real","critic"],"results":results,"evidence_policy":"measured evidence only"}
