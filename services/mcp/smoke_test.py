@@ -61,6 +61,9 @@ def fixture(name: str) -> dict:
 async def main() -> None:
     url = os.getenv("MCP_URL", "http://127.0.0.1:8000/mcp")
     token = os.getenv("FABRIENT_MCP_AUTH_TOKEN", "").strip()
+    start = max(0, int(os.getenv("MCP_TOOL_START", "0")))
+    end = min(len(CAPABILITY_NAMES), int(os.getenv("MCP_TOOL_END", str(len(CAPABILITY_NAMES)))))
+    selected_names = CAPABILITY_NAMES[start:end]
     headers = {"Authorization": f"Bearer {token}"} if token else None
     async with streamable_http_client(url, headers=headers) as streams:
         read_stream, write_stream = streams[:2]
@@ -71,7 +74,7 @@ async def main() -> None:
             assert names == CAPABILITY_NAMES, "tools/list does not match the authoritative registry"
             assert len(names) == 100 and len(set(names)) == 100
             failures: list[str] = []
-            for name in CAPABILITY_NAMES:
+            for name in selected_names:
                 try:
                     arguments = fixture(name)
                     if name == "validate_dimension":
@@ -88,7 +91,7 @@ async def main() -> None:
                     failures.append(f"{name}: {exc}")
             if failures:
                 raise AssertionError("MCP tools/call failures:\n" + "\n".join(failures))
-            print(f"MCP contract smoke OK: tools/list={len(names)}, tools/call={len(CAPABILITY_NAMES)}, failures=0")
+            print(f"MCP contract smoke OK: tools/list={len(names)}, tools/call={len(selected_names)}, range={start}:{end}, failures=0")
 
 if __name__ == "__main__":
     asyncio.run(main())
