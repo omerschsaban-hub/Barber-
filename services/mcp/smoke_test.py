@@ -73,9 +73,9 @@ async def main() -> None:
                 try:
                     arguments = fixture(name)
                     if name == "validate_dimension":
-                        result = await session.call_tool(name, arguments=arguments)
+                        result = await asyncio.wait_for(session.call_tool(name, arguments=arguments), timeout=30)
                     else:
-                        result = await session.call_tool(name, arguments={"payload": arguments})
+                        result = await asyncio.wait_for(session.call_tool(name, arguments={"payload": arguments}), timeout=30)
                     if not result.content:
                         failures.append(f"{name}: empty result")
                         continue
