@@ -4,11 +4,19 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const ENGINE = (process.env.ENGINEERING_API_INTERNAL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com').replace(/\/$/, '')
+const MAX_AUTH_BODY_BYTES = 32 * 1024
 
 export async function POST(request: NextRequest, {params}: {params: Promise<{action: string}>}) {
   const {action} = await params
   if (!['request-code', 'verify-code', 'logout'].includes(action)) return NextResponse.json({error: 'Not found'}, {status: 404})
+  const contentLength = Number(request.headers.get('content-length') || 0)
+  if (Number.isFinite(contentLength) && contentLength > MAX_AUTH_BODY_BYTES) {
+    return NextResponse.json({error: 'Request body is too large'}, {status: 413})
+  }
   const body = await request.arrayBuffer()
+  if (body.byteLength > MAX_AUTH_BODY_BYTES) {
+    return NextResponse.json({error: 'Request body is too large'}, {status: 413})
+  }
   return proxy(request, `/auth/${action}`, body)
 }
 
