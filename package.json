@@ -35,7 +35,8 @@
     "pdf-lib": "1.17.1"
   },
   "overrides": {
-    "sharp": "^0.35.0"
+    "sharp": "^0.35.0",
+    "postcss": "8.5.26"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
