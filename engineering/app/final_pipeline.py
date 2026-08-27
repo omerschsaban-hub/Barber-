@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import io, hashlib, math
+import io, hashlib
 from typing import Any
 
 import numpy as np

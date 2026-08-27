@@ -1,0 +1,7 @@
+# Fabrient backend CI enforces correctness findings in the migration surface.
+# The repository contains legacy formatting debt that is intentionally tracked separately.
+line-length = 100
+
+[lint]
+select = ["F"]
+ignore = []

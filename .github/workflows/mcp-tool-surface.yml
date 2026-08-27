@@ -23,9 +23,11 @@ jobs:
       - name: Install engineering dependencies
         run: python -m pip install --upgrade pip && pip install -r engineering/requirements.txt -r requirements.txt
       - name: Start isolated engineering API
+        env:
+          PYTHONPATH: ${{ github.workspace }}/engineering:${{ github.workspace }}
         run: |
           set -euo pipefail
-          uvicorn main:app --app-dir engineering --host 127.0.0.1 --port 8001 >/tmp/fabrient-engine.log 2>&1 &
+          uvicorn app.composed:app --app-dir engineering --host 127.0.0.1 --port 8001 >/tmp/fabrient-engine.log 2>&1 &
           pid=$!
           ready=0
           for i in $(seq 1 60); do

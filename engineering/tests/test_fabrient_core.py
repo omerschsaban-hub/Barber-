@@ -1,3 +1,4 @@
+# ruff: noqa: F403, F405
 from app.sim2real import *
 from app.importer import preview_csv,confirm_rows
 from app.geometry import parse_stl_ascii

@@ -6,7 +6,6 @@ cache-safe headers, and an explicit evidence/release boundary.
 """
 from __future__ import annotations
 
-import json
 import math
 import time
 import uuid

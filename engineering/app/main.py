@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import csv, io, math, re, statistics, hashlib
+import csv, io, math, re, hashlib
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -9,7 +9,7 @@ import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sklearn.linear_model import Ridge, HuberRegressor
+from sklearn.linear_model import HuberRegressor
 from sklearn.model_selection import LeaveOneOut, cross_val_predict
 from sklearn.metrics import mean_absolute_error
 
@@ -121,7 +121,6 @@ def predict(x: EngineeringInput):
 def simulate(x: SimulationInput):
     rng = np.random.default_rng(x.seed)
     shrink = rng.normal(x.shrinkage_pct, x.shrinkage_sigma_pct, x.n)
-    temp = rng.normal(x.temperature_c, x.temperature_sigma_c, x.n)
     dims = x.nominal_mm * (1 - shrink / 100.0)
     return {"n": x.n, "seed": x.seed, "prediction_mm": float(np.mean(dims)),
             "interval_95_mm": [float(np.quantile(dims, .025)), float(np.quantile(dims, .975))],

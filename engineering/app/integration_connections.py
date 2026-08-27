@@ -7,7 +7,6 @@ session/configuration layer; secrets are supplied only at request time or via
 server-side secret storage.
 """
 
-import os
 from typing import Any
 from urllib.parse import urlparse
 
