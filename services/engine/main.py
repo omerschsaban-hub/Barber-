@@ -115,11 +115,13 @@ async def sim2real_quality_gate(request: Request, call_next):
     return await call_next(request)
 
 allowed = [origin.strip().rstrip("/") for origin in os.getenv("FABRIENT_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
-if not allowed:
-    # No wildcard fallback in production. This prevents accidental cross-origin access
-    # when the deployment forgot to configure its browser origins.
-    if os.getenv("NODE_ENV", "production") == "production":
-        allowed = ["https://getfabrient.com", "https://www.getfabrient.com"]
+if not allowed and os.getenv("NODE_ENV", "production") == "production":
+    allowed = [
+        "https://getfabrient.com",
+        "https://www.getfabrient.com",
+        "https://fabrinat-omerschsaban-hubs-projects.vercel.app",
+        "https://fabrinat-git-main-omerschsaban-hubs-projects.vercel.app",
+    ]
 
 @app.middleware("http")
 async def cors_origin_guard(request: Request, call_next):
