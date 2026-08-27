@@ -16,6 +16,8 @@ jobs:
   deployed-mcp:
     name: Deployed MCP — 100 tools + engineering quality
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/services/mcp
     timeout-minutes: 30
     defaults:
       run:

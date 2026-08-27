@@ -119,5 +119,8 @@ _mcp_app = mcp.streamable_http_app(
 
 
 # FABRIENT_PRODUCTION_AUTH_WRAPPED
-from services.mcp.production_auth import wrap_app as _fabrient_wrap_app
+try:
+    from services.mcp.production_auth import wrap_app as _fabrient_wrap_app
+except ModuleNotFoundError:
+    from production_auth import wrap_app as _fabrient_wrap_app
 app = _fabrient_wrap_app(_mcp_app, CAPABILITY_REGISTRY)

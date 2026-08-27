@@ -7,6 +7,12 @@ from collections import defaultdict, deque
 from typing import Any, Callable
 
 import httpx
+
+try:
+    from services.mcp.auth_db import user_from_bearer, _pool
+except ModuleNotFoundError:
+    from auth_db import user_from_bearer, _pool
+
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -17,13 +23,11 @@ from starlette.routing import Route
 PROJECT_ID = os.getenv("REVENUECAT_PROJECT_ID", "projb138a8db")
 REVENUECAT_SECRET = os.getenv("REVENUECAT_SECRET_API_KEY") or os.getenv("REVENUECAT_API_KEY")
 PRO_ENTITLEMENT = os.getenv("FABRIENT_PRO_ENTITLEMENT", "create_an_app_called_fabrinat_pro").lower()
-SUPABASE_URL = (os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "https://gphmefejeqvlemzvmade.supabase.co").rstrip("/")
-SUPABASE_ANON_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
-ISSUER = f"{SUPABASE_URL}/auth/v1"
-DISCOVERY = f"{SUPABASE_URL}/.well-known/oauth-authorization-server/auth/v1"
 HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME", "fabrient-mcp.onrender.com")
+ISSUER = os.getenv("FABRIENT_MCP_OAUTH_ISSUER", f"https://{HOST}").rstrip("/")
+DISCOVERY = f"{ISSUER}/.well-known/oauth-authorization-server"
 RESOURCE = os.getenv("FABRIENT_MCP_RESOURCE_URL", f"https://{HOST}/mcp").rstrip("/")
-RESOURCE_METADATA = f"https://{HOST}/.well-known/oauth-protected-resource"
+RESOURCE_METADATA = f"{ISSUER}/.well-known/oauth-protected-resource"
 
 PUBLIC_DOMAINS = {
     "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
@@ -97,34 +101,36 @@ async def _billing(user_id: str) -> dict[str, Any]:
 
 async def _identity(request: Request) -> dict[str, Any] | None:
     auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer ") or not SUPABASE_ANON_KEY:
+    if not auth.lower().startswith("bearer "):
         return None
     try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            r = await client.get(f"{ISSUER}/user", headers={"apikey": SUPABASE_ANON_KEY, "Authorization": auth})
-        if r.status_code != 200:
+        user = user_from_bearer(auth[7:].strip())
+        if not user:
             return None
-        user = r.json()
-        uid = user.get("id")
-        if not uid:
-            return None
-        billing = await _billing(uid)
+        uid = str(user["user_id"])
+        with _pool().connection() as conn:
+            entitlement = conn.execute("""select entitlement_id from billing_entitlements
+                where user_id=%s and active=true and (expires_at is null or expires_at>now())
+                order by entitlement_id""", (uid,)).fetchall()
+        entitlements = [str(row["entitlement_id"] if isinstance(row, dict) else row[0]) for row in entitlement]
+        paid = PRO_ENTITLEMENT in {x.lower() for x in entitlements}
+        source = "owned_postgres" if entitlements else "owned_postgres_none"
         segment, basis, confidence = _segment(user)
         return {
             "user_id": uid,
             "email": str(user.get("email") or "").lower(),
-            "email_verified": bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
-            "name": (user.get("user_metadata") or {}).get("full_name") or (user.get("user_metadata") or {}).get("name"),
-            "paid": billing["paid"],
-            "plan": billing["plan"],
-            "billing_status": billing["status"],
-            "billing_source": billing["source"],
-            "entitlements": billing["entitlements"],
+            "email_verified": True,
+            "name": user.get("display_name"),
+            "paid": paid,
+            "plan": "pro" if paid else "free",
+            "billing_status": "verified",
+            "billing_source": source,
+            "entitlements": entitlements,
             "segment": segment,
             "segment_basis": basis,
             "segment_confidence": confidence,
         }
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError, KeyError, RuntimeError):
         return None
 
 
