@@ -4,7 +4,7 @@
 
 Fabrient helps people building physical products get from an engineering idea to something they can actually make, test, improve and trust.
 
-You can start with a plain-English request, the CAD you already have, measurements, manufacturing information, or a problem you are trying to solve. Fabrient helps work through the job instead of making you translate everything into a maze of separate engineering tools.
+You can start with a plain-English request, the CAD you already have, measurements, manufacturing information, or a problem you are trying to solve. Fabrient helps work through the job instead of m[...]
 
 ## What Fabrient is for
 
@@ -32,7 +32,7 @@ The core loop is deliberately simple:
 
 **Start → Understand → Check → Improve → Build → Prove**
 
-You describe what you are trying to accomplish. Fabrient works through the information it has, checks the parts that can be checked automatically, helps identify what needs changing, and keeps the evidence together.
+You describe what you are trying to accomplish. Fabrient works through the information it has, checks the parts that can be checked automatically, helps identify what needs changing, and keeps the[...]
 
 When you make the physical thing, reality comes back into the loop. Measurements, fit, failures and corrections can then improve the next decision.
 
@@ -44,7 +44,7 @@ The experience is intentionally simple, but the system underneath it is not a to
 
 ### Engineering and CAD
 
-Fabrient uses deterministic engineering code and CAD tooling for the things that need repeatable answers. The current implementation uses **CadQuery / OCCT** for parametric CAD and STEP exchange, explicit dimensional checks, geometry/topology validation, manufacturing checks and bounded self-fix workflows.
+Fabrient uses deterministic engineering code and CAD tooling for the things that need repeatable answers. The current implementation uses **CadQuery / OCCT** for parametric CAD and STEP exchange, [...]
 
 That means an AI response is not allowed to quietly become the engineering truth. The actual engineering layer produces the result that matters.
 
@@ -52,7 +52,7 @@ That means an AI response is not allowed to quietly become the engineering truth
 
 ML is used where real observations can make the engineering baseline better.
 
-The current implementation can learn machine/process behavior from real observations and can model remaining error after a deterministic baseline. It uses held-out validation before treating a learned model as useful, and it keeps uncertainty visible.
+The current implementation can learn machine/process behavior from real observations and can model remaining error after a deterministic baseline. It uses held-out validation before treating a lea[...]
 
 In plain English: **the system can learn from what your machine really did, but it does not get to invent the evidence.**
 
@@ -94,7 +94,7 @@ A green screen is not the definition of done. **The useful outcome is an artifac
 
 Fabrient is designed so humans and software agents can work with the same engineering system.
 
-An agent can help gather context, choose the next bounded action, run an engineering operation, look at the result and continue. The system still keeps hard boundaries around consequential changes and unsupported conclusions.
+An agent can help gather context, choose the next bounded action, run an engineering operation, look at the result and continue. The system still keeps hard boundaries around consequential changes[...]
 
 The basic rule is simple:
 
@@ -135,7 +135,7 @@ The current production architecture uses:
 - authenticated MCP engineering tools
 - GitHub Actions and Playwright acceptance testing
 
-PostgreSQL is the canonical production database architecture. Legacy Supabase references are treated as migration/compatibility material and must be audited before removal; new production database functionality should not be built around Supabase.
+PostgreSQL is the canonical production database architecture. Legacy Supabase references are treated as migration/compatibility material and must be audited before removal; new production databas[...]
 
 ## For developers
 
@@ -177,4 +177,6 @@ Set `NEXT_PUBLIC_ENGINEERING_API` when the engineering service is not running on
 
 ## Public URL
 
-The intended public hostname is **getfabrient.com**. Application metadata uses that hostname as the canonical/Open Graph URL. The domain still needs to be attached and configured in the hosting account before it becomes the live production hostname.
+The intended public hostname is **getfabrient.com**. Application metadata uses that hostname as the canonical/Open Graph URL. The domain still needs to be attached and configured in the hosting a[...]
+
+This README was updated with a minor, non-functional documentation change to verify CI and Actions workflows.
