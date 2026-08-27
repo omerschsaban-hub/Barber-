@@ -76,4 +76,5 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS --max-time 30 https://fabrient-engineering.onrender.com/health
+          curl -fsS --max-time 30 https://fabrient-engineering.onrender.com/ready
           curl -fsS --max-time 30 https://fabrient-mcp.onrender.com/health

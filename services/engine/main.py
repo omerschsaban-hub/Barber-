@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from engineering.app import env_bootstrap as _env_bootstrap  # noqa: E402,F401
 from engineering.app.composed import app  # noqa: E402
-from engineering.app.postgres import ensure_schema  # noqa: E402
+from engineering.app.postgres import ensure_schema, fetch_one  # noqa: E402
 from engineering.app.owned_auth import _bearer, user_from_token  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
 from engineering.app.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
@@ -55,6 +55,16 @@ def health():
 @app.get("/v1/health")
 def v1_health():
     return health()
+
+@app.get("/ready")
+def ready():
+    if not os.getenv("DATABASE_URL"):
+        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "DATABASE_URL is not configured"})
+    try:
+        fetch_one("select 1")
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "PostgreSQL is unavailable"})
+    return {"status": "ready", "database": "ready"}
 
 @app.get("/internal/data-flywheel/run")
 def manual_flywheel_run(token: str | None = None):
