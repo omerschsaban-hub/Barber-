@@ -18,8 +18,21 @@ def _object(name: str) -> dict[str, str]:
     return {str(k): str(v) for k, v in value.items() if v is not None}
 
 
+def _file_object(path: str) -> dict[str, str]:
+    try:
+        with open(path, encoding="utf-8") as handle:
+            value = json.load(handle)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    if not isinstance(value, dict):
+        return {}
+    return {str(k): str(v) for k, v in value.items() if v is not None}
+
+
 def load() -> None:
     revenuecat = _object("REVENUECAT_CONFIG")
+    if not revenuecat:
+        revenuecat = _file_object(os.getenv("REVENUECAT_CONFIG_FILE", "/etc/secrets/fabrient-revenuecat-config.json"))
     for key, env_name in (("secret_api_key", "REVENUECAT_SECRET_API_KEY"), ("webhook_auth", "REVENUECAT_WEBHOOK_AUTH"), ("webhook_signing_secret", "REVENUECAT_WEBHOOK_SIGNING_SECRET")):
         if revenuecat.get(key) and not os.getenv(env_name):
             os.environ[env_name] = revenuecat[key]
