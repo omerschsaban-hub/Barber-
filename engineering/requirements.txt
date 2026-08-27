@@ -11,6 +11,6 @@ httpx==0.28.1
 openai>=1.99,<2
 cadquery==2.6.0
 requests==2.32.4
-mcp==2.0.0
+mcp==1.13.1
 psycopg[binary,pool]==3.2.9
 email-validator==2.3.0

@@ -30,11 +30,11 @@ class SystemIDRequest(BaseModel):
     min_points: int = Field(default=6, ge=4, le=10000)
 
 class RiskRequest(BaseModel):
-    nominal_mm: float = Field(gt=0)
-    predicted_mm: float
-    uncertainty_mm: float = Field(ge=0)
-    lower_tol_mm: float
-    upper_tol_mm: float
+    nominal_mm: float | None = Field(default=None, gt=0)
+    predicted_mm: float | None = None
+    uncertainty_mm: float | None = Field(default=None, ge=0)
+    lower_tol_mm: float | None = None
+    upper_tol_mm: float | None = None
 
 class ImportConfirm(BaseModel):
     filename: str
@@ -64,6 +64,8 @@ def _risk(nominal: float, predicted: float, sigma: float, lo: float, hi: float):
 
 @router.post("/risk")
 def computed_risk(x: RiskRequest):
+    if any(value is None for value in (x.nominal_mm, x.predicted_mm, x.uncertainty_mm, x.lower_tol_mm, x.upper_tol_mm)):
+        return {"status": "reviewable", "operation": "risk_estimate", "next_step": "Provide nominal, prediction, uncertainty, and tolerance evidence before computing risk.", "human_gate": True, "provenance": {"source": "risk_validation_boundary", "synthetic": False}}
     return {"status": "ok", "result": _risk(x.nominal_mm, x.predicted_mm, x.uncertainty_mm, x.lower_tol_mm, x.upper_tol_mm),
             "provenance": {"source": "deterministic_engineering", "uncertainty": "explicit input; no fabricated confidence"}}
 

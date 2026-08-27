@@ -11,6 +11,8 @@ import time
 import uuid
 from typing import Any
 
+from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -48,6 +50,14 @@ class UniversalQualityMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
+        except HTTPException:
+            raise
+        except RequestValidationError as exc:
+            return JSONResponse(
+                {"status": "invalid_request", "reason": "request validation failed", "detail": str(exc)[:1000], "request_id": request_id},
+                status_code=422,
+                headers={"X-Request-ID": request_id},
+            )
         except Exception as exc:
             return JSONResponse(
                 {"status": "error", "reason": "engineering route failed", "detail": str(exc)[:1000], "request_id": request_id},

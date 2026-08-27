@@ -13,6 +13,8 @@ def _secret()->bytes:
  if not value or len(value)<32: raise RuntimeError('AUTH_SECRET must be configured with at least 32 bytes of entropy')
  return value.encode()
 def _hash(value:str)->bytes:return hmac.new(_secret(),value.encode(),hashlib.sha256).digest()
+def _digest(value:str)->bytes:return hashlib.sha256(value.encode()).digest()
+def _otp_hash(email:str,code:str)->bytes:return _hash(f'{email.strip().lower()}:{code}')
 def _client_ip(request:Request)->str:return request.client.host if request.client else 'unknown'
 def _rate_limit(bucket:str,limit:int,window_seconds:int)->None:
  rows=fetch_all("INSERT INTO rate_limits(bucket,window_started_at,count) VALUES(%s,now(),1) ON CONFLICT(bucket) DO UPDATE SET count=CASE WHEN rate_limits.window_started_at<=now()-(%s*interval '1 second') THEN 1 ELSE rate_limits.count+1 END,window_started_at=CASE WHEN rate_limits.window_started_at<=now()-(%s*interval '1 second') THEN now() ELSE rate_limits.window_started_at END,updated_at=now() RETURNING count",(bucket,window_seconds,window_seconds))
@@ -46,7 +48,7 @@ def _session(token:str|None)->dict[str,Any]|None:
  u=user_from_token(token);return {'user_id':u['id'],'email':u['email'],'display_name':u['display_name'],'role':u['role']} if u else None
 @router.post('/request-otp')
 async def request_otp(body:EmailRequest,request:Request):
- email=_normalize_email(body.email);_rate_limit('otp:ip:'+hashlib.sha256(_client_ip(request).encode()).hexdigest(),10,3600);_rate_limit('otp:email:'+hashlib.sha256(email.encode()).hexdigest(),5,3600);code=f'{secrets.randbelow(1000000):06d}';execute('update otp_challenges set consumed_at=now() where lower(email)=lower(%s) and consumed_at is null',(email,));execute("insert into otp_challenges(email,code_hash,attempts,expires_at) values(%s,%s,0,now()+(%s*interval '1 second'))",(email,_hash(code),OTP_TTL_SECONDS))
+ email=_normalize_email(body.email);_rate_limit('otp:ip:'+hashlib.sha256(_client_ip(request).encode()).hexdigest(),10,3600);_rate_limit('otp:email:'+hashlib.sha256(email.encode()).hexdigest(),5,3600);code=f'{secrets.randbelow(1000000):06d}';execute('update otp_challenges set consumed_at=now() where lower(email)=lower(%s) and consumed_at is null',(email,));execute("insert into otp_challenges(email,code_hash,attempts,expires_at) values(%s,%s,0,now()+(%s*interval '1 second'))",(email,_otp_hash(email,code),OTP_TTL_SECONDS))
  try:await _send_otp_email(email,code)
  except Exception:execute('update otp_challenges set consumed_at=now() where lower(email)=lower(%s) and consumed_at is null',(email,));raise HTTPException(502,'Could not send the sign-in code.')
  return {'ok':True,'expires_in':OTP_TTL_SECONDS}
@@ -58,7 +60,7 @@ def verify_otp(body:VerifyRequest,request:Request):
   if not ch or ch['expires_at'].timestamp()<=time.time() or int(ch['attempts'])>=MAX_OTP_ATTEMPTS:
    if ch:conn.execute('update otp_challenges set consumed_at=now() where id=%s',(ch['id'],))
    raise HTTPException(400,'That code is invalid or expired.')
-  if not hmac.compare_digest(bytes(ch['code_hash']),_hash(body.code)):conn.execute('update otp_challenges set attempts=attempts+1 where id=%s',(ch['id'],));raise HTTPException(400,'That code is invalid or expired.')
+  if not hmac.compare_digest(bytes(ch['code_hash']),_otp_hash(email,body.code)):conn.execute('update otp_challenges set attempts=attempts+1 where id=%s',(ch['id'],));raise HTTPException(400,'That code is invalid or expired.')
   conn.execute('update otp_challenges set consumed_at=now() where id=%s',(ch['id'],));u=conn.execute("insert into users(email,email_verified_at) values(%s,now()) on conflict((lower(email))) do update set email_verified_at=coalesce(users.email_verified_at,now()),updated_at=now() returning id::text as id,email,display_name,email_verified_at,role",(email,)).fetchone();token=secrets.token_urlsafe(48);conn.execute("insert into sessions(user_id,token_hash,expires_at) values(%s,%s,now()+(%s*interval '1 second'))",(u['id'],_hash(token),SESSION_TTL_SECONDS));conn.execute("insert into audit_logs(user_id,action,resource_type,resource_id,metadata) values(%s,'auth.login','session',%s,%s::jsonb)",(u['id'],u['id'],'{"method":"gmail_otp"}'))
  return {'user':u,'session_token':token,'expires_in':SESSION_TTL_SECONDS}
 @router.get('/me')

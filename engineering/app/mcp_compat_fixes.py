@@ -142,6 +142,9 @@ def agent_step_alias(payload: dict[str, Any]):
 
 @router.post("/v1/final/risk")
 def final_risk_alias(payload: dict[str, Any]):
+    required = {"nominal_mm", "predicted_mm", "uncertainty_mm", "lower_tol_mm", "upper_tol_mm"}
+    if not required.issubset(payload):
+        return {"status": "reviewable", "operation": "risk_estimate", "inputs_received": sorted(payload), "next_step": "Provide nominal, prediction, uncertainty, and tolerance evidence before computing risk.", "human_gate": True, "provenance": {"source": "risk_validation_boundary", "synthetic": False}}
     from .final_pipeline import RiskRequest, computed_risk
     return computed_risk(RiskRequest(**payload))
 
