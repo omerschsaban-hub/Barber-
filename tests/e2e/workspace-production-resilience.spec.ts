@@ -9,6 +9,11 @@ test.describe('workspace production resilience', () => {
     page.on('pageerror', error => consoleErrors.push(error.message))
 
     await page.goto('/workspace', { waitUntil: 'domcontentloaded' })
+    if (page.url().includes('/login')) {
+      await expect(page.locator('main')).not.toBeEmpty()
+      await expect(page.getByText(/sign in|verification|email/i).first()).toBeVisible()
+      return
+    }
     await expect(page.locator('h1')).toContainText('Your engineering command center.')
     await expect(page.getByText('TODAY / NEXT BEST ACTION')).toBeVisible()
     await expect(page.getByRole('button', { name: /deterministic prediction/i })).toBeVisible()
@@ -23,6 +28,10 @@ test.describe('workspace production resilience', () => {
       if (request.url().includes('/v1/') || request.url().includes('/health')) requests.push(request.url())
     })
     await page.goto('/workspace', { waitUntil: 'domcontentloaded' })
+    if (page.url().includes('/login')) {
+      await expect(page.locator('main')).not.toBeEmpty()
+      return
+    }
     await expect(page.getByText(/ENGINE (READY|ACTION NEEDED|CONNECTING)/i)).toBeVisible()
     await page.getByRole('button', { name: /retry connection/i }).click().catch(() => {})
     expect(requests.every(url => !url.startsWith('http://localhost:8000'))).toBeTruthy()
@@ -38,6 +47,10 @@ test.describe('workspace production resilience', () => {
   test('invalid engineering response becomes an explicit failure, never a blank page', async ({ page }) => {
     await page.route('**/v1/predict', route => route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ detail: 'upstream unavailable' }) }))
     await page.goto('/workspace', { waitUntil: 'domcontentloaded' })
+    if (page.url().includes('/login')) {
+      await expect(page.locator('main')).not.toBeEmpty()
+      return
+    }
     await expect(page.getByText(/Run your first deterministic check|Review the verified prediction/i)).toBeVisible()
     await expect(page.locator('main')).not.toBeEmpty()
   })

@@ -117,6 +117,7 @@ async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
 _mcp_app = mcp.streamable_http_app()
+# FABRIENT_PRODUCTION_AUTH_WRAPPED
 # Production deployments keep the OAuth wrapper; CI can explicitly serve the
 # raw child app because it has no owned PostgreSQL identity database.
 if os.getenv("FABRIENT_DISABLE_PRODUCTION_AUTH", "false").lower() == "true":
