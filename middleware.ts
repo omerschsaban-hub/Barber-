@@ -5,6 +5,8 @@ const FEATURE_ROUTES = ['/engineering','/manufacturing','/calibration','/geometr
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 const RATE_WINDOW_MS = 60_000
 const RATE_LIMIT = 120
+const AUTH_RATE_LIMIT = 20
+const MAX_MUTATION_BODY_BYTES = 2 * 1024 * 1024
 const requestBuckets = new Map<string, number[]>()
 
 function securityHeaders(response: NextResponse) {
@@ -45,14 +47,18 @@ function sameOrigin(request: NextRequest) {
   }
 }
 
-function rateLimit(request: NextRequest) {
+function clientKey(request: NextRequest) {
   const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
   const realIp = request.headers.get('x-real-ip')?.trim()
-  const key = forwarded || realIp || 'unknown'
+  return forwarded || realIp || 'unknown'
+}
+
+function rateLimit(request: NextRequest, limit = RATE_LIMIT, namespace = 'api') {
+  const key = `${namespace}:${clientKey(request)}`
   const now = Date.now()
   const existing = requestBuckets.get(key) || []
   const recent = existing.filter(ts => now - ts < RATE_WINDOW_MS)
-  if (recent.length >= RATE_LIMIT) {
+  if (recent.length >= limit) {
     requestBuckets.set(key, recent)
     return false
   }
@@ -66,17 +72,34 @@ function rateLimit(request: NextRequest) {
   return true
 }
 
+function requestBodyTooLarge(request: NextRequest) {
+  const value = request.headers.get('content-length')
+  if (!value) return false
+  const length = Number(value)
+  return Number.isFinite(length) && length > MAX_MUTATION_BODY_BYTES
+}
+
 export async function middleware(request: NextRequest) {
   let response = securityHeaders(NextResponse.next({request: {headers: new Headers(request.headers)}}))
   const path = request.nextUrl.pathname
   const isWorkspace = path === '/workspace' || path.startsWith('/workspace/')
   const isFeatureRoute = FEATURE_ROUTES.some(route => path === route || path.startsWith(`${route}/`))
+  const isApiMutation = MUTATING_METHODS.has(request.method) && path.startsWith('/api/')
+  const isAuthMutation = isApiMutation && path.startsWith('/api/auth/')
 
   if (MUTATING_METHODS.has(request.method) && request.cookies.has('fabrient_session') && !sameOrigin(request)) {
     return securityHeaders(NextResponse.json({ error: 'Cross-site request blocked' }, { status: 403 }))
   }
 
-  if (MUTATING_METHODS.has(request.method) && path.startsWith('/api/') && !rateLimit(request)) {
+  if (MUTATING_METHODS.has(request.method) && requestBodyTooLarge(request)) {
+    return securityHeaders(NextResponse.json({ error: 'Request body is too large' }, { status: 413 }))
+  }
+
+  if (isAuthMutation && !rateLimit(request, AUTH_RATE_LIMIT, 'auth')) {
+    return securityHeaders(NextResponse.json({ error: 'Too many authentication requests' }, { status: 429, headers: { 'Retry-After': '60' } }))
+  }
+
+  if (isApiMutation && !rateLimit(request)) {
     return securityHeaders(NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': '60' } }))
   }
 
