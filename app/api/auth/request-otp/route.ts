@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const response = await fetch(`${API.replace(/\/$/, '')}/auth/request-otp`, {
       method: 'POST', headers: { 'content-type': 'application/json', origin: request.headers.get('origin') ?? '' },
-      body: await request.text(), cache: 'no-store',
+      body: await request.text(), cache: 'no-store', signal: AbortSignal.timeout(20_000),
     })
     return new NextResponse(await response.text(), { status: response.status, headers: { 'content-type': 'application/json' } })
   } catch { return NextResponse.json({ error: 'Authentication backend unavailable' }, { status: 502 }) }
