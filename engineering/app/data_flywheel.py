@@ -90,8 +90,9 @@ def _seed() -> int:
 
 @router.get("/catalog")
 def catalog():
-    _seed()
-    return {"count": len(SOURCES), "sources": SOURCES}
+    rows = fetch_all("select key from data_sources where enabled=true order by priority desc, key")
+    keys = [str(row["key"]) for row in rows]
+    return {"count": len(keys), "sources": keys, "configured": bool(keys)}
 
 @router.post("/ingest")
 def ingest(o: Observation, x_fabrient_ingest_secret: str | None = Header(default=None)):
