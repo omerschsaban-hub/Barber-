@@ -8,8 +8,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
-from server import CAPABILITY_REGISTRY, app as mcp_app
-from auth_db import user_from_bearer, _pool, _hash
+try:
+    from server import CAPABILITY_REGISTRY, app as mcp_app
+    from auth_db import user_from_bearer, _pool, _hash
+except ModuleNotFoundError:
+    from .server import CAPABILITY_REGISTRY, app as mcp_app
+    from .auth_db import user_from_bearer, _pool, _hash
 
 MCP_HOST = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'fabrient-mcp.onrender.com')
 RESOURCE = os.getenv('FABRIENT_MCP_RESOURCE_URL', f'https://{MCP_HOST}/mcp').rstrip('/')
