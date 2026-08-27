@@ -81,7 +81,7 @@ jobs:
           python -m py_compile server.py smoke_test.py ../../mcp_server.py ../../mcp_capabilities.py
           PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert len(mcp_server.CAPABILITY_NAMES)==100; assert len(set(mcp_server.CAPABILITY_NAMES))==100"
           PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert all(n in mcp_server.CAPABILITIES for n in mcp_server.CAPABILITY_NAMES)"
-          python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
+          RENDER_EXTERNAL_HOSTNAME=127.0.0.1 python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
           pid=$!
           ready=0
           for i in $(seq 1 30); do
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install --upgrade pip && pip install -r requirements.txt && pip install mcp==1.13.1
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt && pip install mcp==1.13.1 && pip install --force-reinstall --no-deps 'starlette==0.47.3'
       - run: python -m py_compile main.py
       - run: python -c "from main import app; print('Engineering API import OK')"
       - name: Start API
