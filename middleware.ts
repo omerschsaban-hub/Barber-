@@ -5,10 +5,14 @@ const mutationLimit = 60
 const mutationCounts = new Map<string, { count: number; resetAt: number }>()
 
 function withSecurityHeaders(request: NextRequest) {
-  const nonce = crypto.randomUUID().replace(/-/g, '')
+  // Next.js App Router emits inline bootstrap/hydration scripts. A nonce-only
+  // policy without attaching that nonce to every generated bootstrap script
+  // leaves the server HTML visible but prevents hydration, producing a blank
+  // page. Keep scripts same-origin and explicitly allow the framework's inline
+  // bootstrap; do not advertise an unused nonce.
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'${process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com`,
+    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
@@ -21,7 +25,6 @@ function withSecurityHeaders(request: NextRequest) {
     "frame-ancestors 'none'",
   ].join('; ')
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-nonce', nonce)
   requestHeaders.set('Content-Security-Policy', csp)
   const response = NextResponse.next({ request: { headers: requestHeaders } })
   response.headers.set('Content-Security-Policy', csp)
