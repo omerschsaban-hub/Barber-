@@ -38,6 +38,7 @@ app.add_middleware(DeterministicResponseCache)
 import ast
 from pathlib import Path
 from fastapi import Request
+from .operation_engine import run_tool_operation
 
 _registry_path = Path(__file__).resolve().parents[2] / "services" / "mcp" / "server.py"
 _registry_tree = ast.parse(_registry_path.read_text(encoding="utf-8"), filename=str(_registry_path))
@@ -56,9 +57,17 @@ if len({name for name,_,_ in CAPABILITY_REGISTRY})!=100:
 _existing_paths={route.path for route in app.routes if hasattr(route,"path")}
 def _make_mcp_compat_handler(operation: str):
     async def _handler(request: Request):
-        try: payload=await request.json()
-        except Exception: payload={}
-        return {"status":"reviewable","operation":operation,"inputs_received":sorted(payload.keys()) if isinstance(payload,dict) else [],"next_step":"Provide operation-specific evidence; the compatibility boundary never invents measurements or confidence.","human_gate":True,"provenance":{"source":"mcp_registry_compatibility_boundary","synthetic":False}}
+        try:
+            payload=await request.json()
+        except Exception:
+            payload={}
+        if not isinstance(payload, dict):
+            payload={}
+        result=run_tool_operation(operation,payload,topology_verified=bool(payload.get("geometry_verified")))
+        result.setdefault("provenance", {})
+        result["provenance"].update({"source":"mcp_registry_compatibility_boundary","synthetic":False})
+        result["inputs_received"]=sorted(payload.keys())
+        return result
     return _handler
 for _name,_description,_path in CAPABILITY_REGISTRY:
     if _path not in _existing_paths:
