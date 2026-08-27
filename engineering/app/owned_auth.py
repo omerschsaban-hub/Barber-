@@ -5,12 +5,14 @@ import hashlib
 import hmac
 import os
 import secrets
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Cookie, Header, HTTPException, Response
+from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr
 
 try:
@@ -25,6 +27,11 @@ SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 OTP_RESEND_SECONDS = 60
 MAX_OTP_ATTEMPTS = 8
 COOKIE_NAME = "fabrient_session"
+OTP_REQUEST_LIMIT = max(3, int(os.getenv("AUTH_OTP_REQUESTS_PER_HOUR", "8")))
+OTP_VERIFY_LIMIT = max(10, int(os.getenv("AUTH_OTP_VERIFY_ATTEMPTS_PER_HOUR", "30")))
+_RATE_WINDOW = 3600.0
+_request_buckets: dict[str, deque[float]] = defaultdict(deque)
+_verify_buckets: dict[str, deque[float]] = defaultdict(deque)
 
 
 def _required(name: str) -> str:
@@ -67,6 +74,22 @@ def _token() -> str:
     return secrets.token_urlsafe(48)
 
 
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
+    return forwarded or (request.client.host if request.client else "unknown")
+
+
+def _allow(bucket_map: dict[str, deque[float]], key: str, limit: int) -> bool:
+    now = time.monotonic()
+    bucket = bucket_map[key]
+    while bucket and bucket[0] <= now - _RATE_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= limit:
+        return False
+    bucket.append(now)
+    return True
+
+
 class EmailRequest(BaseModel):
     email: EmailStr
 
@@ -80,7 +103,7 @@ async def _gmail_send(to: str, code: str) -> None:
     client_id = _required("GOOGLE_CLIENT_ID")
     client_secret = _required("GOOGLE_CLIENT_SECRET")
     refresh_token = _required("GOOGLE_REFRESH_TOKEN")
-    sender = os.getenv("AUTH_FROM_EMAIL", "omerschsaban@gmail.com")
+    sender = os.getenv("AUTH_FROM_EMAIL", "omerschaban@gmail.com")
 
     async with httpx.AsyncClient(timeout=15) as client:
         token_response = await client.post(
@@ -142,9 +165,12 @@ def _session(token: str | None) -> dict[str, Any] | None:
 
 
 @router.post("/request-code")
-async def request_code(payload: EmailRequest):
+async def request_code(payload: EmailRequest, request: Request):
     email = str(payload.email).strip().lower()
-    # Generic response prevents account enumeration.
+    client_ip = _client_ip(request)
+    if not _allow(_request_buckets, f"ip:{client_ip}", OTP_REQUEST_LIMIT) or not _allow(_request_buckets, f"email:{email}", OTP_REQUEST_LIMIT):
+        # Keep the response deliberately generic so attackers cannot use this endpoint for enumeration.
+        return {"ok": True, "message": "If that address is eligible, a code has been sent."}
     with db().connection() as conn:
         recent = conn.execute(
             "select created_at from otp_challenges where email=%s order by created_at desc limit 1",
@@ -161,7 +187,6 @@ async def request_code(payload: EmailRequest):
     try:
         await _gmail_send(email, code)
     except Exception:
-        # Do not expose transport details. Remove the challenge so a failed send can be retried.
         with db().connection() as conn:
             conn.execute("delete from otp_challenges where email=%s and consumed_at is null", (email,))
         raise HTTPException(status_code=502, detail="Unable to send sign-in code")
@@ -169,11 +194,14 @@ async def request_code(payload: EmailRequest):
 
 
 @router.post("/verify-code")
-def verify_code(payload: VerifyRequest, response: Response):
+def verify_code(payload: VerifyRequest, request: Request, response: Response):
     email = str(payload.email).strip().lower()
     code = payload.code.strip()
     if not code.isdigit() or len(code) != 6:
         raise HTTPException(status_code=400, detail="Invalid code")
+    client_ip = _client_ip(request)
+    if not _allow(_verify_buckets, f"ip:{client_ip}", OTP_VERIFY_LIMIT) or not _allow(_verify_buckets, f"email:{email}", OTP_VERIFY_LIMIT):
+        raise HTTPException(status_code=429, detail="Too many verification attempts; try again later")
     with db().connection() as conn:
         row = conn.execute(
             """select id, code_hash, attempts from otp_challenges
