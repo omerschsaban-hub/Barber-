@@ -3,13 +3,13 @@
 **Date:** 27 August 2026  
 **Repository:** [omerschsaban-hub/Barber-](https://github.com/omerschsaban-hub/Barber-)  
 **Final branch:** `main`  
-**Latest commit:** `14574fc` (`fix: restore engine parity and enforce free gating`)
+**Latest commit:** `55987d0` (`test: make landing copy assertion deterministic`)
 
 ## Executive conclusion
 
 The Supabase-to-owned-stack migration is implemented and the core automated production gates are green. The owned PostgreSQL/FastAPI engineering platform, RevenueCat billing authority, plan catalog, usage gating, owned MCP OAuth service, and authenticated 100-tool MCP contract are present in the repository and pass their respective automated checks. The Render MCP deployment now has an idempotent owned-schema bootstrap, high-entropy `AUTH_SECRET`, configured service-token seeding, and correct MCP SDK lifespan propagation.
 
-The release is **not honestly certifiable as 100% end-to-end complete yet** because the production browser workflow still fails on live browser assertions, and a real Gmail OTP delivery plus a real RevenueCat sandbox purchase/signature round trip have not been completed. During this continuation I also fixed two concrete source defects: the Free plan’s inconsistent nonzero LLM allowance and a missing engineering operation-engine compatibility import, plus the residual-model holdout/pivot regression. Those provider flows cannot be proven by unit tests or fabricated credentials. The production Vercel configuration issue was repaired: the `fabrinat` project was using the `Services` framework preset for a Next.js repository, and it is now set to `Next.js`.
+The recurring blank-page issue is fixed and the production browser workflow is now green. The release is **not honestly certifiable as 100% end-to-end complete yet** because the aggregate release gate still fails its npm audit check (one moderate and one high advisory remain in the Next/PostCSS dependency path), and a real Gmail OTP delivery plus a real RevenueCat sandbox purchase/signature round trip have not been completed. During this continuation I also fixed two concrete source defects: the Free plan’s inconsistent nonzero LLM allowance and a missing engineering operation-engine compatibility import, plus the residual-model holdout/pivot regression. The blank page was caused by a nonce-only `script-src` policy blocking Next.js inline hydration, followed by a missing Render engineering origin in `connect-src`; both CSP defects are now fixed. Those provider flows cannot be proven by unit tests or fabricated credentials. The production Vercel configuration issue was repaired: the `fabrinat` project was using the `Services` framework preset for a Next.js repository, and it is now set to `Next.js`.
 
 ## Implemented product contract
 
@@ -30,19 +30,19 @@ The release is **not honestly certifiable as 100% end-to-end complete yet** beca
 
 | Gate | Latest result | Evidence |
 |---|---:|---|
-| Fabrient CI | **PASS** | GitHub Actions run [33070264313](https://github.com/omerschsaban-hub/Barber-/actions/runs/33070264313) on `14574fc` |
-| Engineering smoke tests | **PASS** | GitHub Actions run [33070264376](https://github.com/omerschsaban-hub/Barber-/actions/runs/33070264376) on `14574fc` |
+| Fabrient CI | **PASS** | GitHub Actions run [33072597684](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597684) on `55987d0` |
+| Production browser acceptance | **PASS** | GitHub Actions run [33072597728](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597728) on `55987d0`; blank-page regression cleared |
 | Render backend tests | **PASS** | Run [33066843380](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843380) |
 | Engineering smoke tests | **PASS** | Run [33070264376](https://github.com/omerschsaban-hub/Barber-/actions/runs/33070264376) |
-| Full acceptance | **PASS** | Run [33066843402](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843402) |
-| MCP 100-tool surface | **PASS** | Run [33070264197](https://github.com/omerschsaban-hub/Barber-/actions/runs/33070264197); authenticated chunked verification covers all 100 registered tools |
+| Full acceptance | **PASS** | Run [33072597756](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597756) |
+| MCP 100-tool surface | **PASS** | Run [33072597511](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597511); authenticated chunked verification covers all 100 registered tools |
 | MCP production-auth wrapper | **PASS** | Run [33066843372](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843372) |
 | Acceptance artifacts | **PASS** | Run [33066843375](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843375) |
 | Video hardening audit | **PASS** | Run [33066843379](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843379) |
 | Frontend npm security audit | **PASS locally** | `npm audit --audit-level=high` returned `found 0 vulnerabilities` after patched `sharp`, nested `postcss`, and Playwright overrides |
 | Next.js production build | **PASS locally and on Vercel** | Vercel build logs for deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W` show Next.js 15.5.21 compiled successfully and generated 30 static pages |
 | Vercel production deployment | **READY** | Deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W`, source `3ce91f2`; project framework is now `nextjs` |
-| Production browser acceptance | **NOT PASSING** | Latest run [33066843423](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843423) still reports blank/insufficient workspace rendering in the Playwright browser despite direct `curl` receiving a 200 HTML document |
+| Production browser acceptance | **PASS** | Latest run [33072597728](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597728) confirms hydrated workspace rendering and all browser checks |
 | Real Gmail OTP delivery | **NOT VERIFIED** | Requires reachable provider credentials and a real mailbox delivery |
 | Real RevenueCat sandbox purchase and signed webhook | **NOT VERIFIED** | Requires a real sandbox purchase, configured public webhook, and valid RevenueCat credentials |
 
@@ -94,7 +94,7 @@ After the real OTP and billing tests, dispatch or push a harmless documentation 
 
 ## Final status
 
-The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The remaining honest release gates are the **production browser workspace rendering issue** and the **real-provider Gmail OTP and RevenueCat sandbox round trips**. The repository contains the fixes and the child-simple procedure above; a 100% production sign-off should be issued only after those gates produce green evidence.
+The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The remaining honest release gates are the **npm audit dependency blocker** and the **real-provider Gmail OTP and RevenueCat sandbox round trips**. The browser workspace rendering issue is resolved. The repository contains the fixes and the child-simple procedure above; a 100% production sign-off should be issued only after those gates produce green evidence.
 
 ## References
 
