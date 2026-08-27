@@ -16,6 +16,8 @@ from engineering.app.composed import app  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
 from services.engine.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
 
+MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
+
 _flywheel_explicitly_enabled = os.getenv("FLYWHEEL_ENABLE_PRODUCTION", "false").strip().lower() == "true"
 if not _flywheel_explicitly_enabled:
     os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
@@ -54,6 +56,23 @@ def manual_flywheel_run(token: str | None = None):
         return {"status": "completed", "result": run_once()}
     except Exception as exc:
         return JSONResponse(status_code=500, content={"status": "failed", "reason": str(exc)[:500]})
+
+@app.middleware("http")
+async def request_size_gate(request: Request, call_next):
+    if request.method in {"POST", "PUT", "PATCH"}:
+        content_type = request.headers.get("content-type", "").lower()
+        content_length = request.headers.get("content-length")
+        if content_length and "application/json" in content_type:
+            try:
+                if int(content_length) > MAX_JSON_BODY_BYTES:
+                    return JSONResponse(status_code=413, content={
+                        "status": "rejected",
+                        "reason": "JSON request body is too large.",
+                        "max_bytes": MAX_JSON_BODY_BYTES,
+                    })
+            except ValueError:
+                return JSONResponse(status_code=400, content={"status": "rejected", "reason": "Invalid Content-Length."})
+    return await call_next(request)
 
 @app.middleware("http")
 async def sim2real_quality_gate(request: Request, call_next):
