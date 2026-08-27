@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
+const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com'
 const COOKIE = 'fabrient_session'
 
 async function handler(request: Request, context: { params: Promise<{ path: string[] }> }) {
-  if (!API) return NextResponse.json({ error: 'Engineering backend is not configured' }, { status: 503 })
   const token = (await cookies()).get(COOKIE)?.value
   if (!token) return NextResponse.json({ error: 'Sign in before running engineering actions' }, { status: 401 })
   const { path } = await context.params
