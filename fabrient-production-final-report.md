@@ -9,7 +9,7 @@
 
 The Supabase-to-owned-stack migration is implemented and the core automated production gates are green. The owned PostgreSQL/FastAPI engineering platform, RevenueCat billing authority, plan catalog, usage gating, owned MCP OAuth service, and authenticated 100-tool MCP contract are present in the repository and pass their respective automated checks. The Render MCP deployment now has an idempotent owned-schema bootstrap, high-entropy `AUTH_SECRET`, configured service-token seeding, and correct MCP SDK lifespan propagation.
 
-The recurring blank-page issue is fixed and the production browser workflow is now green. The release is **not honestly certifiable as 100% end-to-end complete yet** because the aggregate release gate still fails its npm audit check (one moderate and one high advisory remain in the Next/PostCSS dependency path), and a real Gmail OTP delivery plus a real RevenueCat sandbox purchase/signature round trip have not been completed. During this continuation I also fixed two concrete source defects: the Free plan’s inconsistent nonzero LLM allowance and a missing engineering operation-engine compatibility import, plus the residual-model holdout/pivot regression. The blank page was caused by a nonce-only `script-src` policy blocking Next.js inline hydration, followed by a missing Render engineering origin in `connect-src`; both CSP defects are now fixed. Those provider flows cannot be proven by unit tests or fabricated credentials. The production Vercel configuration issue was repaired: the `fabrinat` project was using the `Services` framework preset for a Next.js repository, and it is now set to `Next.js`.
+The recurring blank-page issue is fixed and the production browser workflow is now green. The release is **not honestly certifiable as 100% end-to-end complete yet** because the current Render workspace has exhausted its build-pipeline minutes, preventing the deployment that contains the new database binding; a real Gmail OTP delivery plus a real RevenueCat sandbox purchase/signature round trip have therefore not been completed. The npm audit is now clear with zero vulnerabilities. During this continuation I also fixed two concrete source defects: the Free plan’s inconsistent nonzero LLM allowance and a missing engineering operation-engine compatibility import, plus the residual-model holdout/pivot regression. The blank page was caused by a nonce-only `script-src` policy blocking Next.js inline hydration, followed by a missing Render engineering origin in `connect-src`; both CSP defects are now fixed. Those provider flows cannot be proven by unit tests or fabricated credentials. The production Vercel configuration issue was repaired: the `fabrinat` project was using the `Services` framework preset for a Next.js repository, and it is now set to `Next.js`.
 
 ## Implemented product contract
 
@@ -39,12 +39,12 @@ The recurring blank-page issue is fixed and the production browser workflow is n
 | MCP production-auth wrapper | **PASS** | Run [33066843372](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843372) |
 | Acceptance artifacts | **PASS** | Run [33066843375](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843375) |
 | Video hardening audit | **PASS** | Run [33066843379](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843379) |
-| Frontend npm security audit | **PASS locally** | `npm audit --audit-level=high` returned `found 0 vulnerabilities` after patched `sharp`, nested `postcss`, and Playwright overrides |
+| Frontend npm security audit | **PASS** | `npm audit --omit=dev` returns `found 0 vulnerabilities`; 104 production dependencies |
 | Next.js production build | **PASS locally and on Vercel** | Vercel build logs for deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W` show Next.js 15.5.21 compiled successfully and generated 30 static pages |
 | Vercel production deployment | **READY** | Deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W`, source `3ce91f2`; project framework is now `nextjs` |
 | Production browser acceptance | **PASS** | Latest run [33072597728](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597728) confirms hydrated workspace rendering and all browser checks |
-| Real Gmail OTP delivery | **NOT VERIFIED** | Requires reachable provider credentials and a real mailbox delivery |
-| Real RevenueCat sandbox purchase and signed webhook | **NOT VERIFIED** | Requires a real sandbox purchase, configured public webhook, and valid RevenueCat credentials |
+| Real Gmail OTP delivery | **BLOCKED BY RENDER DEPLOY QUOTA** | DATABASE_URL binding was added in Render, but the rebuild was canceled because the workspace exhausted build-pipeline minutes; retry after quota is restored |
+| Real RevenueCat sandbox purchase and signed webhook | **NOT VERIFIED / BLOCKED** | Requires a successful rebuilt backend plus a real sandbox purchase, public webhook, and valid RevenueCat credentials |
 
 ## Production Vercel repair
 
@@ -94,7 +94,11 @@ After the real OTP and billing tests, dispatch or push a harmless documentation 
 
 ## Final status
 
-The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The remaining honest release gates are the **npm audit dependency blocker** and the **real-provider Gmail OTP and RevenueCat sandbox round trips**. The browser workspace rendering issue is resolved. The repository contains the fixes and the child-simple procedure above; a 100% production sign-off should be issued only after those gates produce green evidence.
+The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The npm audit blocker is now **resolved**: `npm audit --omit=dev` returns `found 0 vulnerabilities` with 104 production dependencies. No unsafe framework-major upgrade is needed.
+
+The remaining live gate is now the Render account’s exhausted build-pipeline minutes. The authenticated dashboard accepted the managed `DATABASE_URL` binding from `fabrient-postgres` and triggered deployment `dep-da86evuk1f9s73ceb21g`, but Render canceled the build because the workspace has run out of build pipeline minutes for the current billing period. Until that account limit is restored, the updated engineering service cannot deploy, so real Gmail OTP delivery and the RevenueCat purchase/webhook round trip cannot honestly be completed. The browser workspace rendering issue is resolved, and all previously verified CI, backend, MCP 100-tool, full acceptance, and production browser gates remain green on the tested commit.
+
+The repository contains the fixes and the child-simple procedure above; a 100% production sign-off should be issued only after Render completes a successful rebuild and the real OTP and billing round trips produce green evidence.
 
 ## References
 
