@@ -118,12 +118,6 @@ async def capabilities(_: Request) -> JSONResponse:
 
 _mcp_app = mcp.streamable_http_app()
 
-# Deployment marker: MCP registry and engine compatibility routes are kept in lockstep.
-
-
-# FABRIENT_PRODUCTION_AUTH_WRAPPED
-try:
-    from services.mcp.production_auth import wrap_app as _fabrient_wrap_app
-except ModuleNotFoundError:
-    from production_auth import wrap_app as _fabrient_wrap_app
-app = _fabrient_wrap_app(_mcp_app, CAPABILITY_REGISTRY)
+# The package entrypoint services.mcp.auth_server owns the single production
+# auth wrapper. Keeping this module raw preserves the MCP SDK lifespan.
+app = _mcp_app
