@@ -1,5 +1,6 @@
 from __future__ import annotations
 import base64, hashlib, hmac, os, secrets
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import urlencode, parse_qs
 from typing import Any
@@ -179,5 +180,15 @@ class Auth(BaseHTTPMiddleware):
         return await call_next(r)
 
 routes = [Route('/', health), Route('/health', health), Route('/capabilities', caps), Route('/.well-known/oauth-protected-resource', protected), Route('/.well-known/oauth-protected-resource/mcp', protected), Route('/.well-known/oauth-authorization-server', metadata), Route('/oauth/authorize', authorize), Route('/oauth/token', token, methods=['POST']), Route('/oauth/revoke', revoke, methods=['POST']), Route('/oauth/details/{id}', details), Route('/oauth/decide/{id}/{decision}', decide, methods=['POST']), Mount('/', app=mcp_app)]
-app = Starlette(routes=routes)
+
+@asynccontextmanager
+async def lifespan(_: Starlette):
+    child_lifespan = getattr(getattr(mcp_app, 'router', None), 'lifespan_context', None)
+    if child_lifespan is None:
+        yield
+        return
+    async with child_lifespan(mcp_app):
+        yield
+
+app = Starlette(lifespan=lifespan, routes=routes)
 app.add_middleware(Auth)
