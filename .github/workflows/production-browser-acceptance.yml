@@ -27,11 +27,9 @@ jobs:
         env:
           CONFIGURED_WEB_URL: ${{ secrets.FABRIENT_WEB_URL }}
         run: |
-          target="$CONFIGURED_WEB_URL"
-          case "$target" in
-            https://fabrinat-omega.vercel.app|https://fabrinat-4ha6a7p5m-omerschsaban-hubs-projects.vercel.app) ;;
-            *) echo 'FABRIENT_WEB_URL is missing or stale; using the verified Vercel production domain.'; target='https://fabrinat-omega.vercel.app' ;;
-          esac
+          echo "Configured FABRIENT_WEB_URL: ${CONFIGURED_WEB_URL:-<missing>}"
+          target='https://fabrinat-omega.vercel.app'
+          echo "Using verified Vercel production domain: $target"
           printf 'PLAYWRIGHT_BASE_URL=%s\n' "$target" >> "$GITHUB_ENV"
           printf 'FABRIENT_WEB_ORIGIN=%s\n' "$target" >> "$GITHUB_ENV"
       - name: Install Chromium
