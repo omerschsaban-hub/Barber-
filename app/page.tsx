@@ -9,9 +9,9 @@ export default function Home() {
         <div className="cad-intro">
           <div className="cad-kicker"><span className="live-dot" /> FABRIENT / PHYSICAL ENGINEERING</div>
           <h1>Build it.<br /><em>Prove it.</em></h1>
-          <p>Fabrient helps you take a physical product from an idea to something you can actually build and trust. Tell it what you are trying to make, give it the files and measurements you have, and Fabrient works through the engineering with you.</p>
+          <p>Fabrient helps you take a real product from an idea to something you can actually build and trust. Tell it what you are trying to make, give it the files and measurements you have, and Fabrient works through the engineering with you.</p>
           <div className="cad-actions">
-            <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">TRY FABRIENT <span>→</span></Link>
+            <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">START A PROJECT <span>→</span></Link>
             <Link href="#how-it-works" className="cad-button">SEE HOW IT WORKS</Link>
           </div>
           <div className="friendly-note"><span className="live-dot" /> AI helps with the thinking and coordination. The important parts are checked against real engineering rules and real evidence.</div>

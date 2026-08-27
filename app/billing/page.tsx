@@ -9,7 +9,8 @@ import {
 
 export default function BillingPage() {
   const [userId, setUserId] = useState<string | null>(null)
-  const [packageInfo, setPackageInfo] = useState<any>(null)
+  const [packages, setPackages] = useState<any[]>([])
+  const [selectedPackage, setSelectedPackage] = useState<any>(null)
   const [pro, setPro] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -38,7 +39,9 @@ export default function BillingPage() {
           getBackendAccess(),
         ])
         if (cancelled) return
-        setPackageInfo(offering?.availablePackages?.[0] ?? null)
+        const available = offering?.availablePackages ?? []
+        setPackages(available)
+        setSelectedPackage(available[0] ?? null)
         setPro(backendPro)
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? 'Unable to load billing')
@@ -51,11 +54,11 @@ export default function BillingPage() {
   }, [])
 
   async function buy() {
-    if (!userId || !packageInfo) return
+    if (!userId || !selectedPackage) return
     setBusy(true)
     setError('')
     try {
-      await purchaseWebPackage(userId, packageInfo)
+      await purchaseWebPackage(userId, selectedPackage)
       // RevenueCat delivers the entitlement asynchronously through the signed webhook.
       // Never grant Pro from client-side customer info alone.
       setError('Purchase completed. Waiting for entitlement confirmation…')
@@ -89,10 +92,22 @@ export default function BillingPage() {
           <>
             <h2>Unlock Pro</h2>
             <p className="muted">Advanced 3D risk analysis, manufacturing exports, inspection analytics, and extended MCP tools.</p>
-            {packageInfo ? (
-              <button className="button primary" onClick={() => void buy()} disabled={busy}>
-                {busy ? 'Opening secure checkout…' : `${packageInfo.product.title} · ${packageInfo.product.priceString}`}
-              </button>
+            {packages.length > 0 ? (
+              <>
+                <div className="grid grid2" style={{ margin: '20px 0' }}>
+                  {packages.map((item: any) => {
+                    const selected = selectedPackage?.identifier === item.identifier
+                    return <button key={item.identifier} type="button" className={`panel ${selected ? 'selected-plan' : ''}`} onClick={() => setSelectedPackage(item)} aria-pressed={selected} style={{ textAlign: 'left', cursor: 'pointer' }}>
+                      <strong>{item.product.title}</strong>
+                      <div className="title" style={{ fontSize: 28, margin: '8px 0' }}>{item.product.priceString}</div>
+                      <span className="muted">Secure checkout · cancel anytime</span>
+                    </button>
+                  })}
+                </div>
+                <button className="button primary" onClick={() => void buy()} disabled={busy}>
+                  {busy ? 'Opening secure checkout…' : `Choose ${selectedPackage?.product?.title ?? 'plan'}`}
+                </button>
+              </>
             ) : <p className="error">No RevenueCat offering is currently available.</p>}
           </>
         )}
