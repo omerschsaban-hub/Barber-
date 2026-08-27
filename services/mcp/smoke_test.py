@@ -32,7 +32,9 @@ def fixture(name: str) -> dict:
         return CHECK_FIXTURES[name]
     if name in {"physics_predict"}:
         return {"nominal_mm": 10.0, "material": "PETG", "machine": "test-machine", "process": "FDM"}
-    if name in {"calibration_fit", "calibrate_from_observations", "system_identification", "final_system_identification", "residual_uncertainty", "ml_machine_system_id", "ml_data_quality", "ml_training_data_audit"}:
+    if name == "calibration_fit":
+        return {"observations": [{"predicted_mm": 10.0 + i, "measured_mm": 10.01 + i} for i in range(4)], "min_validation_points": 3}
+    if name in {"calibrate_from_observations", "system_identification", "final_system_identification", "residual_uncertainty", "ml_machine_system_id", "ml_data_quality", "ml_training_data_audit"}:
         return {"observations": [{"predicted_mm": 10.0 + i, "measured_mm": 10.01 + i, "context": {"machine": "test-machine"}} for i in range(10)]}
     if name == "simulation_run":
         return {"nominal_mm": 10.0, "samples": 10, "seed": 42}
