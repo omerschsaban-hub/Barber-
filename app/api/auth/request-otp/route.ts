@@ -5,7 +5,7 @@ const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_
 export async function POST(request: Request) {
   try {
     const response = await fetch(`${API.replace(/\/$/, '')}/auth/request-otp`, {
-      method: 'POST', headers: { 'content-type': 'application/json', origin: request.headers.get('origin') ?? '' },
+      method: 'POST', headers: { 'content-type': 'application/json' },
       body: await request.text(), cache: 'no-store', signal: AbortSignal.timeout(20_000),
     })
     return new NextResponse(await response.text(), { status: response.status, headers: { 'content-type': 'application/json' } })

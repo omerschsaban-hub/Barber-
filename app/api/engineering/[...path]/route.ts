@@ -16,7 +16,6 @@ async function handler(request: Request, context: { params: Promise<{ path: stri
       headers: {
         Authorization: `Bearer ${token}`,
         'content-type': request.headers.get('content-type') || 'application/json',
-        origin: request.headers.get('origin') || '',
       },
       body,
       cache: 'no-store',

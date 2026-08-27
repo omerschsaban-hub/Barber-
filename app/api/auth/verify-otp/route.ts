@@ -6,7 +6,7 @@ const COOKIE = 'fabrient_session'
 export async function POST(request: Request) {
   try {
     const response = await fetch(`${API.replace(/\/$/, '')}/auth/verify-otp`, {
-      method: 'POST', headers: { 'content-type': 'application/json', origin: request.headers.get('origin') ?? '' },
+      method: 'POST', headers: { 'content-type': 'application/json' },
       body: await request.text(), cache: 'no-store',
     })
     const text = await response.text()
