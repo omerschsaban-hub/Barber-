@@ -9,6 +9,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
 try:
+    from .migrate import main as _apply_owned_schema
+except ImportError:
+    from migrate import main as _apply_owned_schema
+if os.getenv('DATABASE_URL'):
+    _apply_owned_schema()
+try:
     from server import CAPABILITY_REGISTRY, app as mcp_app
     from auth_db import user_from_bearer, _pool, _hash
 except ModuleNotFoundError:

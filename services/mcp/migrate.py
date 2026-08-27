@@ -11,7 +11,9 @@ from pathlib import Path
 import psycopg
 
 
-MIGRATION = Path(__file__).with_name("001_owned_postgres.sql")
+_LOCAL_MIGRATION = Path(__file__).with_name("001_owned_postgres.sql")
+_REPO_MIGRATION = Path(__file__).parents[2] / "db" / "migrations" / "001_owned_postgres.sql"
+MIGRATION = _LOCAL_MIGRATION if _LOCAL_MIGRATION.exists() else _REPO_MIGRATION
 
 
 def main() -> None:
