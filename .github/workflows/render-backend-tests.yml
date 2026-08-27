@@ -72,8 +72,12 @@ jobs:
       - name: Backend production-footgun scan
         run: |
           set -e
-          if grep -RInE 'TODO.*security|FIXME.*security|password *= *["'"'][^$]' engineering services/mcp 2>/dev/null; then
-            echo 'Potential backend production footgun found; inspect before release.'
+          if grep -RInE 'TODO.*security|FIXME.*security' engineering services/mcp 2>/dev/null; then
+            echo 'Security TODO/FIXME found; inspect before release.'
+            exit 1
+          fi
+          if grep -RInE 'password[[:space:]]*=[[:space:]]*' engineering services/mcp 2>/dev/null; then
+            echo 'Potential hard-coded password assignment found; inspect before release.'
             exit 1
           fi
 
