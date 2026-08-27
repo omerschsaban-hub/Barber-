@@ -11,3 +11,9 @@ node_modules/
 out/
 coverage/
 .DS_Store
+
+# Generated film intermediates and binary exports are delivered separately.
+film/assets/
+film/work/
+film/work_v2/
+film/output/
