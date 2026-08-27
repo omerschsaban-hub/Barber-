@@ -135,7 +135,7 @@ def wrap_app(mcp_app: Any, registry: tuple[tuple[str, str, str], ...]) -> Starle
             return JSONResponse({"error": "unauthorized"}, 401, headers={"WWW-Authenticate": f'Bearer resource_metadata="{RESOURCE_METADATA}"'})
         return JSONResponse({"account": identity}, headers={"Cache-Control": "private, max-age=5"})
 
-    wrapper = Starlette(routes=[
+    wrapper = Starlette(lifespan=getattr(getattr(mcp_app, "router", None), "lifespan_context", None), routes=[
         Route("/health", health, methods=["GET"]),
         Route("/capabilities", capabilities, methods=["GET"]),
         Route("/account", account, methods=["GET"]),
