@@ -8,11 +8,12 @@ const REAL_PHOTO = 'https://images.pexels.com/photos/22491107/pexels-photo-22491
 const journey = [
   ['01', 'INTENT', 'Start with what you want to make.', 'Describe the job in plain English. Bring the CAD, dimensions, requirements, constraints, or problem you already have. Fabrient turns that into a clear job without making you learn a new workflow first.'],
   ['02', 'DESIGN', 'Turn the idea into something real.', 'Work with existing CAD or generate a parametric design. Dimensions, units, geometry, topology and exchange files are checked as the design takes shape.'],
-  ['03', 'ANALYZE', 'Find what could go wrong before you build.', 'Check fit, dimensions and manufacturability. Run deterministic engineering checks, DFM analysis and the simulations or validation steps that belong to the job.'],
-  ['04', 'IMPROVE', 'Fix the things that can be fixed safely.', 'Fabrient can suggest and apply bounded changes where the rules allow it, then check the result again. Important geometry and topology changes stay behind the right human approval gate.'],
-  ['05', 'VERIFY', 'Bring the real world back into the loop.', 'Build the part, upload measurements or inspection records, and use real images when they have a physical reference. Compare prediction with reality and keep the evidence with the project.'],
-  ['06', 'LEARN', 'Make the next decision better.', 'Real machine and process observations can teach the system useful patterns. Learned corrections stay downstream of the engineering baseline and are validated before they are trusted.'],
-  ['07', 'RELEASE', 'Finish with something you can actually hand off.', 'When the required gates pass, collect the validated CAD, findings, build guidance, manufacturing notes and inspection information into a release package. If something is missing, Fabrient tells you exactly what.'],
+  ['03', 'BUILD', 'Turn the design into something you can make.', 'Prepare the actual build package: the files, instructions, parts, manufacturing inputs and checks needed to move from a finished design to a physical build.'],
+  ['04', 'ANALYZE', 'Find what could go wrong before you build.', 'Check fit, dimensions and manufacturability. Run deterministic engineering checks, DFM analysis and the simulations or validation steps that belong to the job.'],
+  ['05', 'IMPROVE', 'Fix the things that can be fixed safely.', 'Fabrient can suggest and apply bounded changes where the rules allow it, then check the result again. Important geometry and topology changes stay behind the right human approval gate.'],
+  ['06', 'VERIFY', 'Bring the real world back into the loop.', 'Build the part, upload measurements or inspection records, and use real images when they have a physical reference. Compare prediction with reality and keep the evidence with the project.'],
+  ['07', 'LEARN', 'Make the next decision better.', 'Real machine and process observations can teach the system useful patterns. Learned corrections stay downstream of the engineering baseline and are validated before they are trusted.'],
+  ['08', 'RELEASE', 'Finish with something you can actually hand off.', 'When the required gates pass, collect the validated CAD, findings, build guidance, manufacturing notes and inspection information into a release package. If something is missing, Fabrient tells you exactly what.'],
 ]
 
 export default function Home() {
