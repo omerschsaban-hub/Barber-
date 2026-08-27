@@ -7,6 +7,8 @@ import time
 import uuid
 from typing import Any
 
+import env_bootstrap as _env_bootstrap  # noqa: F401
+
 os.environ.setdefault("FASTMCP_STATELESS_HTTP", "true")
 os.environ.setdefault("FASTMCP_JSON_RESPONSE", "true")
 os.environ.setdefault("FASTMCP_STREAMABLE_HTTP_PATH", "/mcp")

@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from engineering.app import env_bootstrap as _env_bootstrap  # noqa: E402,F401
 from engineering.app.composed import app  # noqa: E402
 from engineering.app.postgres import ensure_schema  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
