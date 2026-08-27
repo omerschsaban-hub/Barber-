@@ -30,7 +30,9 @@ class Observation(BaseModel):
 
 
 def _auth(secret: str | None) -> None:
-    if INGEST_SECRET and (not secret or not hmac.compare_digest(secret, INGEST_SECRET)):
+    if not INGEST_SECRET:
+        raise HTTPException(503, "Data flywheel ingestion is not configured")
+    if not secret or not hmac.compare_digest(secret, INGEST_SECRET):
         raise HTTPException(401, "Invalid ingestion secret")
 
 
@@ -62,15 +64,19 @@ def post(source_key: str, observation: dict[str, Any]) -> dict[str, Any]:
 
 def query(table: str, filters: dict[str, Any] | None = None, limit: int = 1000) -> list[dict[str, Any]]:
     allowed_tables = {"data_observations", "data_sources"}
+    allowed_filters = {
+        "data_observations": {"id", "project_id", "source_key", "observed_at", "entity_type", "entity_id", "event_type", "validation_state", "content_hash"},
+        "data_sources": {"id", "key", "category", "collection_mode", "enabled", "consent_required", "priority"},
+    }
     if table not in allowed_tables:
         raise ValueError("Unsupported flywheel table")
-    if limit < 1 or limit > 5000:
-        raise ValueError("limit must be between 1 and 5000")
+    if limit < 1 or limit > 1000:
+        raise ValueError("limit must be between 1 and 1000")
     filters = filters or {}
+    if any(k not in allowed_filters[table] for k in filters):
+        raise ValueError("Unsupported filter")
     if not filters:
         return fetch_all(f"select * from {table} limit %s", (limit,))
-    if any(not isinstance(k, str) or not k.replace("_", "").isalnum() for k in filters):
-        raise ValueError("Invalid filter")
     clauses = " and ".join(f"{k}=%s" for k in filters)
     return fetch_all(f"select * from {table} where {clauses} limit %s", (*filters.values(), limit))
 
