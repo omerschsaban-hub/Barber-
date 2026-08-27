@@ -117,12 +117,6 @@ async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse({"name": "Fabrient Engineering", "tool_count": TOOL_COUNT, "tools": CAPABILITY_NAMES, "engine_url": ENGINE_URL, "registry_authoritative": True, "quality_contract": list(QUALITY_IMPROVEMENTS)})
 
 _mcp_app = mcp.streamable_http_app()
-
-# The package entrypoint services.mcp.auth_server owns the single production
-# auth wrapper. Keeping this module raw preserves the MCP SDK lifespan.
-_mcp_app = _mcp_app
-
-
-# FABRIENT_PRODUCTION_AUTH_WRAPPED
-from services.mcp.production_auth import wrap_app as _fabrient_wrap_app
-app = _fabrient_wrap_app(_mcp_app, CAPABILITY_REGISTRY)
+# The package entrypoint services.mcp.auth_server owns production auth. This
+# module remains the raw MCP app for local contract tests and direct serving.
+app = _mcp_app
