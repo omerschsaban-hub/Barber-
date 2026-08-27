@@ -19,7 +19,7 @@ jobs:
     uses: ./.github/workflows/deep-product-tests.yml
 
   release:
-    name: Deploy latest main to Production
+    name: Verify latest main in Production
     needs: deep-validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -30,20 +30,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Verify deployment credentials are configured
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          set -euo pipefail
-          test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN repository secret'; exit 1; }
-          test -n "$VERCEL_ORG_ID" || { echo 'Missing VERCEL_ORG_ID repository secret'; exit 1; }
-          test -n "$VERCEL_PROJECT_ID" || { echo 'Missing VERCEL_PROJECT_ID repository secret'; exit 1; }
 
       - name: Enforce 50-release rolling 24h safety cap
         env:
@@ -59,30 +45,34 @@ jobs:
           done < <(gh run list --workflow production-release.yml --limit 100 --json startedAt --jq '.[].startedAt')
           echo "Production-release workflow runs in rolling 24h: $count"
           if [ "$count" -ge 50 ]; then
-            echo '50 production-release workflow runs have already been started in the rolling 24h window; refusing another deployment.'
+            echo '50 production-release workflow runs have already been started in the rolling 24h window; refusing another verification.'
             exit 1
           fi
 
-      - name: Pull Production environment
+      - name: Verify Git-connected production deployment
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          FABRIENT_WEB_URL: ${{ secrets.FABRIENT_WEB_URL }}
         run: |
           set -euo pipefail
-          export VERCEL_ORG_ID VERCEL_PROJECT_ID
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          web_url="${FABRIENT_WEB_URL:-https://fabrinat-omega.vercel.app}"
+          echo "Verifying production URL: $web_url"
+          for attempt in $(seq 1 30); do
+            body=$(mktemp)
+            status=$(curl -L -sS --max-time 30 -o "$body" -w '%{http_code}' "$web_url/") || status=000
+            if [ "$status" = 200 ] && grep -q 'START A PROJECT' "$body" && grep -q 'Fabrient' "$body"; then
+              echo "Production deployment is serving the expected landing page (HTTP 200)."
+              rm -f "$body"
+              exit 0
+            fi
+            echo "Attempt $attempt/30: production not ready yet (HTTP $status); waiting 10 seconds."
+            rm -f "$body"
+            sleep 10
+          done
+          echo 'The Git-connected production deployment did not become ready with the expected landing page.'
+          exit 1
 
-      - name: Build exactly what will be shipped
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: vercel build --prod --token="$VERCEL_TOKEN"
-
-      - name: Deploy prebuilt artifact to Production only
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+      - name: Verify production engineering and MCP health
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 https://fabrient-engineering.onrender.com/health
+          curl -fsS --max-time 30 https://fabrient-mcp.onrender.com/health
