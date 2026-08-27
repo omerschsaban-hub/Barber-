@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import csv, io, math, re, hashlib
+import csv, io, math, os, re, hashlib
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -18,7 +18,8 @@ PHYSICS_VERSION = "fdm-linear-shrinkage-1.0"
 ALGORITHM_VERSION = "deterministic-sim2real-1.0"
 
 app = FastAPI(title="Fabrient Engineering API", version=APP_VERSION)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"])
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("FABRIENT_ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
 
 class EngineeringInput(BaseModel):
     nominal_mm: float = Field(gt=0)
