@@ -12,7 +12,9 @@ COPY services/mcp/auth_server.py ./auth_server.py
 COPY services/mcp/env_bootstrap.py ./env_bootstrap.py
 COPY services/mcp/production_auth.py ./production_auth.py
 COPY services/mcp/auth_db.py ./auth_db.py
+COPY services/mcp/migrate.py ./migrate.py
+COPY db/migrations/001_owned_postgres.sql ./001_owned_postgres.sql
 
 EXPOSE 8000
 ENV PORT=8000
-CMD ["sh", "-c", "exec uvicorn auth_server:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "python migrate.py && exec uvicorn auth_server:app --host 0.0.0.0 --port ${PORT}"]
