@@ -72,6 +72,7 @@ def _linear_fit(x: list[list[float]], y: list[float], ridge: float = 1e-6) -> li
         if abs(a[pivot][i]) < 1e-12:
             raise ValueError("singular feature matrix")
         a[i], a[pivot] = a[pivot], a[i]
+        b[i], b[pivot] = b[pivot], b[i]
         for r in range(i + 1, p):
             q = a[r][i] / a[i][i]
             for c in range(i, p):
@@ -85,8 +86,8 @@ def _linear_fit(x: list[list[float]], y: list[float], ridge: float = 1e-6) -> li
 
 def _model_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
     obs = _observations(payload)
-    if len(obs) < 10:
-        return _blocked(operation, "at least 10 real observations are required for held-out validation", observations=len(obs), required_observations=10, source="real_observations_only")
+    if len(obs) < 20:
+        return _blocked(operation, "at least 20 real observations are required for a 10-row held-out validation set", observations=len(obs), required_observations=20, source="real_observations_only")
     rows: list[list[float]] = []
     targets: list[float] = []
     for item in obs:
@@ -111,9 +112,10 @@ def _model_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
     if len(rows) < 10:
         return _blocked(operation, "observations must contain numeric features/targets or predicted_mm/measured_mm pairs", usable_observations=len(rows))
     width = len(rows[0])
-    cut = max(5, int(len(rows) * 0.8))
-    if len(rows) - cut < 10:
-        return _blocked(operation, "at least 10 held-out observations are required", usable_observations=len(rows), holdout=len(rows) - cut)
+    holdout_size = max(10, len(rows) // 2)
+    cut = len(rows) - holdout_size
+    if cut < 5:
+        return _blocked(operation, "at least 5 training and 10 held-out observations are required", usable_observations=len(rows), holdout=len(rows) - cut)
     try:
         weights = _linear_fit(rows[:cut], targets[:cut])
     except ValueError as exc:
