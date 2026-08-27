@@ -1,16 +1,37 @@
 # Fabrient Mobile
 
-Native Android/iOS client for Fabrient, built with React Native and Expo Router.
+Fabrient Mobile is the native Android and iOS client built with React Native, Expo Router, and TypeScript. It uses the owned Fabrient API for authentication, workspace data, engineering operations, and authoritative billing state. The app never connects directly to PostgreSQL and never contains Gmail, RevenueCat secret, MCP bearer, or other privileged credentials.
 
-## Run locally
+## Local development
 
 From `apps/mobile`:
 
 ```bash
-npm install
+npm install --legacy-peer-deps
+npm run typecheck
 npx expo start
 ```
 
-Configure the mobile client with the public Fabrient API/base URL required by the current deployment. Database access must go through the authenticated Fabrient API; the mobile client must not connect directly to PostgreSQL with privileged credentials.
+For a web smoke build:
 
-The production database is PostgreSQL. Supabase is not the target database architecture.
+```bash
+npx expo export --platform web
+```
+
+For native development, use `npm run android` or `npm run ios` on a machine with the corresponding Android or Xcode toolchain.
+
+## Configuration
+
+Set `EXPO_PUBLIC_FABRIENT_API_URL` to the deployed engineering API URL. Set `EXPO_PUBLIC_REVENUECAT_API_KEY` only to the platform-specific public RevenueCat SDK key; never put the RevenueCat secret API key or webhook signing secret in the app. The backend owns entitlement truth and receives the signed RevenueCat webhook.
+
+The mobile auth flow calls `/auth/request-otp`, `/auth/verify-otp`, `/auth/me`, and `/auth/logout`. The verification response supplies a session token that is stored on-device and sent as a bearer token to the owned API. The mobile RevenueCat identity is synchronized from the owned backend user ID rather than Supabase.
+
+## Product screens
+
+The app provides an owned-auth login flow, authenticated overview, plan and entitlement state, projects, release evidence, settings, RevenueCat package/purchase/restore controls, loading states, error states, and logout. Native Kotlin/Swift modules should be added only for platform-specific capabilities such as secure storage, push registration, and deep links; shared feature logic remains in TypeScript.
+
+## Verification
+
+The mobile CI workflow runs install, TypeScript validation, Expo web export, and a production dependency audit. The current Expo 57 toolchain still reports moderate advisories in its transitive build tooling; `npm audit fix --force` would request a breaking Expo downgrade and is intentionally not applied without a compatibility upgrade plan.
+
+The production backend remains the authority for real Gmail OTP delivery and RevenueCat entitlements. A successful UI state or a local RevenueCat SDK response alone is not proof of a completed purchase; the signed webhook and backend entitlement record are required.

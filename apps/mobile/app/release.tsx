@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Card, Header, Screen, StatusPill, Action } from '@/components/ui'
 import { theme } from '@/lib/theme'
 
-const gates = [
+const gates: [string, string, string, 'success' | 'warning' | 'danger' | 'neutral'][] = [
   ['Geometry', 'Deterministic dimensions and topology', 'PASS', 'success' as const],
   ['DFM', 'Manufacturability rules and constraints', 'PASS', 'success' as const],
   ['Verification', 'Simulation and physical evidence', 'REVIEW', 'warning' as const],
@@ -16,4 +16,4 @@ export default function Release() {
     <Action title="Review evidence" primary /><View style={{ height: 10 }} /><Action title="Open manufacturing package" />
   </ScrollView></Screen>
 }
-const styles = StyleSheet.create({ content: { paddingBottom: 30 }, kicker: { color: theme.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 }, name: { color: theme.text, fontSize: 19, fontWeight: '800', marginTop: 6 }, score: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }, scoreValue: { color: theme.text, fontSize: 28, fontWeight: '800' }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, copy: { flex: 1 }, gate: { color: theme.text, fontSize: 15, fontWeight: '750' }, detail: { color: theme.muted, fontSize: 12, lineHeight: 18, marginTop: 4 } })
+const styles = StyleSheet.create({ content: { paddingBottom: 30 }, kicker: { color: theme.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.2 }, name: { color: theme.text, fontSize: 19, fontWeight: '800', marginTop: 6 }, score: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }, scoreValue: { color: theme.text, fontSize: 28, fontWeight: '800' }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, copy: { flex: 1 }, gate: { color: theme.text, fontSize: 15, fontWeight: '700' }, detail: { color: theme.muted, fontSize: 12, lineHeight: 18, marginTop: 4 } })

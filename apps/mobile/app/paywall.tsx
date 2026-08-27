@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   hero: { color: theme.text, fontSize: 21, fontWeight: '800', flex: 1 },
   muted: { color: theme.muted, fontSize: 13, lineHeight: 19, marginTop: 12 },
   section: { color: theme.muted, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginVertical: 10 },
-  feature: { color: theme.text, fontSize: 14, fontWeight: '650', flex: 1 },
+  feature: { color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 },
   dot: { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center' },
   dotText: { color: theme.text, fontWeight: '900' },
   spinner: { marginVertical: 16 },

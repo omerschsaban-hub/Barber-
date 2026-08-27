@@ -1,7 +1,7 @@
 import { Platform } from 'react-native'
 import Purchases, { LOG_LEVEL, type CustomerInfo, type PurchasesPackage } from 'react-native-purchases'
 import RevenueCatUI from 'react-native-purchases-ui'
-import { supabase } from './supabase'
+import { currentUser } from './api'
 
 export type { PurchasesPackage }
 
@@ -12,9 +12,9 @@ let configured = false
 let loggedInUserId: string | null = null
 
 async function syncRevenueCatUser() {
-  if (!configured || Platform.OS === 'web' || !supabase) return
-  const { data } = await supabase.auth.getUser()
-  const userId = data.user?.id ?? null
+  if (!configured || Platform.OS === 'web') return
+  let userId: string | null = null
+  try { userId = (await currentUser()).user.id } catch { return }
   if (!userId || userId === loggedInUserId) return
   await Purchases.logIn(userId)
   loggedInUserId = userId

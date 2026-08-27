@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Tabs } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { configureRevenueCat } from '@/lib/revenuecat'
+import { AuthProvider } from '@/lib/auth-context'
 
 export default function RootLayout() {
   useEffect(() => {
@@ -9,7 +10,8 @@ export default function RootLayout() {
   }, [])
 
   return (
-    <>
+    <AuthProvider>
+      <>
       <StatusBar style="light" />
       <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#ffffff', tabBarInactiveTintColor: '#718096', tabBarStyle: { backgroundColor: '#0b0f14', borderTopColor: '#202832', height: 64, paddingBottom: 8, paddingTop: 7 }, tabBarLabelStyle: { fontSize: 11, fontWeight: '600' } }}>
         <Tabs.Screen name="index" options={{ title: 'Overview' }} />
@@ -18,6 +20,7 @@ export default function RootLayout() {
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
         <Tabs.Screen name="paywall" options={{ href: null }} />
       </Tabs>
-    </>
+      </>
+    </AuthProvider>
   )
 }
