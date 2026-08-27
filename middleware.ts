@@ -47,7 +47,8 @@ function sameOrigin(request: NextRequest) {
 
 function rateLimit(request: NextRequest) {
   const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  const key = forwarded || request.ip || 'unknown'
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  const key = forwarded || realIp || 'unknown'
   const now = Date.now()
   const existing = requestBuckets.get(key) || []
   const recent = existing.filter(ts => now - ts < RATE_WINDOW_MS)
@@ -71,8 +72,6 @@ export async function middleware(request: NextRequest) {
   const isWorkspace = path === '/workspace' || path.startsWith('/workspace/')
   const isFeatureRoute = FEATURE_ROUTES.some(route => path === route || path.startsWith(`${route}/`))
 
-  // Browser cookie-authenticated mutations must come from the same origin.
-  // Requests without an Origin header remain compatible with server-to-server clients.
   if (MUTATING_METHODS.has(request.method) && request.cookies.has('fabrient_session') && !sameOrigin(request)) {
     return securityHeaders(NextResponse.json({ error: 'Cross-site request blocked' }, { status: 403 }))
   }
