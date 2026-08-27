@@ -128,7 +128,13 @@ async def cors_origin_guard(request: Request, call_next):
     origin = request.headers.get("origin")
     if origin and origin.rstrip("/") not in allowed:
         return JSONResponse(status_code=403, content={"status": "forbidden", "reason": "Origin is not allowed."})
-    return await call_next(request)
+    response = await call_next(request)
+    if origin and origin.rstrip("/") in allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin.rstrip("/")
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        vary = response.headers.get("Vary", "")
+        response.headers["Vary"] = "Origin" if not vary else f"{vary}, Origin"
+    return response
 
 if allowed:
     app.add_middleware(
