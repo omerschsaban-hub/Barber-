@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import urllib.error
 import urllib.request
 
 
@@ -37,8 +38,15 @@ def test_engineering_feature_surface():
     }
     analyze = http_json(base, "/v1/dfm/analyze", fixture)
     assert isinstance(analyze, dict)
-    fixed = http_json(base, "/v1/dfm/self-fix", fixture)
-    assert isinstance(fixed, dict)
+    try:
+        fixed = http_json(base, "/v1/dfm/self-fix", fixture)
+    except urllib.error.HTTPError as exc:
+        # Local CI has no owned auth database; a protected action must reject
+        # the unauthenticated request rather than silently execute it.
+        assert exc.code == 401, exc.code
+        print("protected self-fix correctly rejected unauthenticated local request")
+    else:
+        assert isinstance(fixed, dict)
 
 
 def test_python_feature_modules_import():

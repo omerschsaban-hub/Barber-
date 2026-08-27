@@ -81,7 +81,7 @@ jobs:
           python -m py_compile server.py smoke_test.py ../../mcp_server.py ../../mcp_capabilities.py
           PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert len(mcp_server.CAPABILITY_NAMES)==100; assert len(set(mcp_server.CAPABILITY_NAMES))==100"
           PYTHONPATH=../..:${PYTHONPATH:-} python -c "import mcp_server; assert all(n in mcp_server.CAPABILITIES for n in mcp_server.CAPABILITY_NAMES)"
-          RENDER_EXTERNAL_HOSTNAME=127.0.0.1 python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
+          FABRIENT_DISABLE_PRODUCTION_AUTH=true RENDER_EXTERNAL_HOSTNAME=127.0.0.1 python -m uvicorn server:app --host 127.0.0.1 --port 8000 >/tmp/mcp.log 2>&1 &
           pid=$!
           ready=0
           for i in $(seq 1 30); do
