@@ -102,12 +102,14 @@ CAPABILITIES: dict[str, tuple[str, str]] = {
     "run_engineering_agent": ("/v1/agents/run", "Run bounded engineering-agent orchestration."),
 }
 
-CAPABILITY_NAMES = list(CAPABILITIES)
-
 for _name, _description in TOOLBOX_CAPABILITIES.items():
     CAPABILITIES.setdefault(_name, (f"/v1/toolbox/{_name}", _description))
 for _name, (_path, _description) in DIRECT_CAPABILITIES.items():
     CAPABILITIES[_name] = (_path, _description)
+
+# Keep the legacy root shim on the same 100-capability contract as the owned service.
+CAPABILITY_NAMES = list(CAPABILITIES)[:100]
+CAPABILITIES = {name: CAPABILITIES[name] for name in CAPABILITY_NAMES}
 
 async def _call_capability(name: str, path: str, payload: dict[str, Any]) -> Any:
     return await _request("POST", path, payload=payload)
