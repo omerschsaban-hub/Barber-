@@ -39,7 +39,7 @@ test.describe('workspace production resilience', () => {
   })
 
   test('production engineering health endpoint is reachable', async ({ request }) => {
-    const response = await request.get(`${productionEngine}/health`)
+    const response = await request.get(`${productionEngine}/health`, { timeout: 60_000 })
     expect(response.ok()).toBeTruthy()
     expect(response.status()).toBe(200)
   })
