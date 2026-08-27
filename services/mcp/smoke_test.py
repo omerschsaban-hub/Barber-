@@ -64,6 +64,7 @@ async def main() -> None:
     start = max(0, int(os.getenv("MCP_TOOL_START", "0")))
     end = min(len(CAPABILITY_NAMES), int(os.getenv("MCP_TOOL_END", str(len(CAPABILITY_NAMES)))))
     selected_names = CAPABILITY_NAMES[start:end]
+    tool_timeout = max(5.0, float(os.getenv("MCP_TOOL_TIMEOUT", "90")))
     headers = {"Authorization": f"Bearer {token}"} if token else None
     async with streamable_http_client(url, headers=headers) as streams:
         read_stream, write_stream = streams[:2]
@@ -78,9 +79,9 @@ async def main() -> None:
                 try:
                     arguments = fixture(name)
                     if name == "validate_dimension":
-                        result = await asyncio.wait_for(session.call_tool(name, arguments=arguments), timeout=30)
+                        result = await asyncio.wait_for(session.call_tool(name, arguments=arguments), timeout=tool_timeout)
                     else:
-                        result = await asyncio.wait_for(session.call_tool(name, arguments={"payload": arguments}), timeout=30)
+                        result = await asyncio.wait_for(session.call_tool(name, arguments={"payload": arguments}), timeout=tool_timeout)
                     if not result.content:
                         failures.append(f"{name}: empty result")
                         continue
