@@ -1,5 +1,4 @@
 import { FlatCompat } from '@eslint/eslintrc'
-import { globalIgnores } from 'eslint/config'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -8,7 +7,7 @@ const compat = new FlatCompat({
 })
 
 const config = [
-  globalIgnores(['.next/**', 'node_modules/**', 'test-results/**', 'coverage/**', 'next-env.d.ts']),
+  { ignores: ['.next/**', '.venv/**', 'node_modules/**', 'test-results/**', 'coverage/**', 'next-env.d.ts'] },
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {

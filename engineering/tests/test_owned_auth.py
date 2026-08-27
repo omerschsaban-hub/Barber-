@@ -1,6 +1,6 @@
 import os
 
-os.environ.setdefault("AUTH_SECRET", "ci-test-secret")
+os.environ.setdefault("AUTH_SECRET", "ci-test-secret-with-at-least-32-bytes")
 
 from app.owned_auth import _digest, _otp_hash
 

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-const productionEngine = 'https://fabrient-engineering.onrender.com'
+const productionEngine = process.env.PLAYWRIGHT_ENGINEERING_URL || 'https://fabrient-engineering.onrender.com'
 
 test.describe('workspace production resilience', () => {
   test('never renders a blank workspace and always exposes a next action', async ({ page }) => {
