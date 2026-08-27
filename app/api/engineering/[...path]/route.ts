@@ -1,28 +1,38 @@
-import {NextRequest, NextResponse} from 'next/server'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
+const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
+const COOKIE = 'fabrient_session'
 
-const ENGINE = process.env.ENGINEERING_API_INTERNAL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com'
-
-async function proxy(request: NextRequest, {params}: {params: Promise<{path: string[]}>}) {
-  const {path} = await params
-  const target = `${ENGINE.replace(/\/$/, '')}/${path.join('/')}${request.nextUrl.search}`
-  const headers = new Headers(request.headers)
-  headers.delete('host')
-  headers.delete('content-length')
-  headers.set('x-fabrient-proxy', 'nextjs')
-  const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer()
+async function handler(request: Request, context: { params: Promise<{ path: string[] }> }) {
+  if (!API) return NextResponse.json({ error: 'Engineering backend is not configured' }, { status: 503 })
+  const token = (await cookies()).get(COOKIE)?.value
+  if (!token) return NextResponse.json({ error: 'Sign in before running engineering actions' }, { status: 401 })
+  const { path } = await context.params
+  const target = `${API.replace(/\/$/, '')}/${path.map(encodeURIComponent).join('/')}${new URL(request.url).search}`
   try {
-    const upstream = await fetch(target, {method: request.method, headers, body, cache: 'no-store', signal: AbortSignal.timeout(130_000)})
-    return new NextResponse(upstream.body, {status: upstream.status, headers: {'content-type': upstream.headers.get('content-type') || 'application/json'}})
-  } catch (error: any) {
-    return NextResponse.json({ok: false, error: 'Engineering service unreachable', detail: error?.message || 'upstream connection failed', upstream: ENGINE}, {status: 503})
+    const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer()
+    const response = await fetch(target, {
+      method: request.method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'content-type': request.headers.get('content-type') || 'application/json',
+        origin: request.headers.get('origin') || '',
+      },
+      body,
+      cache: 'no-store',
+    })
+    return new NextResponse(response.body, {
+      status: response.status,
+      headers: { 'content-type': response.headers.get('content-type') || 'application/json' },
+    })
+  } catch {
+    return NextResponse.json({ error: 'Engineering backend unavailable' }, { status: 502 })
   }
 }
 
-export const GET = proxy
-export const POST = proxy
-export const PUT = proxy
-export const PATCH = proxy
-export const DELETE = proxy
+export const GET = handler
+export const POST = handler
+export const PUT = handler
+export const PATCH = handler
+export const DELETE = handler

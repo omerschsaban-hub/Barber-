@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import hashlib
+import hmac
+import os
+from typing import Any
+from psycopg_pool import ConnectionPool
+from psycopg.rows import dict_row
+
+_POOL: ConnectionPool | None = None
+
+def _pool() -> ConnectionPool:
+    global _POOL
+    if _POOL is None:
+        _POOL = ConnectionPool(os.environ["DATABASE_URL"], min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "8")), kwargs={"row_factory": dict_row}, open=True)
+    return _POOL
+
+def _hash(token: str) -> bytes:
+    secret = os.environ.get("AUTH_SECRET")
+    if not secret or len(secret) < 32:
+        raise RuntimeError("AUTH_SECRET must be configured with at least 32 bytes of entropy")
+    return hmac.new(secret.encode(), token.encode(), hashlib.sha256).digest()
+
+def user_from_bearer(token: str | None) -> dict[str, Any] | None:
+    if not token: return None
+    with _pool().connection() as conn:
+        row = conn.execute("""select u.id::text as user_id,u.email,u.display_name,t.scope, 'oauth' as auth_kind
+          from oauth_access_tokens t join users u on u.id=t.user_id
+          where t.token_hash=%s and t.revoked_at is null and t.expires_at>now()""", (_hash(token),)).fetchone()
+        if row: return dict(row)
+        row = conn.execute("""select u.id::text as user_id,u.email,u.display_name,'openid email' as scope, 'session' as auth_kind
+          from sessions s join users u on u.id=s.user_id
+          where s.token_hash=%s and s.revoked_at is null and s.expires_at>now()""", (_hash(token),)).fetchone()
+        return dict(row) if row else None

@@ -9,6 +9,7 @@ COPY services/mcp/requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt
 COPY services/mcp/server.py ./server.py
 COPY services/mcp/auth_server.py ./auth_server.py
+COPY services/mcp/env_bootstrap.py ./env_bootstrap.py
 
 EXPOSE 8000
 ENV PORT=8000

@@ -1,0 +1,37 @@
+name: Fabrient migration validation
+on:
+  push:
+    branches: [migration/full-production-cutover]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.5'
+          cache: pip
+          cache-dependency-path: engineering/requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r engineering/requirements.txt
+      - run: python -m py_compile engineering/app/*.py services/mcp/*.py
+      - run: PYTHONPATH=engineering:. pytest -q tests/mcp tests/owned-platform engineering/tests
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
+        env:
+          FABRIENT_API_URL: http://127.0.0.1:8001
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8001

@@ -1,115 +1,102 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { createBrowserSupabase } from '@/lib/supabase-browser'
-
-type Tier = {
-  key: string
-  name: string
-  description: string
-  url: string
-}
-
-const tierDefinitions = [
-  {
-    key: 'tier1',
-    name: 'Tier 1',
-    description: 'Core Fabrient capabilities.',
-    env: 'NEXT_PUBLIC_REVENUECAT_WEB_PURCHASE_URL_TIER1',
-  },
-  {
-    key: 'tier2',
-    name: 'Tier 2',
-    description: 'Expanded Fabrient capabilities.',
-    env: 'NEXT_PUBLIC_REVENUECAT_WEB_PURCHASE_URL_TIER2',
-  },
-  {
-    key: 'tier3',
-    name: 'Tier 3',
-    description: 'Full Fabrient capabilities.',
-    env: 'NEXT_PUBLIC_REVENUECAT_WEB_PURCHASE_URL_TIER3',
-  },
-] as const
-
-function buildPurchaseUrl(baseUrl: string, userId: string) {
-  const trimmed = baseUrl.trim()
-  if (!trimmed) return ''
-  const url = new URL(trimmed)
-  const path = url.pathname.replace(/\/$/, '')
-  if (!path.split('/').pop() || path.split('/').pop() === url.hostname) {
-    return ''
-  }
-  url.pathname = `${path}/${encodeURIComponent(userId)}`
-  return url.toString()
-}
+import { useEffect, useState } from 'react'
+import {
+  FABRINAT_PRO_ENTITLEMENT,
+  getWebOffering,
+  purchaseWebPackage,
+} from '@/lib/revenuecat-web'
 
 export default function BillingPage() {
   const [userId, setUserId] = useState<string | null>(null)
+  const [packageInfo, setPackageInfo] = useState<any>(null)
+  const [pro, setPro] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  async function getBackendAccess() {
+    const response = await fetch('/api/revenuecat/access', { cache: 'no-store' })
+    const body = await response.json() as { pro?: boolean; error?: string }
+    if (!response.ok) throw new Error(body.error || 'Unable to verify subscription access')
+    return Boolean(body.pro)
+  }
 
   useEffect(() => {
     let cancelled = false
-    async function loadUser() {
-      const supabase = createBrowserSupabase()
-      if (!supabase) {
-        setError('Authentication is not configured')
-        return
+    async function load() {
+      try {
+        const auth = await fetch('/api/auth/me', { cache: 'no-store' })
+        if (!auth.ok) throw new Error('Sign in before purchasing Fabrient Pro')
+        const body = await auth.json() as { user?: { id?: string } }
+        const id = body.user?.id
+        if (!id) throw new Error('Sign in before purchasing Fabrient Pro')
+        if (cancelled) return
+        setUserId(id)
+        const [offering, backendPro] = await Promise.all([
+          getWebOffering(id),
+          getBackendAccess(),
+        ])
+        if (cancelled) return
+        setPackageInfo(offering?.availablePackages?.[0] ?? null)
+        setPro(backendPro)
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? 'Unable to load billing')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      const { data, error: authError } = await supabase.auth.getUser()
-      if (cancelled) return
-      if (authError || !data.user) {
-        setError('Sign in before purchasing a subscription.')
-        return
-      }
-      setUserId(data.user.id)
     }
-    void loadUser()
+    void load()
     return () => { cancelled = true }
   }, [])
 
-  const tiers = useMemo<Tier[]>(() => tierDefinitions.map((tier) => {
-    const baseUrl = process.env[tier.env] ?? ''
-    return {
-      key: tier.key,
-      name: tier.name,
-      description: tier.description,
-      url: userId ? buildPurchaseUrl(baseUrl, userId) : '',
+  async function buy() {
+    if (!userId || !packageInfo) return
+    setBusy(true)
+    setError('')
+    try {
+      await purchaseWebPackage(userId, packageInfo)
+      // RevenueCat delivers the entitlement asynchronously through the signed webhook.
+      // Never grant Pro from client-side customer info alone.
+      setError('Purchase completed. Waiting for entitlement confirmation…')
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+        if (await getBackendAccess()) {
+          setPro(true)
+          setError('')
+          break
+        }
+      }
+    } catch (e: any) {
+      if (!e?.userCancelled) setError(e?.message ?? 'Purchase failed')
+    } finally {
+      setBusy(false)
     }
-  }), [userId])
+  }
 
   return (
-    <main className="page" style={{ maxWidth: 900 }}>
+    <main className="page" style={{ maxWidth: 720 }}>
       <div className="eyebrow">FABRIENT / BILLING</div>
-      <h1 className="title">Choose your Fabrient plan</h1>
-      <p className="muted">
-        Checkout is hosted by RevenueCat. No Stripe UI or RevenueCat Web SDK runs in this app.
-      </p>
-
-      {error && <p className="error">{error}</p>}
-
+      <h1 className="title">Fabrient Pro</h1>
+      <p className="muted">One RevenueCat entitlement controls Pro access across the web app and MCP.</p>
       <section className="panel" style={{ marginTop: 24 }}>
-        <div style={{ display: 'grid', gap: 16 }}>
-          {tiers.map((tier) => (
-            <div key={tier.key} className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div>
-                <h2 style={{ marginBottom: 6 }}>{tier.name}</h2>
-                <p className="muted" style={{ margin: 0 }}>{tier.description}</p>
-              </div>
-              {tier.url ? (
-                <a
-                  className="button primary"
-                  href={tier.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Subscribe
-                </a>
-              ) : (
-                <span className="muted">Checkout not configured</span>
-              )}
-            </div>
-          ))}
-        </div>
+        {loading ? <p className="muted">Loading subscription…</p> : pro ? (
+          <>
+            <div className="status ok">PRO ACTIVE</div>
+            <p className="muted">Entitlement: {FABRINAT_PRO_ENTITLEMENT}</p>
+          </>
+        ) : (
+          <>
+            <h2>Unlock Pro</h2>
+            <p className="muted">Advanced 3D risk analysis, manufacturing exports, inspection analytics, and extended MCP tools.</p>
+            {packageInfo ? (
+              <button className="button primary" onClick={() => void buy()} disabled={busy}>
+                {busy ? 'Opening secure checkout…' : `${packageInfo.product.title} · ${packageInfo.product.priceString}`}
+              </button>
+            ) : <p className="error">No RevenueCat offering is currently available.</p>}
+          </>
+        )}
+        {error && <p className="error">{error}</p>}
       </section>
     </main>
   )
