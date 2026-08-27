@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 
-const ENGINE=process.env.NEXT_PUBLIC_ENGINEERING_API||'http://localhost:8000';
+const ENGINE='/api/engineering';
 type Result=any;
 type ZipFile={name:string;data:Uint8Array};
 function crc32(bytes:Uint8Array){let c=0xffffffff;for(const b of bytes){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return (c^0xffffffff)>>>0}

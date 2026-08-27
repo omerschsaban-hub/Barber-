@@ -50,7 +50,7 @@ test.describe('Fabrient browser health', () => {
   })
 
   test('manufacturing workflow recovers from an engineering API failure', async ({ page }) => {
-    await page.route('**/v1/dfm/self-fix', async route => {
+    await page.route('**/api/engineering/v1/dfm/self-fix', async route => {
       await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'temporary upstream failure' }) })
     })
     await page.goto('/manufacturing')
@@ -60,7 +60,7 @@ test.describe('Fabrient browser health', () => {
   })
 
   test('manufacturing workflow can execute a bounded self-fix and show evidence', async ({ page }) => {
-    await page.route('**/v1/dfm/self-fix', async route => {
+    await page.route('**/api/engineering/v1/dfm/self-fix', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

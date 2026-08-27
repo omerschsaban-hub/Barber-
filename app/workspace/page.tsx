@@ -99,7 +99,7 @@ export default function Workspace() {
   }
 
   const deviation = prediction ? prediction.prediction_mm - nominal : 0
-  const statusLabel = service === 'checking' ? 'CONNECTING…' : service === 'ready' ? 'ENGINE READY' : 'ACTION NEEDED'
+  const statusLabel = service === 'checking' ? 'ENGINE CONNECTING…' : service === 'ready' ? 'ENGINE READY' : 'ENGINE ACTION NEEDED'
   const statusClass = service === 'ready' ? 'ok' : 'warn'
   const interval = useMemo(() => prediction?.interval_95_mm || [], [prediction])
 
