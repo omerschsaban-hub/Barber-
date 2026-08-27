@@ -47,6 +47,10 @@ def service_root():
 def health():
     return {"status": "ok", "service": "fabrient-engineering"}
 
+@app.get("/v1/health")
+def v1_health():
+    return health()
+
 @app.get("/internal/data-flywheel/run")
 def manual_flywheel_run(token: str | None = None):
     expected = os.getenv("DATA_FLYWHEEL_RUN_TOKEN")
@@ -110,7 +114,20 @@ async def sim2real_quality_gate(request: Request, call_next):
             return JSONResponse(status_code=422, content={"status": "blocked", "reason": str(exc)})
     return await call_next(request)
 
-allowed = [origin.strip() for origin in os.getenv("FABRIENT_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
+allowed = [origin.strip().rstrip("/") for origin in os.getenv("FABRIENT_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
+if not allowed:
+    # No wildcard fallback in production. This prevents accidental cross-origin access
+    # when the deployment forgot to configure its browser origins.
+    if os.getenv("NODE_ENV", "production") == "production":
+        allowed = ["https://getfabrient.com", "https://www.getfabrient.com"]
+
+@app.middleware("http")
+async def cors_origin_guard(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin and origin.rstrip("/") not in allowed:
+        return JSONResponse(status_code=403, content={"status": "forbidden", "reason": "Origin is not allowed."})
+    return await call_next(request)
+
 if allowed:
     app.add_middleware(
         CORSMiddleware,
