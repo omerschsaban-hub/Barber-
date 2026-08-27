@@ -16,7 +16,7 @@ function withSecurityHeaders(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
-    "connect-src 'self' https://api.openai.com https://va.vercel-scripts.com",
+    "connect-src 'self' https://api.openai.com https://va.vercel-scripts.com https://fabrient-engineering.onrender.com https://fabrient-mcp.onrender.com",
     "frame-src 'self'",
     "worker-src 'self' blob:",
     "object-src 'none'",
