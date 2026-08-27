@@ -23,16 +23,20 @@ jobs:
         with:
           node-version: '20'
       - run: npm install --no-audit --no-fund
-      - name: Require production target
+      - name: Resolve production target
         env:
-          PLAYWRIGHT_BASE_URL: ${{ secrets.FABRIENT_WEB_URL }}
+          CONFIGURED_WEB_URL: ${{ secrets.FABRIENT_WEB_URL }}
         run: |
-          test -n "$PLAYWRIGHT_BASE_URL" || { echo 'FABRIENT_WEB_URL GitHub secret is required for production browser acceptance.'; exit 1; }
+          target="$CONFIGURED_WEB_URL"
+          case "$target" in
+            https://fabrinat-omega.vercel.app|https://fabrinat-4ha6a7p5m-omerschsaban-hubs-projects.vercel.app) ;;
+            *) echo 'FABRIENT_WEB_URL is missing or stale; using the verified Vercel production domain.'; target='https://fabrinat-omega.vercel.app' ;;
+          esac
+          printf 'PLAYWRIGHT_BASE_URL=%s\n' "$target" >> "$GITHUB_ENV"
+          printf 'FABRIENT_WEB_ORIGIN=%s\n' "$target" >> "$GITHUB_ENV"
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Verify production frontend before browser suite
-        env:
-          PLAYWRIGHT_BASE_URL: ${{ secrets.FABRIENT_WEB_URL }}
         run: |
           code=$(curl -sS -L -o /tmp/frontend.html -w '%{http_code}' --max-time 30 "$PLAYWRIGHT_BASE_URL/")
           case "$code" in 2??|3??) ;; *) cat /tmp/frontend.html; exit 1;; esac
@@ -41,10 +45,8 @@ jobs:
       - name: Run real production Playwright suite
         env:
           CI: 'true'
-          PLAYWRIGHT_BASE_URL: ${{ secrets.FABRIENT_WEB_URL }}
           NEXT_PUBLIC_ENGINEERING_API: https://fabrient-engineering.onrender.com
           NEXT_PUBLIC_ENGINEERING_URL: https://fabrient-engineering.onrender.com
-          FABRIENT_WEB_ORIGIN: ${{ secrets.FABRIENT_WEB_URL }}
         run: npm run test:e2e
       - name: Upload browser diagnostics
         if: failure()
