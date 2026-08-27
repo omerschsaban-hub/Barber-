@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Cookie, Header, HTTPException, Request
 
 from .owned_auth import _bearer, user_from_token, COOKIE_NAME
-from .postgres import fetch_one, transaction
+from .postgres import transaction
+from .plan_catalog import access_for_user
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 PRO_ENTITLEMENT = "create_an_app_called_fabrinat_pro"
@@ -51,13 +52,13 @@ def access(request: Request, authorization: str | None = Header(default=None), s
     identity = user_from_token(_bearer(request, authorization) or session)
     if not identity:
         raise HTTPException(401, "Unauthorized")
-    row = fetch_one(
-        "select entitlement_id,active,product_id,expires_at from billing_entitlements where user_id=%s and entitlement_id=%s",
-        (identity["user_id"], PRO_ENTITLEMENT),
-    )
-    expires = row["expires_at"] if row else None
-    pro = bool(row and row["active"] and (expires is None or expires.timestamp() > time.time()))
-    return {"authenticated": True, "pro": pro, "entitlement": PRO_ENTITLEMENT}
+    resolved = access_for_user(identity["user_id"])
+    return {
+        "authenticated": True,
+        "pro": resolved["plan"] != "free",
+        "entitlement": PRO_ENTITLEMENT,
+        **resolved,
+    }
 
 
 @router.post("/webhooks/revenuecat")

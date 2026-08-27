@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { ENTERPRISE_CONTACT, FABRINAT_PLANS } from '@/lib/fabrinat-plans'
+
+const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 
 const REAL_PHOTO = 'https://images.pexels.com/photos/22491107/pexels-photo-22491107.jpeg?auto=compress&cs=tinysrgb&w=1600'
 
@@ -84,6 +87,25 @@ export default function Home() {
           <div><span>04</span><strong>Machine learning</strong><p>Current system identification and residual learning use real observations and held-out validation rather than invented calibration.</p></div>
           <div><span>05</span><strong>Uncertainty + decisions</strong><p>Evidence is kept visible. Weak evidence becomes a limitation or a request for more information, not fake certainty.</p></div>
           <div><span>06</span><strong>Audit + release</strong><p>Important inputs, results, artifacts and decisions stay traceable through the job and into manufacturing.</p></div>
+        </div>
+      </section>
+
+      <section id="plans" className="cad-work pricing-section">
+        <div className="cad-section-head"><div><span>PLANS THAT MATCH THE JOB</span><h2>Start small. Add the operating system when the team is ready.</h2></div><p>Free is genuinely useful but intentionally limited. Hobby gives one builder room to work. Startup adds the shared controls for teams of 1–29. Enterprise is for 30+ people and needs a conversation about deployment, governance and support.</p></div>
+        <div className="pricing-grid">
+          {PLAN_ORDER.map((key) => {
+            const plan = FABRINAT_PLANS[key]
+            const isEnterprise = key === 'enterprise'
+            return <article className={`pricing-card ${key === 'startup' ? 'pricing-card-featured' : ''}`} key={key}>
+              <div className="pricing-topline"><span>{plan.audience}</span>{key === 'startup' && <b>MOST FOR TEAMS</b>}</div>
+              <h3>{plan.name}</h3>
+              <div className="pricing-price">{plan.price === null ? <span className="pricing-talk">Let’s talk</span> : <><strong>${plan.price}</strong><small>{plan.price === 0 ? 'forever' : '/ month'}</small></>}</div>
+              <p className="pricing-tagline">{plan.tagline}</p>
+              <div className="pricing-limit">{plan.teamSize} · {plan.limits.llmRuns < 0 ? 'unlimited AI runs' : `${plan.limits.llmRuns} AI runs / month`}</div>
+              <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
+              {isEnterprise ? <div className="pricing-contact"><a href={`mailto:${ENTERPRISE_CONTACT.email}?subject=Fabrient%20Enterprise%20plan`}>Email {ENTERPRISE_CONTACT.email}</a><a href={`tel:${ENTERPRISE_CONTACT.phone}`}>Call {ENTERPRISE_CONTACT.phone}</a></div> : <Link href={key === 'free' ? '/login?redirect=/workspace' : `/billing?plan=${key}`} className={`cad-button ${key === 'startup' ? 'cad-button-main' : ''}`}>{key === 'free' ? 'START FREE' : `CHOOSE ${plan.name.toUpperCase()}`} <span>→</span></Link>}
+            </article>
+          })}
         </div>
       </section>
 

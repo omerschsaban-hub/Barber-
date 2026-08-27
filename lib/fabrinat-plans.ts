@@ -8,23 +8,31 @@ export type FabrinatFeature =
 
 export const FABRINAT_PLANS = {
   free: {
-    name: 'Free', audience: 'Anyone getting started',
+    name: 'Free', audience: 'Anyone getting started', price: 0, billingLabel: 'Always free', teamSize: '1 person',
     tagline: 'A genuinely useful engineering workspace.',
+    limits: { llmRuns: 5, projects: 1, storageGb: 0.25 },
+    highlights: ['Explore the core engineering loop', '5 AI-assisted runs each month', 'Basic checks, evidence and project history'],
     features: ['requirements','check','prove','inspect','history','basic_mcp','digital_thread'],
   },
   hobbyist: {
-    name: 'Hobbyist', audience: 'One builder',
+    name: 'Hobby', audience: 'One builder', price: 9, billingLabel: '$9 / month', teamSize: '1 person',
     tagline: 'Your personal product-building system.',
+    limits: { llmRuns: 100, projects: -1, storageGb: 10 },
+    highlights: ['Unlimited personal projects', '100 AI-assisted runs each month', 'Build packages, advanced simulation and automation'],
     features: ['requirements','check','fix','prove','build','inspect','history','bom','firmware_readiness','test_plan','supplier_readiness','release','automate','evidence','advanced_sim2real','production_monitoring','digital_thread','personal_mcp','larger_storage','unlimited_projects'],
   },
   startup: {
-    name: 'Startup', audience: 'Teams under 30 people',
+    name: 'Startup', audience: 'Teams of 1–29 people', price: 49, billingLabel: '$49 / month', teamSize: '1–29 people',
     tagline: 'Design, build and ship together without the coordination mess.',
+    limits: { llmRuns: 1000, projects: -1, storageGb: 100 },
+    highlights: ['Everything in Hobby', 'Shared workspaces, roles and approval gates', 'Team evidence, API access, webhooks and dashboards'],
     features: ['all_hobbyist','shared_workspace','team_roles','project_permissions','approval_gates','team_audit_log','shared_evidence','team_automation','api_access','webhooks','github_integration','notifications','team_dashboards','usage_controls','organization_billing','seat_management','priority_processing'],
   },
   enterprise: {
-    name: 'Enterprise', audience: 'Organizations with 30+ people',
+    name: 'Enterprise', audience: 'Organizations with 30+ people', price: null, billingLabel: 'Let’s talk', teamSize: '30+ people',
     tagline: 'The product engineering control layer at scale.',
+    limits: { llmRuns: -1, projects: -1, storageGb: -1 },
+    highlights: ['Everything in Startup', 'SSO, SCIM, custom roles and governance', 'Private deployment, compliance and dedicated support'],
     features: ['all_startup','saml_sso','scim','custom_roles','org_hierarchy','workspace_isolation','security_policies','ip_allowlist','session_controls','service_accounts','mcp_governance','usage_quotas','spend_controls','retention_controls','compliance_reports','sla','priority_incident_response','custom_integrations','private_deployment','dedicated_infrastructure','procurement_workflows'],
   },
 } as const;

@@ -7,7 +7,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error
@@ -16,6 +16,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .openrouter import OpenRouterError, structured_reasoning
+from .owned_auth import _bearer, user_from_token
+from .plan_catalog import consume_llm_run
 
 router = APIRouter(prefix="/v1", tags=["real-cv-sim2real"])
 REAL_CV_VERSION = "real-cv-scale-2.0"
@@ -212,7 +214,7 @@ def calibrate_and_run(x: Sim2RealRequest):
     return {"status": "validated", "result": result, "release_claim": "calibrated prediction with empirical held-out error bound; not physical acceptance"}
 
 @router.post("/agents/fleet")
-async def agent_fleet(x: FleetRequest):
+async def agent_fleet(request: Request, x: FleetRequest):
     observations = x.observations or (x.simulation.observations if x.simulation else [])
     model_result = _fit(observations)
     agents = ["evidence", "physics", "cv", "system_identification", "residual_ml", "sim2real", "uncertainty", "experiment", "critic"]
@@ -239,10 +241,17 @@ async def agent_fleet(x: FleetRequest):
     artifacts["experiment"] = {"status": "proposed" if observations else "insufficient_data", "next_action": "Collect real measurements for the highest-uncertainty machine/feature group before claiming validation."}
     artifacts["critic"] = {"status": "pass" if not blockers else "blocked", "blockers": blockers}
     llm = None
+    plan_usage = None
     if x.llm_model:
+        identity = user_from_token(_bearer(request, request.headers.get('authorization')))
+        if not identity:
+            raise HTTPException(status_code=401, detail='Sign in is required for an LLM run')
+        plan_usage = consume_llm_run(identity['user_id'])
+        if not plan_usage['allowed']:
+            raise HTTPException(status_code=429, detail={'message': 'Monthly AI run limit reached', **plan_usage})
         try:
             llm_text = await structured_reasoning("You are an engineering orchestration critic. Never invent measurements, coefficients, tolerances, or physical test results. Summarize only supplied evidence and identify next verification steps.", str({"objective": x.objective, "artifacts": artifacts}), model=x.llm_model)
             llm = {"status": "available", "text": llm_text}
         except OpenRouterError as exc:
             llm = {"status": "unavailable", "reason": str(exc)}
-    return {"status": "blocked" if blockers else "complete", "fleet_version": FLEET_VERSION, "project_id": x.project_id, "objective": x.objective, "max_iterations": x.max_iterations, "agents": agents, "completed_agents": agents, "artifacts": artifacts, "llm": llm, "approval_gates": ["physical_execution", "final_acceptance"], "provenance": {"real_measurements": len(observations), "synthetic_data_used_for_ml_training": False, "fleet_is_evidence_gated": True}}
+    return {"status": "blocked" if blockers else "complete", "fleet_version": FLEET_VERSION, "project_id": x.project_id, "objective": x.objective, "max_iterations": x.max_iterations, "agents": agents, "completed_agents": agents, "artifacts": artifacts, "llm": llm, "plan_usage": plan_usage, "approval_gates": ["physical_execution", "final_acceptance"], "provenance": {"real_measurements": len(observations), "synthetic_data_used_for_ml_training": False, "fleet_is_evidence_gated": True}}

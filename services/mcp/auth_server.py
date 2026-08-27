@@ -40,9 +40,23 @@ def user(req: Request) -> dict[str, Any] | None:
 def has_scope(identity: dict[str, Any] | None, required: str) -> bool:
     return bool(identity and required in set(str(identity.get('scope') or '').split()))
 
-def pro(uid: str) -> bool:
+PLAN_ORDER = ('free', 'hobbyist', 'startup', 'enterprise')
+LEGACY_PRO_ENTITLEMENT = 'create_an_app_called_fabrinat_pro'
+
+def _csv(name: str) -> set[str]:
+    return {item.strip() for item in os.getenv(name, '').split(',') if item.strip()}
+
+def plan_for_user(uid: str) -> str:
     with _pool().connection() as c:
-        return c.execute("select 1 from billing_entitlements where user_id=%s and entitlement_id='create_an_app_called_fabrinat_pro' and active=true and (expires_at is null or expires_at>now()) limit 1", (uid,)).fetchone() is not None
+        rows = c.execute("select entitlement_id, product_id from billing_entitlements where user_id=%s and active=true and (expires_at is null or expires_at>now())", (uid,)).fetchall()
+    for plan in reversed(PLAN_ORDER[1:]):
+        entitlement_ids = _csv(f'FABRIENT_{plan.upper()}_ENTITLEMENTS')
+        product_ids = _csv(f'FABRIENT_{plan.upper()}_PRODUCT_IDS')
+        if plan == 'hobbyist':
+            entitlement_ids.update({'fabrinat_hobby', LEGACY_PRO_ENTITLEMENT})
+        if any(row['entitlement_id'] in entitlement_ids or row['product_id'] in product_ids for row in rows):
+            return plan
+    return 'free'
 
 def form_body(raw: bytes) -> dict[str, str]:
     parsed = parse_qs(raw.decode('utf-8'), keep_blank_values=True)
@@ -55,9 +69,9 @@ async def caps(r: Request):
     u = user(r)
     if not u:
         return JSONResponse({'error': 'Unauthorized'}, 401, headers={'WWW-Authenticate': f'Bearer resource_metadata="{ISSUER}/.well-known/oauth-protected-resource/mcp", scope="mcp:use"'})
-    ispro = pro(u['user_id'])
-    tools = list(CAPABILITY_REGISTRY) if ispro else [x for x in CAPABILITY_REGISTRY if x[0] in FREE]
-    return JSONResponse({'name': 'Fabrient Engineering', 'authenticated': True, 'pro': ispro, 'tool_count': len(tools), 'total_tool_count': 100, 'tools': [x[0] for x in tools], 'gated_tool_count': 100-len(tools), 'registry_authoritative': True})
+    plan = plan_for_user(u['user_id'])
+    tools = list(CAPABILITY_REGISTRY) if plan in {'startup', 'enterprise'} else [x for x in CAPABILITY_REGISTRY if x[0] in FREE]
+    return JSONResponse({'name': 'Fabrient Engineering', 'authenticated': True, 'plan': plan, 'pro': plan != 'free', 'tool_count': len(tools), 'total_tool_count': 100, 'tools': [x[0] for x in tools], 'gated_tool_count': 100-len(tools), 'registry_authoritative': True})
 
 async def protected(_: Request):
     return JSONResponse({'resource': RESOURCE, 'authorization_servers': [ISSUER], 'scopes_supported': sorted(SCOPES), 'bearer_methods_supported': ['header']})
