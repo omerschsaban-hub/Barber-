@@ -47,7 +47,7 @@ def run_once() -> dict[str, Any]:
                 if isinstance(payload,dict) and "predicted_mm" in payload and "measured_mm" not in payload: result["prediction_discrepancies"]+=1; ok=False
             elif agent in {"Regression Test Generator Agent","Improvement Proposal Agent","Experiment/Validation Agent"}: ok=True
             elif agent=="Release Gate Agent": ok=True; details={"engineering_rule_mutation":False,"approval_required":True}
-            inserted = execute("insert into data_quality_checks(observation_id,check_name,passed,score,details) values(%s,%s,%s,%s,%s::jsonb) on conflict(observation_id,check_name) do nothing",(obs["id"],agent,ok,1.0 if ok else 0.0,json.dumps(details)))
+            execute("insert into data_quality_checks(observation_id,check_name,passed,score,details) values(%s,%s,%s,%s,%s::jsonb) on conflict(observation_id,check_name) do nothing",(obs["id"],agent,ok,1.0 if ok else 0.0,json.dumps(details)))
             if not ok and agent=="Data Quality Agent":
                 execute("update data_observations set validation_state='quarantined',quality_score=0 where id=%s",(obs["id"],)); result["quarantined"]+=1
             passed+=int(ok); failed+=int(not ok)
