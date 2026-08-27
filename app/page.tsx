@@ -2,87 +2,107 @@ import Link from 'next/link'
 
 const REAL_PHOTO = 'https://images.pexels.com/photos/22491107/pexels-photo-22491107.jpeg?auto=compress&cs=tinysrgb&w=1600'
 
+const journey = [
+  ['01', 'INTENT', 'Start with what you want to make.', 'Describe the job in plain English. Bring the CAD, dimensions, requirements, constraints, or problem you already have. Fabrient turns that into a clear job without making you learn a new workflow first.'],
+  ['02', 'DESIGN', 'Turn the idea into something real.', 'Work with existing CAD or generate a parametric design. Dimensions, units, geometry, topology and exchange files are checked as the design takes shape.'],
+  ['03', 'ANALYZE', 'Find what could go wrong before you build.', 'Check fit, dimensions and manufacturability. Run deterministic engineering checks, DFM analysis and the simulations or validation steps that belong to the job.'],
+  ['04', 'IMPROVE', 'Fix the things that can be fixed safely.', 'Fabrient can suggest and apply bounded changes where the rules allow it, then check the result again. Important geometry and topology changes stay behind the right human approval gate.'],
+  ['05', 'VERIFY', 'Bring the real world back into the loop.', 'Build the part, upload measurements or inspection records, and use real images when they have a physical reference. Compare prediction with reality and keep the evidence with the project.'],
+  ['06', 'LEARN', 'Make the next decision better.', 'Real machine and process observations can teach the system useful patterns. Learned corrections stay downstream of the engineering baseline and are validated before they are trusted.'],
+  ['07', 'RELEASE', 'Finish with something you can actually hand off.', 'When the required gates pass, collect the validated CAD, findings, build guidance, manufacturing notes and inspection information into a release package. If something is missing, Fabrient tells you exactly what.'],
+]
+
 export default function Home() {
   return (
     <main className="cad-home">
       <section className="cad-hero friendly-hero">
         <div className="cad-intro">
           <div className="cad-kicker"><span className="live-dot" /> FABRIENT / PHYSICAL ENGINEERING</div>
-          <h1>Build it.<br /><em>Prove it.</em></h1>
-          <p>Fabrient helps you take a real product from an idea to something you can actually build and trust. Tell it what you are trying to make, give it the files and measurements you have, and Fabrient works through the engineering with you.</p>
+          <h1>From <em>intent</em><br />to something real.</h1>
+          <p className="hero-lead">Fabrient brings the work around a physical product into one place — from the first idea, through design and engineering, to the build, the measurements and the final proof.</p>
           <div className="cad-actions">
             <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">START A PROJECT <span>→</span></Link>
-            <Link href="#how-it-works" className="cad-button">SEE HOW IT WORKS</Link>
+            <Link href="#journey" className="cad-button">SEE THE JOURNEY</Link>
           </div>
-          <div className="friendly-note"><span className="live-dot" /> AI helps with the thinking and coordination. The important parts are checked against real engineering rules and real evidence.</div>
+          <div className="friendly-note"><span className="live-dot" /> AI helps move the work forward. Engineering rules, measurements and evidence decide what is actually true.</div>
         </div>
         <div className="cad-stage friendly-stage" aria-label="Real manufacturing photograph">
           <img src={REAL_PHOTO} alt="A real machine used for precision manufacturing" loading="eager" referrerPolicy="no-referrer" />
-          <div className="photo-credit">Physical products are different. Fabrient is built for that.</div>
+          <div className="photo-credit">Physical products do not stay on a screen.</div>
           <div className="cad-tag tag-pass">REAL-WORLD ENGINEERING</div>
-          <div className="cad-tag tag-rev">IDEA → BUILD → PROOF</div>
+          <div className="cad-tag tag-rev">INTENT → BUILD → PROOF</div>
         </div>
       </section>
 
-      <section id="how-it-works" className="cad-pipeline technical-pipeline" aria-label="How Fabrient works">
-        {[
-          ['01', 'START', 'Tell Fabrient what you need.'],
-          ['02', 'UNDERSTAND', 'It turns the request into a clear job.'],
-          ['03', 'CHECK', 'The design is tested against what matters.'],
-          ['04', 'IMPROVE', 'It finds problems and suggests practical fixes.'],
-          ['05', 'BUILD', 'You make the part and bring back what happened.'],
-          ['06', 'PROVE', 'The final result comes with the evidence behind it.'],
-        ].map(([n, title, text]) => (
-          <div className="cad-stage-row" key={n}><span className="stage-num">{n}</span><strong>{title}</strong><small>{text}</small><i className="stage-line" /></div>
-        ))}
-      </section>
-
-      <section className="cad-work technical-section">
-        <div className="cad-section-head"><div><span>THE SIMPLE VERSION</span><h2>You describe the job. Fabrient helps finish it.</h2></div></div>
-        <div className="system-map">
-          <div className="system-column system-ai"><span>YOU</span><strong>Start with the problem, not a form.</strong><p>Explain what you are trying to build, what you already have, and what needs to be true when you are done. You do not need to translate your idea into a dozen engineering screens first.</p><div className="system-code">“Make this fit. Make it manufacturable. Show me what changed.”</div></div>
-          <div className="system-connector">→</div>
-          <div className="system-column"><span>FABRIENT</span><strong>Works through the hard parts.</strong><p>Fabrient can reason about the design, check dimensions and manufacturability, work with CAD, compare measurements, learn from real builds, and keep track of what is known versus what still needs proof.</p><div className="system-code">understand · check · improve · verify</div></div>
-          <div className="system-connector">→</div>
-          <div className="system-column system-evidence"><span>RESULT</span><strong>Know what you can trust.</strong><p>You get the useful thing at the end: a better design, a clear explanation of the remaining problem, or a manufacturing package backed by the evidence collected along the way.</p><div className="system-code">result · evidence · next step</div></div>
+      <section id="journey" className="cad-work journey-section">
+        <div className="cad-section-head">
+          <div><span>THE WHOLE JOURNEY</span><h2>One job. From intent to release.</h2></div>
+          <p>You should not have to stitch together a chat, CAD tool, spreadsheet, inspection log and manufacturing folder just to understand where a part stands.</p>
+        </div>
+        <div className="journey-list">
+          {journey.map(([n, title, headline, text]) => (
+            <article className="journey-step" key={n}>
+              <div className="journey-index">{n}</div>
+              <div className="journey-copy"><span>{title}</span><h3>{headline}</h3><p>{text}</p></div>
+            </article>
+          ))}
         </div>
       </section>
 
       <section className="cad-work technical-section">
-        <div className="cad-section-head"><div><span>WHY IT IS DIFFERENT</span><h2>It does not pretend a computer simulation is the real world.</h2></div></div>
-        <div className="model-grid">
-          <article className="model-card"><span>THE DESIGN</span><h3>Work with the actual part.</h3><p>Fabrient works with real CAD and real dimensions. It checks whether the thing you designed is coherent before you spend time and money making it.</p><div className="model-spec">CAD · dimensions · fit · manufacturability</div></article>
-          <article className="model-card"><span>THE MACHINE</span><h3>Learn from what your machine actually does.</h3><p>When enough real measurements exist, Fabrient can learn patterns in a machine or process and use them to make the next prediction more useful.</p><div className="model-spec">real observations · validation · learned corrections</div></article>
-          <article className="model-card"><span>THE CAMERA</span><h3>Turn images into useful evidence.</h3><p>Images can help measure a part when there is a real reference to establish scale. Fabrient keeps that distinction clear instead of quietly treating a picture as perfect truth.</p><div className="model-spec">reference scale · image checks · measured evidence</div></article>
-          <article className="model-card"><span>THE BOTTOM LINE</span><h3>When it is unsure, it says so.</h3><p>Fabrient is designed to show uncertainty and ask for more evidence when the evidence is not strong enough. A confident answer is not useful if the part will fail in the real world.</p><div className="model-spec">evidence first · honest limits · human approval when needed</div></article>
+        <div className="cad-section-head"><div><span>WHAT YOU GET ALONG THE WAY</span><h2>The important pieces are there. They just stay out of your way.</h2></div></div>
+        <div className="capability-grid">
+          <article><span>DESIGN</span><h3>Real CAD, not a picture of CAD.</h3><p>Bring an existing STEP file or work from a parametric design. Fabrient can inspect geometry, dimensions and topology and keep the actual engineering artifact attached to the job.</p><b>CAD · STEP · geometry · dimensions</b></article>
+          <article><span>ENGINEERING</span><h3>Checks that give you an answer you can follow.</h3><p>DFM, dimensional checks, geometry validation and bounded self-fix workflows turn “looks okay” into a concrete engineering state with findings and next actions.</p><b>DFM · validation · self-fix · release gates</b></article>
+          <article><span>MEASUREMENT</span><h3>Bring the part back into the conversation.</h3><p>Inspection records and real images can become supporting evidence. Units, references, notes and provenance stay attached so you know where a measurement came from.</p><b>inspection · images · scale · provenance</b></article>
+          <article><span>LEARNING</span><h3>Let reality teach the system.</h3><p>Real machine and process observations can be used to learn process behavior and remaining error. Validation happens before a learned correction is treated as useful.</p><b>real observations · ML · validation · uncertainty</b></article>
+          <article><span>MANUFACTURING</span><h3>Go beyond “the design is done.”</h3><p>Build guidance, manufacturing notes, inspection planning and the final release package keep the handoff connected to the engineering work that produced it.</p><b>build guide · notes · inspection · package</b></article>
+          <article><span>AGENTS</span><h3>Humans and software can use the same system.</h3><p>Bounded agents can gather context, choose the next action, run tools, inspect results and continue. The same capabilities are available through authenticated APIs and MCP.</p><b>agents · API · MCP · human approval</b></article>
+        </div>
+      </section>
+
+      <section className="cad-work technical-section reality-section">
+        <div className="cad-section-head"><div><span>THE PART THAT MATTERS</span><h2>Fabrient keeps prediction and reality separate.</h2></div></div>
+        <div className="reality-flow">
+          <div><small>01</small><strong>Predict</strong><p>Use the design and engineering baseline to say what should happen.</p></div>
+          <i>→</i>
+          <div><small>02</small><strong>Build</strong><p>Make the physical thing instead of assuming the screen is enough.</p></div>
+          <i>→</i>
+          <div><small>03</small><strong>Measure</strong><p>Bring back observations, inspection results, fit and failures.</p></div>
+          <i>→</i>
+          <div><small>04</small><strong>Learn</strong><p>Use supported evidence to improve the next decision.</p></div>
+        </div>
+        <p className="section-note">That distinction is the point. A model can help you think faster. It cannot turn an unmeasured part into measured reality.</p>
+      </section>
+
+      <section className="cad-work technical-section intelligence-section">
+        <div className="cad-section-head"><div><span>WHAT IS ACTUALLY UNDER THE HOOD</span><h2>Simple on the surface. Serious underneath.</h2></div><p>When you want the deeper story, it is there. The product does not need to make you learn the machinery before you can use it.</p></div>
+        <div className="intelligence-stack">
+          <div><span>01</span><strong>Language + agents</strong><p>Understand the job, gather context, plan bounded work and explain what happened.</p></div>
+          <div><span>02</span><strong>Deterministic engineering</strong><p>CadQuery / OCCT, explicit dimensions and units, geometry/topology checks, DFM and release gates.</p></div>
+          <div><span>03</span><strong>Real measurement</strong><p>Inspection data and image-based evidence with physical references, quality checks and provenance.</p></div>
+          <div><span>04</span><strong>Machine learning</strong><p>Current system identification and residual learning use real observations and held-out validation rather than invented calibration.</p></div>
+          <div><span>05</span><strong>Uncertainty + decisions</strong><p>Evidence is kept visible. Weak evidence becomes a limitation or a request for more information, not fake certainty.</p></div>
+          <div><span>06</span><strong>Audit + release</strong><p>Important inputs, results, artifacts and decisions stay traceable through the job and into manufacturing.</p></div>
         </div>
       </section>
 
       <section className="cad-work technical-section">
-        <div className="cad-section-head"><div><span>FROM DESIGN TO FACTORY</span><h2>The last mile matters.</h2></div></div>
-        <div className="cad-grid technical-cards">
-          <article className="cad-card"><header><span>DESIGN</span><b>REAL CAD</b></header><div className="card-value">Make the part make sense.</div><p>Generate or bring in a part, check the important dimensions, and catch issues before they become an expensive physical iteration.</p></article>
-          <article className="cad-card"><header><span>MANUFACTURING</span><b>CHECK → FIX → CHECK</b></header><div className="card-value">Find the problem early.</div><p>Fabrient looks for manufacturing problems and can handle safe, bounded fixes while keeping consequential changes under human control.</p></article>
-          <article className="cad-card"><header><span>REALITY</span><b>BUILD → MEASURE</b></header><div className="card-value">Bring reality back in.</div><p>What happened when you actually made it? Measurements, fit, failures and corrections become part of the engineering record instead of disappearing into a spreadsheet.</p></article>
-          <article className="cad-card wide-card"><header><span>WHEN YOU ARE READY</span><b className="yellow-state">RELEASE</b></header><div className="release-line"><strong>One place for the design, checks, build notes and evidence.</strong><span>ready when the gates pass</span></div><div className="release-bar"><i /></div><p>The goal is not another dashboard. It is a package you can hand to the next person and know why the part is ready—or exactly what still needs attention.</p></article>
+        <div className="cad-section-head"><div><span>THE AGENT PROMISE</span><h2>Automation that knows when to stop.</h2></div></div>
+        <div className="agent-story">
+          <div className="agent-node"><span>YOU</span><strong>“Make this enclosure fit the board and get it ready to manufacture.”</strong></div>
+          <div className="agent-arrow">↓</div>
+          <div className="agent-node"><span>FABRIENT</span><strong>Gathers the context, works through the checks, proposes bounded changes, measures what it can, and keeps the evidence together.</strong></div>
+          <div className="agent-arrow">↓</div>
+          <div className="agent-node"><span>WHEN IT KNOWS ENOUGH</span><strong>You get the result and the artifacts. When it does not, it asks for the missing evidence or human decision instead of guessing.</strong></div>
         </div>
-      </section>
-
-      <section className="cad-work technical-section">
-        <div className="cad-section-head"><div><span>THE LEARNING LOOP</span><h2>Every real build can make the next one better.</h2></div></div>
-        <div className="flywheel-row">
-          <div><b>DESIGN</b><span>what you wanted to make</span></div><i>→</i><div><b>PREDICT</b><span>what should happen</span></div><i>→</i><div><b>BUILD</b><span>what actually happened</span></div><i>→</i><div><b>MEASURE</b><span>what the part tells you</span></div><i>→</i><div><b>LEARN</b><span>use the evidence next time</span></div>
-        </div>
-        <p className="section-note">The important part is the loop: predictions can be compared with reality, corrections can be remembered, and the system can become more useful without pretending that synthetic examples are the same as real manufacturing evidence.</p>
-      </section>
-
-      <section className="cad-work technical-section">
-        <div className="cad-section-head"><div><span>AI, WITHOUT THE THEATER</span><h2>Useful autonomy, with a line it will not cross.</h2></div></div>
-        <div className="agent-story"><div className="agent-node"><span>YOU SAY</span><strong>“Make this enclosure fit the board and make it manufacturable.”</strong></div><div className="agent-arrow">↓</div><div className="agent-node"><span>FABRIENT WORKS</span><strong>It gathers context, checks the design, works through bounded changes, looks at evidence and tells you what happened.</strong></div><div className="agent-arrow">↓</div><div className="agent-node"><span>YOU GET</span><strong>A result you can inspect, evidence you can follow, or a clear request for the human decision it cannot safely make alone.</strong></div></div>
         <div className="prohibition-strip"><span>NO MADE-UP MEASUREMENTS</span><span>NO FAKE CERTAINTY</span><span>NO SILENT TOLERANCE CHANGES</span><span>NO PRETENDING A SIMULATION IS A BUILD</span></div>
       </section>
 
-      <section className="friendly-bottom technical-bottom"><strong>Physical engineering, without the paperwork maze.</strong><span>Tell us what you are building. Fabrient helps you get from idea to evidence.</span><Link href="/login?redirect=/workspace" className="cad-button cad-button-main">START WITH FABRIENT →</Link></section>
+      <section className="cad-work final-cta-section">
+        <div><span>START WITH THE THING YOU ARE ACTUALLY BUILDING</span><h2>Bring the problem.<br /><em>We will work through the rest.</em></h2><p>CAD, dimensions, measurements, a manufacturing problem, or just the goal. Start with what you have.</p></div>
+        <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">START A PROJECT <span>→</span></Link>
+      </section>
     </main>
   )
 }
