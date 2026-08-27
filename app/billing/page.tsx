@@ -5,7 +5,7 @@ import {
   getWebOffering,
   purchaseWebPackage,
 } from '@/lib/revenuecat-web'
-import { ENTERPRISE_CONTACT, FABRINAT_PLANS } from '@/lib/fabrinat-plans'
+import { ENTERPRISE_CONTACT, FABRINAT_PLANS, planUsageLabel } from '@/lib/fabrinat-plans'
 
 const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 
@@ -102,7 +102,7 @@ export default function BillingPage() {
                 const item = FABRINAT_PLANS[key]
                 const active = plan === key
                 return <button key={key} type="button" className={`panel ${active ? 'selected-plan' : ''}`} onClick={() => { if (key === 'hobbyist' || key === 'startup') setSelectedPlan(key) }} aria-pressed={active} style={{ textAlign: 'left', cursor: key === 'enterprise' || key === 'free' ? 'default' : 'pointer' }}>
-                  <strong>{item.name}</strong><div className="title" style={{ fontSize: 28, margin: '8px 0' }}>{item.billingLabel}</div><span className="muted">{item.audience}</span>
+                  <strong>{item.name}</strong><div className="title" style={{ fontSize: 28, margin: '8px 0' }}>{item.billingLabel}</div><span className="muted">{item.audience}</span><small className="muted" style={{ display: 'block', marginTop: 8 }}>{planUsageLabel(key)}</small>
                 </button>
               })}
             </div>

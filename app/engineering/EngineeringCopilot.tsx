@@ -5,6 +5,7 @@ import {FormEvent, useState} from 'react';
 type Result = {
   status?: string;
   error?: string;
+  usage?: {used?: number; limit?: number; message?: string};
   intent?: {
     operation?: string;
     intent_summary?: string;
@@ -36,7 +37,7 @@ export default function EngineeringCopilot() {
         body: JSON.stringify({naturalLanguage: text, execute: true}),
       });
       const body = await response.json();
-      setResult(body);
+      setResult(response.ok ? body : {status: body.status || 'Request blocked', error: body.error || 'Request failed', usage: body.usage});
     } catch (error: any) {
       setResult({status: 'failed', error: error?.message || 'Request failed'});
     } finally {
@@ -74,6 +75,7 @@ export default function EngineeringCopilot() {
       {dims && <p><strong>Resolved physical envelope:</strong> {dims.width ?? '—'} × {dims.height ?? '—'} × {dims.depth ?? '—'} mm</p>}
       {missing.length > 0 && <div><strong>Still needed:</strong><ul>{missing.map((item, i)=><li key={`${item}-${i}`}>{item}</li>)}</ul></div>}
       {result.intent?.evidence_sources?.length ? <details><summary>Product evidence</summary><ul>{result.intent.evidence_sources.map((url, i)=><li key={`${url}-${i}`}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul></details> : null}
+      {result.usage?.message && <p className="muted small">{result.usage.message}</p>}
       {result.engineering && <details style={{marginTop:8}}><summary>Engineering evidence</summary><pre className="provenance">{JSON.stringify(result.engineering, null, 2)}</pre></details>}
       <details style={{marginTop:8}}><summary>Pipeline used</summary><pre className="provenance">{JSON.stringify(result.layers, null, 2)}</pre></details>
       {result.error && <p className="error">{result.error}</p>}

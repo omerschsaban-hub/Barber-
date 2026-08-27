@@ -10,29 +10,29 @@ export const FABRINAT_PLANS = {
   free: {
     name: 'Free', audience: 'Anyone getting started', price: 0, billingLabel: 'Always free', teamSize: '1 person',
     tagline: 'A genuinely useful engineering workspace.',
-    limits: { llmRuns: 0, projects: 1, storageGb: 0.25 },
-    highlights: ['Explore the core engineering loop', 'No LLM runs on the Free plan', 'Basic checks, evidence and project history'],
+    limits: { llmRuns: 10, projects: 1, storageGb: 0.25 },
+    highlights: ['Core Define → Check → Prove loop', '10 guided AI runs each month', '1 project · 250 MB evidence storage'],
     features: ['requirements','check','prove','inspect','history','basic_mcp','digital_thread'],
   },
   hobbyist: {
     name: 'Hobby', audience: 'One builder', price: 9, billingLabel: '$9 / month', teamSize: '1 person',
     tagline: 'Your personal product-building system.',
     limits: { llmRuns: 100, projects: -1, storageGb: 10 },
-    highlights: ['Unlimited personal projects', '100 AI-assisted runs each month', 'Build packages, advanced simulation and automation'],
+    highlights: ['Every individual engineering feature', '100 AI-assisted runs each month', 'Unlimited personal projects · 10 GB storage'],
     features: ['requirements','check','fix','prove','build','inspect','history','bom','firmware_readiness','test_plan','supplier_readiness','release','automate','evidence','advanced_sim2real','production_monitoring','digital_thread','personal_mcp','larger_storage','unlimited_projects'],
   },
   startup: {
     name: 'Startup', audience: 'Teams of 1–29 people', price: 49, billingLabel: '$49 / month', teamSize: '1–29 people',
     tagline: 'Design, build and ship together without the coordination mess.',
     limits: { llmRuns: 1000, projects: -1, storageGb: 100 },
-    highlights: ['Everything in Hobby', 'Shared workspaces, roles and approval gates', 'Team evidence, API access, webhooks and dashboards'],
+    highlights: ['Everything in Hobby for the whole team', '1,000 AI-assisted runs each month', 'Roles, approvals, API, webhooks and dashboards'],
     features: ['all_hobbyist','shared_workspace','team_roles','project_permissions','approval_gates','team_audit_log','shared_evidence','team_automation','api_access','webhooks','github_integration','notifications','team_dashboards','usage_controls','organization_billing','seat_management','priority_processing'],
   },
   enterprise: {
     name: 'Enterprise', audience: 'Organizations with 30+ people', price: null, billingLabel: 'Let’s talk', teamSize: '30+ people',
     tagline: 'The product engineering control layer at scale.',
     limits: { llmRuns: -1, projects: -1, storageGb: -1 },
-    highlights: ['Everything in Startup', 'SSO, SCIM, custom roles and governance', 'Private deployment, compliance and dedicated support'],
+    highlights: ['Everything in Startup with organization-wide control', 'Unlimited AI runs with spend and usage controls', 'SSO, SCIM, private deployment, compliance and SLA'],
     features: ['all_startup','saml_sso','scim','custom_roles','org_hierarchy','workspace_isolation','security_policies','ip_allowlist','session_controls','service_accounts','mcp_governance','usage_quotas','spend_controls','retention_controls','compliance_reports','sla','priority_incident_response','custom_integrations','private_deployment','dedicated_infrastructure','procurement_workflows'],
   },
 } as const;
@@ -61,12 +61,34 @@ export const FEATURE_COPY: Record<string, { title: string; description: string; 
   supplier_readiness: { title: 'Suppliers', description: 'Make sure purchased parts and manufacturing inputs are ready.', minimumPlan: 'hobbyist' },
   release: { title: 'Release', description: 'Create a single controlled handoff from engineering to manufacturing.', minimumPlan: 'hobbyist' },
   automate: { title: 'Automate', description: 'Rerun checks, reports and release gates when the product changes.', minimumPlan: 'hobbyist' },
+  evidence: { title: 'Evidence', description: 'Keep measurements, provenance and decisions attached to the job.', minimumPlan: 'free' },
   team: { title: 'Team', description: 'Share projects, approvals and evidence.', minimumPlan: 'startup' },
   advanced_sim2real: { title: 'Sim → real', description: 'Use validated physical observations to improve bounded predictions.', minimumPlan: 'hobbyist' },
   production_monitoring: { title: 'Production', description: 'Watch drift and quality after the product leaves the design desk.', minimumPlan: 'hobbyist' },
   digital_thread: { title: 'Product thread', description: 'Keep requirements, design, tests, manufacturing and real-world results connected.', minimumPlan: 'free' },
+  api_access: { title: 'API access', description: 'Connect your authenticated engineering workflows to the same capabilities.', minimumPlan: 'startup' },
   governance: { title: 'Governance', description: 'Control access, approvals, retention and integrations at organization scale.', minimumPlan: 'enterprise' },
 };
+
+export const PLAN_COMPARISON_ROWS = [
+  { feature: 'requirements', label: 'Requirements and acceptance criteria' },
+  { feature: 'check', label: 'Deterministic checks and DFM' },
+  { feature: 'prove', label: 'Evidence and provenance' },
+  { feature: 'inspect', label: 'Inspection records' },
+  { feature: 'history', label: 'Project history' },
+  { feature: 'fix', label: 'Bounded fixes and reverification' },
+  { feature: 'build', label: 'Build and manufacturing package' },
+  { feature: 'advanced_sim2real', label: 'Advanced sim → real validation' },
+  { feature: 'automate', label: 'Workflow automation' },
+  { feature: 'team', label: 'Shared workspace and approvals' },
+  { feature: 'api_access', label: 'API and webhooks' },
+  { feature: 'governance', label: 'SSO, governance and private deployment' },
+] as const;
+
+export function planUsageLabel(plan: FabrinatPlan) {
+  const runs = FABRINAT_PLANS[plan].limits.llmRuns;
+  return runs === -1 ? 'Unlimited AI runs' : `${runs.toLocaleString()} AI runs / month`;
+}
 
 export function planHasFeature(plan: FabrinatPlan, feature: string) {
   const order: FabrinatPlan[] = ['free', 'hobbyist', 'startup', 'enterprise'];

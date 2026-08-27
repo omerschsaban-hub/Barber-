@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ENTERPRISE_CONTACT, FABRINAT_PLANS } from '@/lib/fabrinat-plans'
+import { ENTERPRISE_CONTACT, FABRINAT_PLANS, PLAN_COMPARISON_ROWS, planHasFeature, planUsageLabel } from '@/lib/fabrinat-plans'
 
 const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 
@@ -104,7 +104,7 @@ export default function Home() {
       </section>
 
       <section className="cad-work pricing-section" id="pricing">
-        <div className="cad-section-head"><div><span>PLANS THAT MATCH THE WORK</span><h2>Start small. Add the control you need.</h2></div><p>Every plan keeps the engineering state and evidence visible. Paid plans unlock more automation, collaboration and usage; Free keeps the core checks available without LLM runs.</p></div>
+        <div className="cad-section-head"><div><span>PLANS THAT MATCH THE WORK</span><h2>Start small. Add the control you need.</h2></div><p>Every plan keeps the engineering state and evidence visible. Free is useful on purpose, Hobby gives one builder every individual feature, Startup adds team execution, and Enterprise adds organization-wide control.</p></div>
         <div className="pricing-grid">
           {PLAN_ORDER.map((key) => {
             const plan = FABRINAT_PLANS[key]
@@ -114,11 +114,19 @@ export default function Home() {
                 <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price ?? 0}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
                 <p className="pricing-audience">{plan.audience} · {plan.teamSize}</p>
                 <h3>{plan.tagline}</h3>
+                <p className="pricing-usage"><strong>{planUsageLabel(key)}</strong><br />{plan.limits.projects === -1 ? 'Unlimited projects' : `${plan.limits.projects} project${plan.limits.projects === 1 ? '' : 's'}`} · {plan.limits.storageGb === -1 ? 'Unlimited storage' : `${plan.limits.storageGb} GB storage`}</p>
                 <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
                 {enterprise ? <div className="pricing-contact"><a href={`mailto:${ENTERPRISE_CONTACT.email}`}>{ENTERPRISE_CONTACT.email}</a><a href={`tel:${ENTERPRISE_CONTACT.phone}`}>{ENTERPRISE_CONTACT.phone}</a></div> : <Link className="cad-button" href="/login?redirect=/workspace">START WITH {plan.name.toUpperCase()}</Link>}
               </article>
             )
           })}
+        </div>
+        <div className="pricing-comparison">
+          <h3>Feature access at a glance</h3>
+          <div className="pricing-table" role="table" aria-label="Feature access by plan">
+            <div className="pricing-row pricing-row-head" role="row"><strong>Capability</strong>{PLAN_ORDER.map((key) => <strong key={key}>{FABRINAT_PLANS[key].name}</strong>)}</div>
+            {PLAN_COMPARISON_ROWS.map(({feature, label}) => <div className="pricing-row" role="row" key={feature}><span>{label}</span>{PLAN_ORDER.map((key) => <span key={key} aria-label={`${FABRINAT_PLANS[key].name}: ${planHasFeature(key, feature) ? 'included' : 'not included'}`}>{planHasFeature(key, feature) ? 'Included' : '—'}</span>)}</div>)}
+          </div>
         </div>
       </section>
 

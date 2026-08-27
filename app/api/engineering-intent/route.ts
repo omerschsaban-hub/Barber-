@@ -1,4 +1,7 @@
 import {NextRequest, NextResponse} from 'next/server';
+import {cookies} from 'next/headers';
+import {createHash} from 'node:crypto';
+import {checkAndConsumeLlmRun, llmUsageMessage, type LlmUsagePlan} from '@/lib/llm-usage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +13,7 @@ const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API ||
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-5.6';
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
+const BILLING_API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com';
 
 const ALLOWED_OPERATIONS = new Set([
   '/v1/predict',
@@ -193,9 +197,32 @@ async function runEngineering(operation: string, payload: Record<string, unknown
   return {ok: response.ok, status: response.status, body};
 }
 
+async function getPlanAndUsageKey() {
+  const token = (await cookies()).get('fabrient_session')?.value;
+  if (!token) return null;
+  try {
+    const response = await fetch(`${BILLING_API.replace(/\/$/, '')}/billing/access`, {
+      headers: {Authorization: `Bearer ${token}`},
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    const body = await response.json().catch(() => ({}));
+    const plan = body?.plan;
+    return {
+      key: createHash('sha256').update(token).digest('hex'),
+      plan: (plan === 'hobbyist' || plan === 'startup' || plan === 'enterprise' ? plan : 'free') as LlmUsagePlan,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const requestId = request.headers.get('x-fabrient-request-id') || crypto.randomUUID();
   try {
+    const access = await getPlanAndUsageKey();
+    if (!access) return NextResponse.json({error: 'Sign in before using the engineering copilot.'}, {status: 401});
     const body = await request.json();
     const naturalLanguage = typeof body?.naturalLanguage === 'string' ? body.naturalLanguage : '';
     const requestedOperation = typeof body?.operation === 'string' ? body.operation : undefined;
@@ -207,6 +234,20 @@ export async function POST(request: NextRequest) {
     }
     if (requestedOperation && !ALLOWED_OPERATIONS.has(requestedOperation)) {
       return NextResponse.json({error: 'Unsupported engineering operation.'}, {status: 400});
+    }
+
+    const usage = checkAndConsumeLlmRun(access.key, access.plan);
+    if (!usage.allowed) {
+      const response = NextResponse.json({
+        status: 'usage_limited',
+        error: usage.reason === 'monthly_limit'
+          ? `You have used all ${usage.limit} free AI runs for this month.`
+          : 'You are using the copilot quickly. Please wait a few minutes and try again.',
+        plan: access.plan,
+        usage: {used: usage.used, limit: usage.limit, reset_at: new Date(usage.resetAt).toISOString()},
+      }, {status: 429});
+      if (usage.retryAfterSeconds) response.headers.set('Retry-After', String(usage.retryAfterSeconds));
+      return response;
     }
 
     const intent = await resolveIntent(naturalLanguage || requestedOperation!, requestedOperation, suppliedPayload);
@@ -223,6 +264,7 @@ export async function POST(request: NextRequest) {
         request_id: requestId,
         intent,
         layers,
+        usage: {used: usage.used, limit: usage.limit, message: llmUsageMessage(access.plan, usage.used, usage.limit)},
       });
     }
 
@@ -234,6 +276,7 @@ export async function POST(request: NextRequest) {
         intent,
         layers,
         engineering: result.body,
+        usage: {used: usage.used, limit: usage.limit, message: llmUsageMessage(access.plan, usage.used, usage.limit)},
       }, {status: result.status});
     }
 
@@ -243,6 +286,7 @@ export async function POST(request: NextRequest) {
       intent,
       layers,
       engineering: result.body,
+      usage: {used: usage.used, limit: usage.limit, message: llmUsageMessage(access.plan, usage.used, usage.limit)},
     });
   } catch (error: any) {
     return NextResponse.json({
