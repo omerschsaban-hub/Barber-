@@ -39,7 +39,7 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
         """insert into oauth_access_tokens(token_hash, client_id, user_id, scope, expires_at)
            values(%s, 'fabrient-smoke', %s, 'openid email mcp:use', now() + interval '1 year')
            on conflict (token_hash) do update set revoked_at=null, expires_at=excluded.expires_at, scope=excluded.scope""",
-        (token_hash, user["id"]),
+        (token_hash, user[0]),
     )
 
 
