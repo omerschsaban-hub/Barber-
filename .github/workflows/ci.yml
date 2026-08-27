@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 20
     env:
       PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/engineering
+      AUTH_SECRET: ci-test-secret-012345678901234567890123456789
     defaults:
       run:
         working-directory: engineering
@@ -107,7 +108,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt && pip install mcp==1.13.1
       - run: python -m py_compile main.py
       - run: python -c "from main import app; print('Engineering API import OK')"
       - name: Start API

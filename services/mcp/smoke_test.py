@@ -5,7 +5,10 @@ import base64
 import os
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
+try:
+    from mcp.client.streamable_http import streamable_http_client
+except ImportError:
+    from mcp.client.streamable_http import streamablehttp_client as streamable_http_client
 
 from server import CAPABILITY_NAMES
 
