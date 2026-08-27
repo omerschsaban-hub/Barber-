@@ -103,6 +103,25 @@ export default function Home() {
         <div className="prohibition-strip"><span>NO MADE-UP MEASUREMENTS</span><span>NO FAKE CERTAINTY</span><span>NO SILENT TOLERANCE CHANGES</span><span>NO PRETENDING A SIMULATION IS A BUILD</span></div>
       </section>
 
+      <section className="cad-work pricing-section" id="pricing">
+        <div className="cad-section-head"><div><span>PLANS THAT MATCH THE WORK</span><h2>Start small. Add the control you need.</h2></div><p>Every plan keeps the engineering state and evidence visible. Paid plans unlock more automation, collaboration and usage; Free keeps the core checks available without LLM runs.</p></div>
+        <div className="pricing-grid">
+          {PLAN_ORDER.map((key) => {
+            const plan = FABRINAT_PLANS[key]
+            const enterprise = key === 'enterprise'
+            return (
+              <article className={`pricing-card${key === 'startup' ? ' featured' : ''}`} key={key}>
+                <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price ?? 0}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
+                <p className="pricing-audience">{plan.audience} · {plan.teamSize}</p>
+                <h3>{plan.tagline}</h3>
+                <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
+                {enterprise ? <div className="pricing-contact"><a href={`mailto:${ENTERPRISE_CONTACT.email}`}>{ENTERPRISE_CONTACT.email}</a><a href={`tel:${ENTERPRISE_CONTACT.phone}`}>{ENTERPRISE_CONTACT.phone}</a></div> : <Link className="cad-button" href="/login?redirect=/workspace">START WITH {plan.name.toUpperCase()}</Link>}
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
       <section className="cad-work final-cta-section">
         <div><span>START WITH THE THING YOU ARE ACTUALLY BUILDING</span><h2>Bring the problem.<br /><em>We will work through the rest.</em></h2><p>CAD, dimensions, measurements, a manufacturing problem, or just the goal. Start with what you have.</p></div>
         <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">START A PROJECT <span>→</span></Link>

@@ -8,7 +8,7 @@ from .postgres import fetch_all, transaction
 PLAN_ORDER = ("free", "hobbyist", "startup", "enterprise")
 LEGACY_PRO_ENTITLEMENT = "create_an_app_called_fabrinat_pro"
 PLAN_LIMITS: dict[str, dict[str, int | float]] = {
-    "free": {"llm_runs_month": 5, "projects": 1, "storage_gb": 0.25},
+    "free": {"llm_runs_month": 0, "projects": 1, "storage_gb": 0.25},
     "hobbyist": {"llm_runs_month": 100, "projects": -1, "storage_gb": 10},
     "startup": {"llm_runs_month": 1000, "projects": -1, "storage_gb": 100},
     "enterprise": {"llm_runs_month": -1, "projects": -1, "storage_gb": -1},

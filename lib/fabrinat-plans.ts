@@ -10,8 +10,8 @@ export const FABRINAT_PLANS = {
   free: {
     name: 'Free', audience: 'Anyone getting started', price: 0, billingLabel: 'Always free', teamSize: '1 person',
     tagline: 'A genuinely useful engineering workspace.',
-    limits: { llmRuns: 5, projects: 1, storageGb: 0.25 },
-    highlights: ['Explore the core engineering loop', '5 AI-assisted runs each month', 'Basic checks, evidence and project history'],
+    limits: { llmRuns: 0, projects: 1, storageGb: 0.25 },
+    highlights: ['Explore the core engineering loop', 'No LLM runs on the Free plan', 'Basic checks, evidence and project history'],
     features: ['requirements','check','prove','inspect','history','basic_mcp','digital_thread'],
   },
   hobbyist: {
