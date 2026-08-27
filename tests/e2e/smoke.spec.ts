@@ -35,7 +35,7 @@ test.describe('Fabrient browser health', () => {
     await expect(page.getByRole('link', { name: /START A PROJECT/i })).toBeVisible()
     await expect(page.getByText(/From idea/i)).toBeVisible()
     await expect(page.getByText(/real product/i)).toBeVisible()
-    await page.getByRole('link', { name: /START A PROJECT/i }).click()
+    await page.getByRole('link', { name: /START A PROJECT/i }).first().click()
     await expect(page).toHaveURL(/\/login\?redirect=\/workspace$/)
     expect(diagnostics.pageErrors).toEqual([])
   })

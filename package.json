@@ -30,8 +30,15 @@
     "papaparse": "latest",
     "pdf-lib": "latest"
   },
+  "overrides": {
+    "sharp": "^0.35.0",
+    "postcss": "^8.5.26",
+    "next": {
+      "postcss": "^8.5.26"
+    }
+  },
   "devDependencies": {
-    "@playwright/test": "1.55.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
@@ -39,7 +46,7 @@
     "@types/papaparse": "latest",
     "typescript": "latest",
     "tailwindcss": "latest",
-    "postcss": "latest",
+    "postcss": "^8.5.26",
     "eslint": "^9.0.0",
     "eslint-config-next": "15.5.21",
     "vitest": "^4.1.11"
