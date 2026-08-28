@@ -4,6 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    plan: starter
     healthCheckPath: /ready
     autoDeploy: true
     envVars:
@@ -23,6 +24,7 @@ services:
     runtime: docker
     dockerfilePath: ./services/mcp/Dockerfile
     dockerContext: .
+    plan: starter
     healthCheckPath: /health
     autoDeploy: true
     envVars:
