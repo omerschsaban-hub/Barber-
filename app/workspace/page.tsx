@@ -12,9 +12,7 @@ const View3D = dynamic(() => import('@/components/geometry-viewer'), {
 // Never silently fall back to localhost in a deployed browser. A missing
 // production variable must still leave the UI usable and show an actionable
 // connection state instead of producing an apparently empty workspace.
-const DEFAULT_PRODUCTION_ENGINE = 'https://fabrient-engineering.onrender.com'
-const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API ||
-  (process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_ENGINE : 'http://127.0.0.1:8000')
+const ENGINE = '/api/engineering'
 const REQUEST_TIMEOUT_MS = 120_000
 
 type Prediction = {

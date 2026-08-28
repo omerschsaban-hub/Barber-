@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 
-const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || process.env.NEXT_PUBLIC_ENGINEERING_URL || 'http://localhost:8000';
+const ENGINE = '/api/engineering';
 
 export default function Calibration(){
   const [nom,setNom]=useState(40); const [shrink,setShrink]=useState(.5); const [unc,setUnc]=useState(.15);

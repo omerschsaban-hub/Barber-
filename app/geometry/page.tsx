@@ -5,7 +5,7 @@ import {Canvas} from '@react-three/fiber';
 import {Edges, Float, Grid, OrbitControls, Sparkles} from '@react-three/drei';
 import * as THREE from 'three';
 
-const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || process.env.NEXT_PUBLIC_ENGINEERING_URL || 'http://localhost:8000';
+const ENGINE = '/api/engineering';
 
 type MeshData = {vertices:number[][];triangles:number[][];triangle_count?:number};
 

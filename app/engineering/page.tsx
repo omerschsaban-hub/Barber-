@@ -4,11 +4,7 @@ import {useRef, useState} from 'react';
 
 // Keep local development pointed at the local engine, but never let a missing
 // production environment variable turn the deployed app into a localhost client.
-const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || (
-  process.env.NODE_ENV === 'production'
-    ? 'https://fabrient-engineering.onrender.com'
-    : 'http://localhost:8000'
-);
+const ENGINE = '/api/engineering';
 const REQUEST_TIMEOUT_MS = 120_000;
 
 type Result = any;

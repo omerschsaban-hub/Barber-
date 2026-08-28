@@ -3,7 +3,7 @@
 import {useMemo, useState} from 'react';
 
 type LoopResult = any;
-const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || process.env.NEXT_PUBLIC_ENGINEERING_URL || 'http://localhost:8000';
+const ENGINE = '/api/engineering';
 
 const APP_IMPROVEMENTS = [
   ['3D violation heatmap', 'Maps deterministic violations onto the available geometry context.'],
