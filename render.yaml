@@ -6,7 +6,7 @@ services:
     dockerContext: .
     plan: starter
     healthCheckPath: /ready
-    autoDeploy: true
+    autoDeploy: false
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -26,7 +26,7 @@ services:
     dockerContext: .
     plan: starter
     healthCheckPath: /health
-    autoDeploy: true
+    autoDeploy: false
     envVars:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
