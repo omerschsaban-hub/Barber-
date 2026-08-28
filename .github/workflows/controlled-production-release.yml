@@ -11,8 +11,6 @@ on:
         default: true
         type: boolean
 
-# One release coordinator at a time. New commits are validated, but only the
-# newest commit still at the head of main is allowed to consume deployment slots.
 concurrency:
   group: fabrient-production-release
   cancel-in-progress: false
@@ -29,19 +27,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install frontend dependencies
         run: npm ci
-
       - name: Frontend unit/build gate
         run: |
           npm run test:unit
@@ -52,27 +46,22 @@ jobs:
           NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
           NEXT_PUBLIC_ENGINEERING_URL: http://127.0.0.1:8000
           FABRIENT_WEB_ORIGIN: http://127.0.0.1:3000
-
       - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r engineering/requirements.txt
           pip install -r services/mcp/requirements.txt
           pip install pytest pytest-asyncio httpx ruff
-
       - name: Backend validation gate
         run: |
           ruff check engineering services/mcp tests
           pytest -q tests/unit tests/mcp
-
       - name: Verify this commit is still the release candidate
         run: |
           set -euo pipefail
           git fetch origin main --quiet
           current="$(git rev-parse HEAD)"
           head="$(git rev-parse origin/main)"
-          echo "candidate=$current"
-          echo "origin/main=$head"
           if [ "$current" != "$head" ]; then
             echo 'A newer commit is already on main; this run will not deploy.'
             exit 78
@@ -89,9 +78,7 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: test -n "$RENDER_API_KEY"
-
       - name: Discover Fabrient Render services
-        id: services
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_OWNER_ID: tea-d6ptbvnafjfc73al64q0
@@ -112,12 +99,9 @@ jobs:
           ids.sort()
           if not ids:
               raise SystemExit('No Fabrient Render web services were discovered')
-          print('Discovered:', ids)
           with open('/tmp/render-service-ids','w') as f:
               for name,sid in ids:
                   f.write(f'{name}\t{sid}\n')
-          PY
-
       - name: Disable commit-by-commit Render auto-deploys
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -131,7 +115,6 @@ jobs:
               -d '{"autoDeploy":"no"}' \
               "https://api.render.com/v1/services/$sid"
           done < /tmp/render-service-ids
-
       - name: Deploy each Render service at the exact tested commit
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -140,12 +123,11 @@ jobs:
           set -euo pipefail
           while IFS=$'\t' read -r name sid; do
             echo "Deploying $name at $COMMIT_SHA"
-            response=$(curl -fsS -X POST \
+            curl -fsS -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H 'Content-Type: application/json' \
               -d "{\"commitId\":\"$COMMIT_SHA\"}" \
-              "https://api.render.com/v1/services/$sid/deploys")
-            echo "$response"
+              "https://api.render.com/v1/services/$sid/deploys"
             sleep 5
           done < /tmp/render-service-ids
 
@@ -160,7 +142,6 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: test -n "$VERCEL_TOKEN"
-
       - name: Discover projects linked to this repository
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -173,22 +154,17 @@ jobs:
           python - <<'PY'
           import json
           data=json.load(open('/tmp/vercel-projects.json'))
-          projects=data.get('projects',[])
           selected=[]
-          for p in projects:
+          for p in data.get('projects',[]):
               link=p.get('link') or {}
-              repo=link.get('repo','')
-              if repo == 'omerschsaban-hub/Barber-':
+              if link.get('repo') == 'omerschsaban-hub/Barber-':
                   selected.append((p['name'],p['id']))
           selected.sort()
           if not selected:
               raise SystemExit('No Vercel projects linked to omerschsaban-hub/Barber- were discovered')
-          print('Discovered:', selected)
           with open('/tmp/vercel-projects','w') as f:
               for name,pid in selected:
                   f.write(f'{name}\t{pid}\n')
-          PY
-
       - name: Deploy linked Vercel projects one at a time
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -200,7 +176,7 @@ jobs:
             curl -fsS -X POST \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
               -H 'Content-Type: application/json' \
-              -d "{\"name\":\"$name\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repoId\":117716146,\"ref\":\"main\"}}" \
-              "https://api.vercel.com/v13/deployments?teamId=$VERCEL_TEAM_ID&project=$pid"
+              -d "{\"name\":\"$name\",\"project\":\"$pid\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repoId\":1334135705,\"ref\":\"main\"}}" \
+              "https://api.vercel.com/v13/deployments?teamId=$VERCEL_TEAM_ID"
             sleep 10
           done < /tmp/vercel-projects
