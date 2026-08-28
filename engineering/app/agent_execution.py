@@ -7,17 +7,18 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .owned_auth import user_from_token
+from .operation_engine import run_tool_operation
 from .postgres import fetch_all, fetch_one, transaction
 
 router = APIRouter(prefix="/v1/agent", tags=["agent-execution"])
 
 ACTIONS = {
-    "inspect_job": {"kind": "read", "requires_approval": False},
-    "analyze_design": {"kind": "analyze", "requires_approval": False},
-    "propose_change": {"kind": "modify", "requires_approval": True},
-    "verify_design": {"kind": "verify", "requires_approval": False},
-    "submit_physical_evidence": {"kind": "evidence", "requires_approval": False},
-    "prepare_release": {"kind": "release", "requires_approval": True},
+    "inspect_job": {"kind": "read", "requires_approval": False, "operation": "inspect_part"},
+    "analyze_design": {"kind": "analyze", "requires_approval": False, "operation": "analyze_dfm"},
+    "propose_change": {"kind": "modify", "requires_approval": True, "operation": "auto_fix_dfm"},
+    "verify_design": {"kind": "verify", "requires_approval": False, "operation": "verify_fixes"},
+    "submit_physical_evidence": {"kind": "evidence", "requires_approval": False, "operation": "validate_dimension"},
+    "prepare_release": {"kind": "release", "requires_approval": True, "operation": "release_manufacturing_package"},
 }
 
 DEFAULT_COMPLETION = [
@@ -47,6 +48,14 @@ class ActionRequest(BaseModel):
 class ApprovalRequest(BaseModel):
     action: str = Field(min_length=2, max_length=100)
     approved: bool = True
+
+
+class ArtifactRequest(BaseModel):
+    artifact_type: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=500)
+    uri: str | None = Field(default=None, max_length=4000)
+    sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 def _user(request: Request, authorization: str | None) -> dict[str, Any]:
@@ -102,10 +111,14 @@ def _safe_job(row: dict[str, Any]) -> dict[str, Any]:
 def capabilities():
     return {
         "name": "Fabrient Agent Execution",
-        "model": "job_state_machine",
+        "model": "resumable_engineering_job",
         "principles": ["structured_state", "evidence_first", "bounded_actions", "human_gates", "resumable"],
-        "outcome_workflows": ["engineer_job", "inspect_job", "verify_design", "prepare_release", "calibrate_from_build"],
-        "actions": {name: {"kind": meta["kind"], "requires_approval": meta["requires_approval"]} for name, meta in ACTIONS.items()},
+        "levels": {
+            "outcomes": ["engineer_job", "inspect_job", "verify_design", "prepare_release", "calibrate_from_build"],
+            "workflows": ["inspect", "analyze", "modify", "verify", "measure", "release"],
+            "primitives": "100-tool MCP compatibility surface",
+        },
+        "actions": {name: {"kind": meta["kind"], "requires_approval": meta["requires_approval"], "operation": meta["operation"]} for name, meta in ACTIONS.items()},
     }
 
 
@@ -169,6 +182,21 @@ def artifacts(job_id: str, request: Request, authorization: str | None = Header(
     return {"job_id": job_id, "artifacts": fetch_all("select * from agent_artifacts where job_id=%s order by created_at asc", (job_id,))}
 
 
+@router.post("/jobs/{job_id}/artifacts")
+def register_artifact(job_id: str, body: ArtifactRequest, request: Request, authorization: str | None = Header(default=None)):
+    user = _user(request, authorization)
+    _job(job_id, user["id"])
+    with transaction() as conn:
+        row = conn.execute(
+            """insert into agent_artifacts(job_id,user_id,artifact_type,name,uri,sha256,metadata)
+               values(%s,%s,%s,%s,%s,%s,%s::jsonb) returning *""",
+            (job_id, user["id"], body.artifact_type, body.name, body.uri, body.sha256, body.metadata),
+        ).fetchone()
+        conn.execute("insert into agent_action_ledger(job_id,user_id,actor_type,action,status,inputs,outputs,evidence,decision_basis) values(%s,%s,'agent','artifact.register','completed',%s::jsonb,%s::jsonb,'[]'::jsonb,%s)",
+                     (job_id, user["id"], body.model_dump_json(), {"artifact_id": str(row["id"])}, "Artifact linked to the job without asserting engineering validity."))
+    return row
+
+
 @router.post("/jobs/{job_id}/approvals")
 def approval(job_id: str, body: ApprovalRequest, request: Request, authorization: str | None = Header(default=None)):
     user = _user(request, authorization)
@@ -181,7 +209,7 @@ def approval(job_id: str, body: ApprovalRequest, request: Request, authorization
     with transaction() as conn:
         conn.execute("update agent_jobs set approvals=%s::jsonb where id=%s and user_id=%s", (approvals, job_id, user["id"]))
         conn.execute("insert into agent_action_ledger(job_id,user_id,actor_type,action,status,inputs,outputs,evidence,decision_basis) values(%s,%s,'human','approval.'||%s,'completed',%s::jsonb,%s::jsonb,'[]'::jsonb,%s)",
-                     (job_id, user["id"], body.action, body.model_dump_json(), '{"approved":true}', "Explicit human approval recorded."))
+                     (job_id, user["id"], body.action, body.model_dump_json(), {"approved": body.approved}, "Explicit human approval recorded."))
     return {"job_id": job_id, "action": body.action, "approved": body.approved}
 
 
@@ -197,23 +225,41 @@ def perform_action(job_id: str, body: ActionRequest, request: Request, authoriza
     if policy["requires_approval"] and not (row.get("approvals") or {}).get(body.action, {}).get("approved"):
         with transaction() as conn:
             conn.execute("insert into agent_action_ledger(job_id,user_id,actor_type,action,status,inputs,outputs,evidence,decision_basis) values(%s,%s,%s,%s,'blocked',%s::jsonb,%s::jsonb,'[]'::jsonb,%s)",
-                         (job_id, user["id"], body.actor_type, body.action, body.model_dump_json(), '{"requires_approval":true}', "Consequential action requires explicit human approval."))
+                         (job_id, user["id"], body.actor_type, body.action, body.model_dump_json(), {"requires_approval": True}, "Consequential action requires explicit human approval."))
         return {"job_id": job_id, "status": "blocked", "engineering_claims": False, "reason": "human_approval_required", "next": _next(row)}
 
-    transitions = {
-        "inspect_job": ("analyzing", "analyze_design"),
-        "analyze_design": ("ready", "propose_change"),
-        "propose_change": ("verifying", "verify_design"),
-        "verify_design": ("ready", "prepare_release"),
-        "submit_physical_evidence": ("verifying", "verify_design"),
-        "prepare_release": ("ready", "prepare_release"),
-    }
-    state, next_name = transitions[body.action]
-    if body.action == "prepare_release":
-        next_name = "prepare_release"
+    payload = dict(row.get("inputs") or {})
+    payload.update(body.inputs)
+    if body.action in {"inspect_job", "analyze_design", "propose_change", "verify_design", "prepare_release"}:
+        try:
+            tool_result = run_tool_operation(policy["operation"], payload, topology_verified=bool(payload.get("geometry_verified")))
+        except Exception as exc:
+            tool_result = {"operation": policy["operation"], "status": "blocked", "engineering_claims": False, "reason": f"tool_execution_failed:{type(exc).__name__}"}
+    else:
+        tool_result = {"operation": policy["operation"], "status": "recorded", "engineering_claims": False, "reason": "physical evidence must be supplied to the underlying validation tool"}
+
+    if tool_result.get("status") in {"blocked", "fail"}:
+        next_name = body.action if body.action != "inspect_job" else "inspect_job"
+        state = "blocked"
+        status = "blocked"
+        blocker = {"reason": tool_result.get("reason", "engineering operation did not pass"), "operation": policy["operation"], "tool_result": tool_result}
+        action_status = "blocked"
+    else:
+        transitions = {
+            "inspect_job": ("analyzing", "analyze_design"),
+            "analyze_design": ("ready", "propose_change"),
+            "propose_change": ("verifying", "verify_design"),
+            "verify_design": ("ready", "prepare_release"),
+            "submit_physical_evidence": ("verifying", "verify_design"),
+            "prepare_release": ("ready", "prepare_release"),
+        }
+        state, next_name = transitions[body.action]
+        status = "ready" if state == "ready" else "active"
+        blocker = None
+        action_status = "completed"
+
     with transaction() as conn:
-        output = {"accepted": True, "state_transition": {"state": state, "next_action": next_name}}
-        conn.execute("update agent_jobs set state=%s,status='active',next_action=%s,blocker=null where id=%s and user_id=%s", (state, next_name, job_id, user["id"]))
-        conn.execute("insert into agent_action_ledger(job_id,user_id,actor_type,action,status,inputs,outputs,evidence,decision_basis,request_id) values(%s,%s,%s,%s,'completed',%s::jsonb,%s::jsonb,'[]'::jsonb,%s,%s)",
-                     (job_id, user["id"], body.actor_type, body.action, body.model_dump_json(), output, "Action accepted at the bounded job-state boundary; engineering result must come from the underlying deterministic tool.", request.headers.get("x-request-id")))
-    return {"job_id": job_id, "status": "completed", "engineering_claims": False, "output": output, "next": {"action": next_name, "kind": ACTIONS[next_name]["kind"], "requires_approval": ACTIONS[next_name]["requires_approval"]}}
+        conn.execute("update agent_jobs set state=%s,status=%s,next_action=%s,blocker=%s::jsonb where id=%s and user_id=%s", (state, status, next_name, blocker, job_id, user["id"]))
+        conn.execute("insert into agent_action_ledger(job_id,user_id,actor_type,action,status,inputs,outputs,evidence,decision_basis,request_id) values(%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s)",
+                     (job_id, user["id"], body.actor_type, body.action, action_status, body.model_dump_json(), tool_result, tool_result.get("evidence", []), "Underlying deterministic operation result controls state; no result is promoted to success when blocked or failed.", request.headers.get("x-request-id")))
+    return {"job_id": job_id, "status": action_status, "engineering_claims": bool(tool_result.get("engineering_claims")), "result": tool_result, "next": {"action": next_name, "kind": ACTIONS[next_name]["kind"], "requires_approval": ACTIONS[next_name]["requires_approval"]}}
