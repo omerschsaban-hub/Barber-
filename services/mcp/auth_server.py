@@ -1,5 +1,5 @@
 from __future__ import annotations
-import base64, hashlib, hmac, os, secrets
+import base64, hashlib, hmac, json, os, secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import urlencode, parse_qs
@@ -69,6 +69,9 @@ def form_body(raw: bytes) -> dict[str, str]:
     parsed = parse_qs(raw.decode('utf-8'), keep_blank_values=True)
     return {k: v[-1] for k, v in parsed.items()}
 
+def _valid_redirect(uri: str) -> bool:
+    return uri.startswith('https://') or uri.startswith('http://localhost') or uri.startswith('http://127.0.0.1') or uri.startswith('http://[::1]')
+
 async def health(_: Request):
     return JSONResponse({'status': 'ok', 'service': 'fabrient-mcp-auth-wrapper', 'tool_count': 100})
 
@@ -84,7 +87,28 @@ async def protected(_: Request):
     return JSONResponse({'resource': RESOURCE, 'authorization_servers': [ISSUER], 'scopes_supported': sorted(SCOPES), 'bearer_methods_supported': ['header']})
 
 async def metadata(_: Request):
-    return JSONResponse({'issuer': ISSUER, 'authorization_endpoint': f'{ISSUER}/oauth/authorize', 'token_endpoint': f'{ISSUER}/oauth/token', 'revocation_endpoint': f'{ISSUER}/oauth/revoke', 'response_types_supported': ['code'], 'grant_types_supported': ['authorization_code'], 'code_challenge_methods_supported': ['S256'], 'scopes_supported': sorted(SCOPES)})
+    return JSONResponse({'issuer': ISSUER, 'authorization_endpoint': f'{ISSUER}/oauth/authorize', 'token_endpoint': f'{ISSUER}/oauth/token', 'registration_endpoint': f'{ISSUER}/oauth/register', 'revocation_endpoint': f'{ISSUER}/oauth/revoke', 'response_types_supported': ['code'], 'grant_types_supported': ['authorization_code'], 'token_endpoint_auth_methods_supported': ['none'], 'code_challenge_methods_supported': ['S256'], 'scopes_supported': sorted(SCOPES), 'client_id_metadata_document_supported': False})
+
+async def register(r: Request):
+    try:
+        payload = await r.json()
+    except Exception:
+        return JSONResponse({'error': 'invalid_client_metadata'}, 400)
+    redirect_uris = payload.get('redirect_uris')
+    if not isinstance(redirect_uris, list) or not redirect_uris or not all(isinstance(x, str) and _valid_redirect(x) for x in redirect_uris):
+        return JSONResponse({'error': 'invalid_redirect_uri', 'error_description': 'redirect_uris must contain HTTPS or loopback redirect URIs'}, 400)
+    grant_types = payload.get('grant_types') or ['authorization_code']
+    response_types = payload.get('response_types') or ['code']
+    if 'authorization_code' not in grant_types or 'code' not in response_types:
+        return JSONResponse({'error': 'invalid_client_metadata', 'error_description': 'Only authorization_code/code is supported'}, 400)
+    auth_method = payload.get('token_endpoint_auth_method', 'none')
+    if auth_method != 'none':
+        return JSONResponse({'error': 'invalid_client_metadata', 'error_description': 'Fabrient MCP uses public OAuth clients with PKCE'}, 400)
+    client_id = 'fabrient_' + secrets.token_urlsafe(24)
+    client_name = str(payload.get('client_name') or 'MCP client')[:200]
+    with _pool().connection() as db:
+        db.execute('insert into oauth_clients(client_id,client_name,redirect_uris,client_secret_hash,public_client) values(%s,%s,%s,NULL,TRUE)', (client_id, client_name, redirect_uris))
+    return JSONResponse({'client_id': client_id, 'client_name': client_name, 'redirect_uris': redirect_uris, 'grant_types': ['authorization_code'], 'response_types': ['code'], 'token_endpoint_auth_method': 'none'}, 201)
 
 async def authorize(r: Request):
     q = r.query_params
@@ -168,7 +192,7 @@ async def revoke(r: Request):
 
 class Auth(BaseHTTPMiddleware):
     async def dispatch(self, r, call_next):
-        public = {'/', '/health', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/oauth/authorize', '/oauth/token', '/oauth/revoke'}
+        public = {'/', '/health', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/oauth/register', '/oauth/authorize', '/oauth/token', '/oauth/revoke'}
         if r.url.path in public or r.url.path.startswith('/oauth/details/') or r.url.path.startswith('/oauth/decide/') or r.url.path == '/capabilities':
             return await call_next(r)
         if r.url.path.startswith('/mcp'):
@@ -179,7 +203,7 @@ class Auth(BaseHTTPMiddleware):
                 return JSONResponse({'error': 'insufficient_scope'}, 403, headers={'WWW-Authenticate': 'Bearer error="insufficient_scope", scope="mcp:use"'})
         return await call_next(r)
 
-routes = [Route('/', health), Route('/health', health), Route('/capabilities', caps), Route('/.well-known/oauth-protected-resource', protected), Route('/.well-known/oauth-protected-resource/mcp', protected), Route('/.well-known/oauth-authorization-server', metadata), Route('/oauth/authorize', authorize), Route('/oauth/token', token, methods=['POST']), Route('/oauth/revoke', revoke, methods=['POST']), Route('/oauth/details/{id}', details), Route('/oauth/decide/{id}/{decision}', decide, methods=['POST']), Mount('/', app=mcp_app)]
+routes = [Route('/', health), Route('/health', health), Route('/capabilities', caps), Route('/.well-known/oauth-protected-resource', protected), Route('/.well-known/oauth-protected-resource/mcp', protected), Route('/.well-known/oauth-authorization-server', metadata), Route('/oauth/register', register, methods=['POST']), Route('/oauth/authorize', authorize), Route('/oauth/token', token, methods=['POST']), Route('/oauth/revoke', revoke, methods=['POST']), Route('/oauth/details/{id}', details), Route('/oauth/decide/{id}/{decision}', decide, methods=['POST']), Mount('/', app=mcp_app)]
 
 @asynccontextmanager
 async def lifespan(_: Starlette):
