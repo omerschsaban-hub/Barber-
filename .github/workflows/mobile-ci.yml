@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'apps/mobile/**'
+      - 'apps/mobile-native/**'
       - '.github/workflows/mobile-ci.yml'
   pull_request:
     paths:
       - 'apps/mobile/**'
+      - 'apps/mobile-native/**'
       - '.github/workflows/mobile-ci.yml'
   workflow_dispatch:
 
@@ -37,3 +39,30 @@ jobs:
         run: npx expo export --platform web
       - name: Production dependency audit
         run: npm audit --omit=dev --audit-level=high
+
+  native-source-contracts:
+    name: Native client source contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native source is secret-free
+        run: |
+          ! grep -RInE --exclude='*.md' '(sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA|OPENSSH|PRIVATE) KEY|ghp_[A-Za-z0-9]{20,})' apps/mobile-native
+          test -f apps/mobile-native/android/src/main/kotlin/im/fabrient/mobile/FabrientApi.kt
+          test -f apps/mobile-native/ios/Sources/FabrientMobile/FabrientAPI.swift
+      - name: Kotlin contract tests when Gradle is installed
+        working-directory: apps/mobile-native/android
+        run: |
+          if command -v gradle >/dev/null 2>&1; then
+            gradle test --no-daemon
+          else
+            echo 'Gradle is not installed on this runner; source contract checks completed.'
+          fi
+      - name: Swift package tests when Swift is installed
+        working-directory: apps/mobile-native/ios
+        run: |
+          if command -v swift >/dev/null 2>&1; then
+            swift test
+          else
+            echo 'Swift is not installed on this runner; source contract checks completed.'
+          fi

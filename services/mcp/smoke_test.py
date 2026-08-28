@@ -3,6 +3,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
+import sys
+from pathlib import Path
+
+# Support both `python services/mcp/smoke_test.py` from the repository root
+# and direct execution from services/mcp in CI or a container.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from mcp import ClientSession
 try:
@@ -10,7 +18,10 @@ try:
 except ImportError:
     from mcp.client.streamable_http import streamablehttp_client as streamable_http_client
 
-from services.mcp.server import CAPABILITY_NAMES
+try:
+    from services.mcp.server import CAPABILITY_NAMES
+except ModuleNotFoundError:
+    from server import CAPABILITY_NAMES
 
 PNG_1X1 = base64.b64encode(bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000000020001e221bc330000000049454e44ae426082")).decode()
 STEP_MINIMAL = base64.b64encode(b"ISO-10303-21;HEADER;ENDSEC;DATA;ENDSEC;END-ISO-10303-21;").decode()

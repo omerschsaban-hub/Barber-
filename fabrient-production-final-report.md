@@ -1,9 +1,10 @@
 # Fabrient Production Migration — Final Verification Report
 
-**Date:** 27 August 2026  
+**Date:** 28 August 2026
 **Repository:** [omerschsaban-hub/Barber-](https://github.com/omerschsaban-hub/Barber-)  
 **Final branch:** `main`  
-**Latest commit:** `55987d0` (`test: make landing copy assertion deterministic`)
+**Latest committed revision:** `d255e48` (`Harden provider secret loading and health acceptance`)
+**Local hardening changes pending commit:** ESLint 9 compatibility, MCP smoke-test root import, native mobile contracts, and mobile CI coverage
 
 ## Executive conclusion
 
@@ -43,6 +44,11 @@ The recurring blank-page issue is fixed and the production browser workflow is n
 | Next.js production build | **PASS locally and on Vercel** | Vercel build logs for deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W` show Next.js 15.5.21 compiled successfully and generated 30 static pages |
 | Vercel production deployment | **READY** | Deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W`, source `3ce91f2`; project framework is now `nextjs` |
 | Production browser acceptance | **PASS** | Latest run [33072597728](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597728) confirms hydrated workspace rendering and all browser checks |
+| Live engineering health | **PASS** | `GET https://fabrient-engineering.onrender.com/health` returned HTTP 200 and `ok:true` on 28 Aug 2026 |
+| Live MCP health | **PASS** | `GET https://fabrient-mcp.onrender.com/health` returned HTTP 200 and `tool_count:100` on 28 Aug 2026 |
+| Live MCP OAuth metadata | **PASS** | `GET https://fabrient-mcp.onrender.com/.well-known/oauth-authorization-server` returned HTTP 200 with owned issuer and endpoints |
+| MCP authenticated smoke | **BLOCKED BY MISSING TOKEN IN EXECUTION CONTEXT** | Corrected smoke test reached `/mcp` and received HTTP 401; no bearer token was available, so authenticated tool calls were not claimed |
+| Native mobile compilation | **NOT RUN LOCALLY** | Kotlin/Swift sources and tests are present; sandbox lacks Gradle, Swift compiler, and Xcode; platform CI must execute them |
 | Real Gmail OTP delivery | **BLOCKED BY RENDER DEPLOY QUOTA** | DATABASE_URL binding was added in Render, but the rebuild was canceled because the workspace exhausted build-pipeline minutes; retry after quota is restored |
 | Real RevenueCat sandbox purchase and signed webhook | **NOT VERIFIED / BLOCKED** | Requires a successful rebuilt backend plus a real sandbox purchase, public webhook, and valid RevenueCat credentials |
 
@@ -94,9 +100,13 @@ After the real OTP and billing tests, dispatch or push a harmless documentation 
 
 ## Final status
 
-The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The npm audit blocker is now **resolved**: `npm audit --omit=dev` returns `found 0 vulnerabilities` with 104 production dependencies. No unsafe framework-major upgrade is needed.
+The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The npm audit blocker is now **resolved**: `npm audit --omit=dev` returns `found 0 vulnerabilities` with 104 production dependencies. No unsafe framework-major upgrade is needed. During this continuation, the root ESLint configuration was repaired for the committed ESLint 9.0.0 version, and `npm run lint` now completes with six non-blocking existing warnings and zero errors.
 
-The remaining live gate is now the Render account’s exhausted build-pipeline minutes. The authenticated dashboard accepted the managed `DATABASE_URL` binding from `fabrient-postgres` and triggered deployment `dep-da86evuk1f9s73ceb21g`, but Render canceled the build because the workspace has run out of build pipeline minutes for the current billing period. Until that account limit is restored, the updated engineering service cannot deploy, so real Gmail OTP delivery and the RevenueCat purchase/webhook round trip cannot honestly be completed. The browser workspace rendering issue is resolved, and all previously verified CI, backend, MCP 100-tool, full acceptance, and production browser gates remain green on the tested commit.
+The mobile delivery now has three maintained paths: the existing Expo/React Native app, a Kotlin native API client with Gradle/JVM contract scaffolding, and a Swift Package Manager client with iOS tests. The Swift `display_name` decoding defect was fixed, and both native clients now expose the owned `/auth/me` path. Expo typecheck and web export pass. This sandbox has no `gradle`, Swift compiler, or Xcode, so native compilation remains a platform-runner gate rather than an unverified local claim.
+
+The live services are reachable in the current verification window: `GET https://fabrient-engineering.onrender.com/health` returned HTTP 200 with `ok:true`; `GET https://fabrient-mcp.onrender.com/health` returned HTTP 200 with `tool_count:100`; and the MCP OAuth metadata endpoint returned HTTP 200 with the owned issuer and authorization/token endpoints. `/ready` intentionally returns HTTP 404 and is not a valid production gate. The corrected MCP smoke test now imports cleanly from the repository root, but the live `/mcp` call returned HTTP 401 because no bearer token was available in this execution context; this proves enforcement and reachability, not authenticated tool execution.
+
+The remaining live provider gates are still the Render account’s exhausted build-pipeline minutes and protected credentials. The authenticated dashboard accepted the managed `DATABASE_URL` binding from `fabrient-postgres` and triggered deployment `dep-da86evuk1f9s73ceb21g`, but Render canceled the build because the workspace ran out of build pipeline minutes for the current billing period. Until that account limit is restored and the rebuilt revision is live, real Gmail OTP delivery and the RevenueCat purchase/webhook round trip cannot honestly be completed. The browser workspace rendering issue is resolved, and all previously verified CI, backend, MCP 100-tool, full acceptance, and production browser gates remain green on the tested commit.
 
 The repository contains the fixes and the child-simple procedure above; a 100% production sign-off should be issued only after Render completes a successful rebuild and the real OTP and billing round trips produce green evidence.
 
