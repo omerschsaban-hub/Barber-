@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ENTERPRISE_CONTACT, FABRINAT_PLANS, PLAN_COMPARISON_ROWS, planHasFeature, planUsageLabel } from '@/lib/fabrinat-plans'
+import { ENTERPRISE_CONTACT, FABRINAT_PLANS, planUsageLabel } from '@/lib/fabrinat-plans'
+import PlanFeatureMatrix from '@/components/plan-feature-matrix'
 
 const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 
@@ -121,13 +122,7 @@ export default function Home() {
             )
           })}
         </div>
-        <div className="pricing-comparison">
-          <h3>Feature access at a glance</h3>
-          <div className="pricing-table" role="table" aria-label="Feature access by plan">
-            <div className="pricing-row pricing-row-head" role="row"><strong>Capability</strong>{PLAN_ORDER.map((key) => <strong key={key}>{FABRINAT_PLANS[key].name}</strong>)}</div>
-            {PLAN_COMPARISON_ROWS.map(({feature, label}) => <div className="pricing-row" role="row" key={feature}><span>{label}</span>{PLAN_ORDER.map((key) => <span key={key} aria-label={`${FABRINAT_PLANS[key].name}: ${planHasFeature(key, feature) ? 'included' : 'not included'}`}>{planHasFeature(key, feature) ? 'Included' : '—'}</span>)}</div>)}
-          </div>
-        </div>
+        <PlanFeatureMatrix />
       </section>
 
       <section className="cad-work final-cta-section">

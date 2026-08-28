@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FABRINAT_PLANS, FEATURE_COPY, PLAN_COMPARISON_ROWS, PRODUCT_LOOP, planHasFeature, planUsageLabel } from '../../lib/fabrinat-plans'
+import { FABRINAT_PLANS, FEATURE_COPY, PRODUCT_LOOP, planHasFeature, planUsageLabel } from '../../lib/fabrinat-plans'
 import { checkAndConsumeLlmRun, resetLlmUsageForTests } from '../../lib/llm-usage'
 
 describe('product execution contract', () => {
@@ -39,14 +39,26 @@ describe('product execution contract', () => {
   })
 
   it('gives Hobby every individual engineering feature and adds control by tier', () => {
-    const individualFeatures = Object.keys(FEATURE_COPY).filter(feature => !['team', 'api_access', 'governance'].includes(feature))
+    const individualFeatures = Object.entries(FEATURE_COPY)
+      .filter(([, copy]) => copy.minimumPlan === 'free' || copy.minimumPlan === 'hobbyist')
+      .map(([feature]) => feature)
     expect(individualFeatures.every(feature => planHasFeature('hobbyist', feature))).toBe(true)
     expect(planHasFeature('free', 'fix')).toBe(false)
     expect(planHasFeature('startup', 'team')).toBe(true)
     expect(planHasFeature('enterprise', 'governance')).toBe(true)
     expect(planUsageLabel('free')).toBe('10 AI runs / month')
     expect(planUsageLabel('enterprise')).toBe('Unlimited AI runs')
-    expect(PLAN_COMPARISON_ROWS.length).toBeGreaterThan(8)
+    expect(Object.keys(FEATURE_COPY).length).toBeGreaterThan(15)
     expect(FABRINAT_PLANS.hobbyist.limits.llmRuns).toBe(100)
+  })
+
+  it('keeps every concrete advertised feature represented in the matrix', () => {
+    for (const plan of ['free', 'hobbyist', 'startup', 'enterprise'] as const) {
+      for (const feature of FABRINAT_PLANS[plan].features) {
+        if (feature.startsWith('all_')) continue
+        expect(FEATURE_COPY[feature], `${feature} is missing from FEATURE_COPY`).toBeDefined()
+        expect(planHasFeature(plan, feature)).toBe(true)
+      }
+    }
   })
 })

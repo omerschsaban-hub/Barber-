@@ -6,6 +6,7 @@ import {
   purchaseWebPackage,
 } from '@/lib/revenuecat-web'
 import { ENTERPRISE_CONTACT, FABRINAT_PLANS, planUsageLabel } from '@/lib/fabrinat-plans'
+import PlanFeatureMatrix from '@/components/plan-feature-matrix'
 
 const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 
@@ -122,6 +123,7 @@ export default function BillingPage() {
               </>
             ) : <p className="error">No paid RevenueCat package is currently available. Add the Hobby and Startup products to the current offering before accepting purchases.</p>}
             <div style={{ marginTop: 24 }}><strong>Enterprise</strong><p className="muted">30+ people, private deployment, governance, SSO and dedicated support.</p><a href={`mailto:${ENTERPRISE_CONTACT.email}?subject=Fabrient%20Enterprise%20plan`}>Email {ENTERPRISE_CONTACT.email}</a> · <a href={`tel:${ENTERPRISE_CONTACT.phone}`}>Call {ENTERPRISE_CONTACT.phone}</a></div>
+            <PlanFeatureMatrix />
           </>
         )}
         {error && <p className="error">{error}</p>}
