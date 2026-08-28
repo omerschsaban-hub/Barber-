@@ -22,9 +22,10 @@ from .competitive_product_loop import router as competitive_product_loop_router
 from .customer_obsession import router as customer_obsession_router
 from .owned_auth import router as owned_auth_router
 from .billing import router as billing_router
+from .workspace_capabilities import router as workspace_capabilities_router
 from .performance_cache import DeterministicResponseCache
 
-for router in (advanced_router, real_cv_sim2real_router, sim2real_loop_router, cv_json_router, risk_map_router, validate_dimension_router, mcp_compat_fixes_router, manufacturing_router, cad_router, final_pipeline_router, quality_router, compat_router, data_flywheel_router, data_flywheel_worker_router, moat_intelligence_router, integration_gateway_router, competitive_product_loop_router, customer_obsession_router, owned_auth_router, billing_router):
+for router in (advanced_router, real_cv_sim2real_router, sim2real_loop_router, cv_json_router, risk_map_router, validate_dimension_router, mcp_compat_fixes_router, manufacturing_router, cad_router, final_pipeline_router, quality_router, compat_router, data_flywheel_router, data_flywheel_worker_router, moat_intelligence_router, integration_gateway_router, competitive_product_loop_router, customer_obsession_router, owned_auth_router, billing_router, workspace_capabilities_router):
     app.include_router(router)
 install_product_intelligence(app)
 install_universal_quality(app)
