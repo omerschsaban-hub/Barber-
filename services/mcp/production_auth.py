@@ -27,13 +27,21 @@ STARTUP_DOMAINS = {x.strip().lower() for x in os.getenv("FABRIENT_STARTUP_DOMAIN
 
 FREE_TOOL_NAMES = {
     "inspect_part", "analyze_dfm", "verify_fixes", "validate_material", "validate_machine_envelope", "validate_dimension",
-    "check_wall_thickness", "check_clearances", "check_holes", "check_overhangs", "check_orientation", "check_tolerances",
+    "check_wall_thickness", "check_clearances", "check_holes", "check_orientation", "check_tolerances",
     "check_fit", "check_first_layer", "check_bed_adhesion", "check_revision_consistency", "compare_revisions", "trace_provenance",
     "build_inspection_plan", "estimate_risk", "next_experiment",
 }
 RATE_LIMIT = max(10, int(os.getenv("FABRIENT_MCP_REQUESTS_PER_MINUTE", "120")))
 _WINDOW = 60.0
 _buckets: dict[str, deque[float]] = defaultdict(deque)
+
+AGENT_WORKFLOWS = {
+    "engineer_job": {"description": "Resume a bounded engineering job from its current state.", "actions": ["inspect_job", "analyze_design", "propose_change", "verify_design"]},
+    "inspect_job": {"description": "Inspect supplied geometry and identify the next evidence-backed engineering action.", "actions": ["inspect_job", "analyze_design"]},
+    "verify_design": {"description": "Verify a design after changes and preserve the evidence trail.", "actions": ["verify_design", "submit_physical_evidence"]},
+    "prepare_release": {"description": "Prepare a manufacturing release candidate without bypassing consequential approval gates.", "actions": ["prepare_release"]},
+    "calibrate_from_build": {"description": "Use real build observations to validate a bounded calibration or residual model.", "actions": ["submit_physical_evidence", "verify_design"]},
+}
 
 
 def _segment(user: dict[str, Any]) -> tuple[str, str, str]:
@@ -113,7 +121,6 @@ async def protected_resource(_: Request):
 
 
 async def oauth_discovery(_: Request):
-    # Never fetch the discovery URL from itself. This endpoint is authoritative and static.
     body = {"issuer": ISSUER, "authorization_endpoint": f"{ISSUER}/oauth/authorize", "token_endpoint": f"{ISSUER}/oauth/token", "revocation_endpoint": f"{ISSUER}/oauth/revoke", "response_types_supported": ["code"], "grant_types_supported": ["authorization_code"], "code_challenge_methods_supported": ["S256"], "scopes_supported": ["openid", "email", "profile", "mcp:use"]}
     return JSONResponse(body, headers={"Cache-Control": "public, max-age=300"})
 
@@ -128,7 +135,7 @@ def wrap_app(mcp_app: Any, registry: tuple[tuple[str, str, str], ...]) -> Starle
         if identity is None:
             return JSONResponse({"error": "unauthorized"}, 401, headers={"WWW-Authenticate": f'Bearer resource_metadata="{RESOURCE_METADATA}"'})
         available = list(registry) if identity["paid"] is True else [x for x in registry if x[0] in FREE_TOOL_NAMES]
-        return JSONResponse({"name": "Fabrient Engineering", "authenticated": True, "account": {k: identity[k] for k in ("user_id", "email", "email_verified", "paid", "plan", "billing_status", "entitlements", "segment", "segment_basis", "segment_confidence")}, "tool_count": len(available), "total_tool_count": len(registry), "tools": [x[0] for x in available], "gated_tool_count": len(registry) - len(available), "access_policy": "free_core_plus_paid_advanced_tools"}, headers={"Cache-Control": "private, max-age=5"})
+        return JSONResponse({"name": "Fabrient Engineering", "authenticated": True, "account": {k: identity[k] for k in ("user_id", "email", "email_verified", "paid", "plan", "billing_status", "entitlements", "segment", "segment_basis", "segment_confidence")}, "tool_count": len(available), "total_tool_count": len(registry), "tools": [x[0] for x in available], "gated_tool_count": len(registry) - len(available), "access_policy": "free_core_plus_paid_advanced_tools", "agent_execution": {"state_model": "resumable_job", "workflow_catalog": AGENT_WORKFLOWS, "state_endpoint_pattern": "/v1/agent/jobs/{job_id}/state", "next_action_endpoint_pattern": "/v1/agent/jobs/{job_id}/next-action", "evidence_policy": "engineering claims require deterministic computation or real evidence"}}, headers={"Cache-Control": "private, max-age=5"})
 
     async def account(request: Request):
         identity = _identity(request)
