@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
-
-const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com'
+import { backendFetch } from '../../../../lib/backend'
 
 export async function POST(request: Request) {
+  const requestId = request.headers.get('x-request-id') || crypto.randomUUID()
   try {
-    const response = await fetch(`${API.replace(/\/$/, '')}/auth/request-otp`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: await request.text(), cache: 'no-store', signal: AbortSignal.timeout(20_000),
+    const response = await backendFetch('/auth/request-otp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-request-id': requestId },
+      body: await request.text(),
     })
-    return new NextResponse(await response.text(), { status: response.status, headers: { 'content-type': 'application/json' } })
-  } catch { return NextResponse.json({ error: 'Authentication backend unavailable' }, { status: 502 }) }
+    const text = await response.text()
+    return new NextResponse(text, {
+      status: response.status,
+      headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'x-request-id': requestId },
+    })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error && error.name === 'AbortError' ? 'Authentication backend timed out' : 'Authentication backend unavailable', request_id: requestId }, { status: 502, headers: { 'x-request-id': requestId } })
+  }
 }
