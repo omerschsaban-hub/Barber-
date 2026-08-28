@@ -8,7 +8,7 @@ from .postgres import fetch_all, transaction
 PLAN_ORDER = ("free", "hobbyist", "startup", "enterprise")
 LEGACY_PRO_ENTITLEMENT = "create_an_app_called_fabrinat_pro"
 PLAN_LIMITS: dict[str, dict[str, int | float]] = {
-    "free": {"llm_runs_month": 0, "projects": 1, "storage_gb": 0.25},
+    "free": {"llm_runs_month": 10, "projects": 1, "storage_gb": 0.25},
     "hobbyist": {"llm_runs_month": 100, "projects": -1, "storage_gb": 10},
     "startup": {"llm_runs_month": 1000, "projects": -1, "storage_gb": 100},
     "enterprise": {"llm_runs_month": -1, "projects": -1, "storage_gb": -1},
@@ -90,13 +90,31 @@ def consume_llm_run(user_id: str) -> dict[str, Any]:
     return {'allowed': True, 'plan': access['plan'], 'limit': limit, 'remaining': -1 if limit < 0 else max(limit - int(row['llm_runs']), 0)}
 
 
+FEATURE_MINIMUM_PLANS = {
+    "requirements": "free", "basic_mcp": "free", "check": "free", "prove": "free", "inspect": "free",
+    "history": "free", "evidence": "free", "digital_thread": "free",
+    "fix": "hobbyist", "build": "hobbyist", "bom": "hobbyist", "firmware_readiness": "hobbyist",
+    "test_plan": "hobbyist", "supplier_readiness": "hobbyist", "release": "hobbyist", "automate": "hobbyist",
+    "advanced_sim2real": "hobbyist", "production_monitoring": "hobbyist", "personal_mcp": "hobbyist",
+    "larger_storage": "hobbyist", "unlimited_projects": "hobbyist",
+    "team": "startup", "shared_workspace": "startup", "team_roles": "startup", "project_permissions": "startup",
+    "approval_gates": "startup", "team_audit_log": "startup", "shared_evidence": "startup", "team_automation": "startup",
+    "api_access": "startup", "webhooks": "startup", "github_integration": "startup", "notifications": "startup",
+    "team_dashboards": "startup", "usage_controls": "startup", "organization_billing": "startup", "seat_management": "startup",
+    "priority_processing": "startup",
+    "governance": "enterprise", "saml_sso": "enterprise", "scim": "enterprise", "custom_roles": "enterprise",
+    "org_hierarchy": "enterprise", "workspace_isolation": "enterprise", "security_policies": "enterprise", "ip_allowlist": "enterprise",
+    "session_controls": "enterprise", "service_accounts": "enterprise", "mcp_governance": "enterprise", "usage_quotas": "enterprise",
+    "spend_controls": "enterprise", "retention_controls": "enterprise", "compliance_reports": "enterprise", "sla": "enterprise",
+    "priority_incident_response": "enterprise", "custom_integrations": "enterprise", "private_deployment": "enterprise",
+    "dedicated_infrastructure": "enterprise", "procurement_workflows": "enterprise",
+}
+
+
 def feature_allowed(plan: str, feature: str) -> bool:
-    minimum = {
-        "fix": "hobbyist", "build": "hobbyist", "bom": "hobbyist", "automate": "hobbyist",
-        "advanced_sim2real": "hobbyist", "production_monitoring": "hobbyist",
-        "team": "startup", "shared_workspace": "startup", "api_access": "startup",
-        "governance": "enterprise", "saml_sso": "enterprise", "private_deployment": "enterprise",
-    }.get(feature, "free")
+    minimum = FEATURE_MINIMUM_PLANS.get(feature)
+    if minimum is None or plan not in PLAN_ORDER:
+        return False
     return PLAN_ORDER.index(plan) >= PLAN_ORDER.index(minimum)
 
 
