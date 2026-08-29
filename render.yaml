@@ -26,6 +26,16 @@ services:
         sync: false
       - key: REVENUECAT_CONFIG
         sync: false
+      - key: DATA_FLYWHEEL_RUN_TOKEN
+        sync: false
+      - key: DATA_FLYWHEEL_INGEST_SECRET
+        sync: false
+      - key: FLYWHEEL_ENABLE_PRODUCTION
+        value: "true"
+      - key: FLYWHEEL_SCHEDULER_ENABLED
+        value: "true"
+      - key: FLYWHEEL_INTERVAL_SECONDS
+        value: "1800"
       - key: FABRIENT_ALLOWED_ORIGINS
         value: https://fabrinat-omega.vercel.app,https://getfabrient.com,https://www.getfabrient.com
 
