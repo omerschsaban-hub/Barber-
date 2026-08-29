@@ -1,11 +1,11 @@
 'use client';
 import Link from 'next/link';
 import {FormEvent, useEffect, useState} from 'react';
+import {loadEngineeringProfile} from '@/lib/engineering-profile';
 
 type Result = {status?: string; error?: string; usage?: {message?: string}; intent?: {intent_summary?: string; entity?: string | null; missing_information?: string[]; evidence_sources?: string[]}; engineering?: any};
 type SavedProfile = Record<string, unknown>;
 
-const PROFILE_KEY = 'fabrient-engineering-profile-v2';
 const QUICK_ACTIONS = [
   ['Make my design ready to build', 'Check the current design for manufacturability and fix safe issues.'],
   ['Check fit', 'Check fit, clearances, and manufacturability.'],
@@ -19,10 +19,8 @@ export default function EngineeringCopilot() {
   const [savedProfile,setSavedProfile]=useState<SavedProfile>({});
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(PROFILE_KEY);
-      if (raw) setSavedProfile(JSON.parse(raw));
-    } catch { /* optional convenience only */ }
+    const profile=loadEngineeringProfile();
+    if(profile) setSavedProfile(profile);
   }, []);
 
   async function submit(event?: FormEvent, requested?: string) {
@@ -51,7 +49,7 @@ export default function EngineeringCopilot() {
   return <section className="panel" style={{marginTop:24,border:'1px solid rgba(120,160,255,.35)'}}>
     <div className="eyebrow">ENGINEERING</div>
     <h2 style={{marginBottom:8}}>Start with the job. Fabrient handles the details.</h2>
-    <p className="muted">Upload your real design or use a simple goal. Fabrient reuses saved engineering context and never turns assumptions into measured evidence.</p>
+    <p className="muted">Use a simple goal or bring the real design. Saved engineering context is reused automatically.</p>
 
     <div className="row" style={{gap:8,flexWrap:'wrap',marginBottom:12}}>
       {QUICK_ACTIONS.map(([label,action])=><button key={action} className="button" type="button" disabled={busy} onClick={()=>{setInput(action);void submit(undefined,action)}}>{label}</button>)}
@@ -64,7 +62,7 @@ export default function EngineeringCopilot() {
       <button className="button primary" disabled={busy||!input.trim()} type="submit">{busy?'Working…':'Run'}</button>
     </form>
 
-    {hasSavedProfile&&<p className="muted small" style={{marginTop:10}}>Saved machine/material context is being reused automatically.</p>}
+    {hasSavedProfile&&<p className="muted small" style={{marginTop:10}}>Saved machine/material context is reused automatically.</p>}
 
     {result&&<div className="panel" style={{marginTop:14}}>
       <strong>{result.status||'Result'}</strong>
