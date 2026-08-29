@@ -74,3 +74,8 @@ def _make_mcp_compat_handler(operation: str):
 for _name,_description,_path in CAPABILITY_REGISTRY:
     if _path not in _existing_paths:
         app.add_api_route(_path,_make_mcp_compat_handler(_name),methods=["POST"],name=f"mcp_compat_{_name}")
+
+# Production data flywheel: the existing worker remains authoritative, while the
+# graph scheduler provides a single closed-loop execution lane across all instances.
+from .graph_flywheel import start_graph_scheduler
+start_graph_scheduler()
