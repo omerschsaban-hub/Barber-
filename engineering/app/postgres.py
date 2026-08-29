@@ -42,9 +42,11 @@ def transaction() -> Iterator[Any]:
 
 
 def ensure_schema() -> None:
-    migrations = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    # Only forward migrations are executable. *_down.sql files are rollback
+    # scripts and must never be run during application startup.
+    migrations = sorted(p for p in MIGRATIONS_DIR.glob("*.sql") if not p.name.endswith("_down.sql"))
     if not migrations:
-        raise RuntimeError("No PostgreSQL migrations found")
+        raise RuntimeError("No PostgreSQL forward migrations found")
     with pool().connection() as conn:
         conn.execute("select pg_advisory_lock(%s)", (74201926,))
         try:
