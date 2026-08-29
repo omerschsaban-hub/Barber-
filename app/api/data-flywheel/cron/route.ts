@@ -6,7 +6,7 @@ export const maxDuration = 300;
 function workerUrl() {
   const configured = process.env.DATA_FLYWHEEL_WORKER_URL || process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API;
   if (!configured) throw new Error("DATA_FLYWHEEL_WORKER_URL or FABRIENT_API_URL is required");
-  return configured.replace(/\/$/, "") + "/internal/data-flywheel/run";
+  return configured.replace(/\/$/, "") + "/data-flywheel/run";
 }
 
 export async function GET(request: Request) {
@@ -24,9 +24,13 @@ export async function GET(request: Request) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 240_000);
   try {
-    const response = await fetch(`${workerUrl()}?token=${encodeURIComponent(runToken)}`, {
-      method: "GET",
-      headers: { "cache-control": "no-store" },
+    const response = await fetch(workerUrl(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-fabrient-run-token": runToken,
+      },
+      body: JSON.stringify({ trigger: "vercel-cron", scheduled: true }),
       cache: "no-store",
       signal: controller.signal,
     });
