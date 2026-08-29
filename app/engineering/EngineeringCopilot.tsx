@@ -1,28 +1,83 @@
 'use client';
 import Link from 'next/link';
-import {FormEvent, useState} from 'react';
+import {FormEvent, useEffect, useState} from 'react';
 
 type Result = {status?: string; error?: string; usage?: {message?: string}; intent?: {intent_summary?: string; entity?: string | null; missing_information?: string[]; evidence_sources?: string[]}; engineering?: any};
-const QUICK_ACTIONS = ['Check my design and make it ready to build.','Check fit and manufacturability.','Find anything that could go wrong before I build it.'];
+type SavedProfile = Record<string, unknown>;
+
+const PROFILE_KEY = 'fabrient-engineering-profile-v2';
+const QUICK_ACTIONS = [
+  ['Make my design ready to build', 'Check the current design for manufacturability and fix safe issues.'],
+  ['Check fit', 'Check fit, clearances, and manufacturability.'],
+  ['Find problems', 'Find anything likely to go wrong before I build it.'],
+] as const;
 
 export default function EngineeringCopilot() {
-  const [input,setInput]=useState(''); const [busy,setBusy]=useState(false); const [result,setResult]=useState<Result|null>(null);
+  const [input,setInput]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [result,setResult]=useState<Result|null>(null);
+  const [savedProfile,setSavedProfile]=useState<SavedProfile>({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      if (raw) setSavedProfile(JSON.parse(raw));
+    } catch { /* optional convenience only */ }
+  }, []);
+
   async function submit(event?: FormEvent, requested?: string) {
-    event?.preventDefault(); const text=(requested ?? input).trim(); if(!text || busy)return;
+    event?.preventDefault();
+    const text=(requested ?? input).trim();
+    if(!text || busy)return;
     setBusy(true); setResult(null);
     try {
-      const response=await fetch('/api/engineering-intent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({naturalLanguage:text,execute:true}),signal:AbortSignal.timeout(60_000)});
-      const body=await response.json(); setResult(response.ok?body:{status:body.status||'Request blocked',error:body.error||'Request failed',usage:body.usage});
-    } catch(error:any){setResult({status:'failed',error:error?.name==='TimeoutError'?'The request took too long. No engineering result was accepted.':(error?.message||'Request failed')});}
-    finally{setBusy(false);}
+      const response=await fetch('/api/engineering-intent',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({naturalLanguage:text,execute:true,payload:savedProfile}),
+        signal:AbortSignal.timeout(60_000),
+      });
+      const body=await response.json();
+      setResult(response.ok?body:{status:body.status||'Request blocked',error:body.error||'Request failed',usage:body.usage});
+    } catch(error:any){
+      setResult({status:'failed',error:error?.name==='TimeoutError'?'The request took too long. No engineering result was accepted.':(error?.message||'Request failed')});
+    } finally {setBusy(false);}
   }
+
   const missing=result?.intent?.missing_information||[];
   const needsGeometry=missing.some(item=>/step|stp|cad|geometry|dimension/i.test(item));
+  const hasSavedProfile=Object.keys(savedProfile).length>0;
+
   return <section className="panel" style={{marginTop:24,border:'1px solid rgba(120,160,255,.35)'}}>
-    <div className="eyebrow">ENGINEERING</div><h2 style={{marginBottom:8}}>Tell Fabrient the outcome. We handle the details.</h2>
-    <p className="muted">Give Fabrient the file, project context, measurements, or goal you already have. It reuses known information and keeps technical controls available when better real data can improve the result.</p>
-    <div className="row" style={{gap:8,flexWrap:'wrap',marginBottom:12}}>{QUICK_ACTIONS.map(action=><button key={action} className="button" type="button" disabled={busy} onClick={()=>{setInput(action);void submit(undefined,action)}}>{action}</button>)}</div>
-    <form onSubmit={submit} style={{display:'grid',gap:10}}><textarea rows={3} value={input} onChange={e=>setInput(e.target.value.slice(0,12000))} placeholder="Describe the job in plain language…" aria-label="Describe what you want Fabrient to engineer"/><button className="button primary" disabled={busy||!input.trim()} type="submit">{busy?'Working…':'Run with Fabrient'}</button></form>
-    {result&&<div className="panel" style={{marginTop:14}}><strong>{result.status||'Result'}</strong>{result.intent?.intent_summary&&<p>{result.intent.intent_summary}</p>}{result.intent?.entity&&<p><strong>Target:</strong> {result.intent.entity}</p>}{missing.length>0&&<div><strong>One thing is needed:</strong><ul>{missing.slice(0,3).map((item,i)=><li key={`${item}-${i}`}>{item}</li>)}</ul>{needsGeometry&&<Link className="button" href="/geometry" style={{display:'inline-block',marginTop:8}}>Add STEP file</Link>}</div>}{result.engineering&&<details style={{marginTop:8}}><summary>Engineering evidence</summary><pre className="provenance">{JSON.stringify(result.engineering,null,2)}</pre></details>}{result.error&&<p className="error">{result.error}</p>}{result.usage?.message&&<p className="muted small">{result.usage.message}</p>}</div>}
+    <div className="eyebrow">ENGINEERING</div>
+    <h2 style={{marginBottom:8}}>Start with the job. Fabrient handles the details.</h2>
+    <p className="muted">Upload your real design or use a simple goal. Fabrient reuses saved engineering context and never turns assumptions into measured evidence.</p>
+
+    <div className="row" style={{gap:8,flexWrap:'wrap',marginBottom:12}}>
+      {QUICK_ACTIONS.map(([label,action])=><button key={action} className="button" type="button" disabled={busy} onClick={()=>{setInput(action);void submit(undefined,action)}}>{label}</button>)}
+      <Link className="button" href="/geometry">Add STEP</Link>
+      <Link className="button" href="/records">Add measurements</Link>
+    </div>
+
+    <form onSubmit={submit} style={{display:'grid',gap:10}}>
+      <textarea rows={2} value={input} onChange={e=>setInput(e.target.value.slice(0,12000))} placeholder="What should Fabrient do? (optional if you use a button above)" aria-label="What should Fabrient do"/>
+      <button className="button primary" disabled={busy||!input.trim()} type="submit">{busy?'Working…':'Run'}</button>
+    </form>
+
+    {hasSavedProfile&&<p className="muted small" style={{marginTop:10}}>Saved machine/material context is being reused automatically.</p>}
+
+    {result&&<div className="panel" style={{marginTop:14}}>
+      <strong>{result.status||'Result'}</strong>
+      {result.intent?.intent_summary&&<p>{result.intent.intent_summary}</p>}
+      {result.intent?.entity&&<p><strong>Target:</strong> {result.intent.entity}</p>}
+      {missing.length>0&&<div>
+        <strong>One thing is needed:</strong>
+        <ul>{missing.slice(0,3).map((item,i)=><li key={`${item}-${i}`}>{item}</li>)}</ul>
+        {needsGeometry&&<Link className="button" href="/geometry" style={{display:'inline-block',marginTop:8}}>Add STEP file</Link>}
+      </div>}
+      {result.engineering&&<details style={{marginTop:8}}><summary>Evidence and assumptions</summary><pre className="provenance">{JSON.stringify(result.engineering,null,2)}</pre></details>}
+      {result.error&&<p className="error">{result.error}</p>}
+      {result.usage?.message&&<p className="muted small">{result.usage.message}</p>}
+    </div>}
   </section>;
 }
