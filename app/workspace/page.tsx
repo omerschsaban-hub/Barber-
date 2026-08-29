@@ -1,176 +1,88 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import {useEffect, useMemo, useState} from 'react'
+import EngineeringCopilot from '@/app/engineering/EngineeringCopilot'
+import {useEffect, useState} from 'react'
 
-const View3D = dynamic(() => import('@/components/geometry-viewer'), {
-  ssr: false,
-  loading: () => <div className="viewer"><div className="viewer-label">Loading verified 3D view…</div></div>,
-})
-
-// Never silently fall back to localhost in a deployed browser. A missing
-// production variable must still leave the UI usable and show an actionable
-// connection state instead of producing an apparently empty workspace.
 const ENGINE = '/api/engineering'
-const REQUEST_TIMEOUT_MS = 120_000
+const REQUEST_TIMEOUT_MS = 20_000
 
-type Prediction = {
-  prediction_mm: number
-  interval_95_mm: number[]
-  physics_uncertainty_mm: number
-  status: string
-  provenance: unknown
-}
+type Health = 'checking' | 'ready' | 'blocked'
 
-async function request(path: string, init: RequestInit = {}) {
+async function checkHealth() {
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    const response = await fetch(`${ENGINE}${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: {'content-type': 'application/json', ...(init.headers || {})},
-    })
-    const text = await response.text()
-    let body: any = {}
-    try { body = text ? JSON.parse(text) : {} } catch { body = {detail: text} }
-    if (!response.ok) throw new Error(body.detail || body.reason || body.error || `Engineering service returned ${response.status}`)
-    return body
-  } catch (error: any) {
-    if (error?.name === 'AbortError') throw new Error('The engineering service timed out. No result was accepted.')
-    throw error
+    const response = await fetch(`${ENGINE}/health`, {method: 'GET', signal: controller.signal})
+    if (!response.ok) throw new Error(`Engineering service returned ${response.status}`)
+    return true
   } finally {
     window.clearTimeout(timer)
   }
 }
 
 export default function Workspace() {
-  const [nominal, setNominal] = useState(40)
-  const [shrink, setShrink] = useState(.5)
-  const [sigma, setSigma] = useState(.15)
-  const [material, setMaterial] = useState('PETG')
-  const [machine, setMachine] = useState('Machine 01')
-  const [temp, setTemp] = useState(245)
-  const [tolerance, setTolerance] = useState(.4)
-  const [prediction, setPrediction] = useState<Prediction | null>(null)
-  const [service, setService] = useState<'checking'|'ready'|'blocked'>('checking')
-  const [busy, setBusy] = useState(false)
+  const [service, setService] = useState<Health>('checking')
   const [error, setError] = useState('')
-  const [lastAction, setLastAction] = useState('Start with the deterministic check below.')
 
-  useEffect(() => {
-    let cancelled = false
-    request('/health', {method: 'GET'})
-      .then(() => !cancelled && setService('ready'))
-      .catch(() => !cancelled && setService('blocked'))
-    return () => { cancelled = true }
-  }, [])
-
-  async function predict() {
-    setBusy(true); setError(''); setLastAction('Running deterministic engineering check…')
+  async function refreshHealth() {
+    setService('checking')
+    setError('')
     try {
-      const result = await request('/v1/predict', {
-        method: 'POST',
-        body: JSON.stringify({
-          nominal_mm: nominal,
-          material,
-          machine,
-          process_temperature_c: temp,
-          nominal_shrinkage_pct: shrink,
-          shrinkage_uncertainty_pct: sigma,
-          tolerance_lower_mm: -tolerance / 2,
-          tolerance_upper_mm: tolerance / 2,
-        }),
-      })
-      if (!Number.isFinite(Number(result.prediction_mm)) || !Array.isArray(result.interval_95_mm)) {
-        throw new Error('The service returned incomplete engineering evidence. Nothing was accepted.')
-      }
-      setPrediction(result)
-      setLastAction('Prediction verified by the engineering service. Review the evidence before moving to build.')
+      await checkHealth()
       setService('ready')
     } catch (e: any) {
-      setError(e?.message || 'Engineering service unavailable')
       setService('blocked')
-      setLastAction('The check was not accepted. Fix the connection or inputs and try again.')
-    } finally { setBusy(false) }
+      setError(e?.message || 'Engineering service unavailable')
+    }
   }
 
-  const deviation = prediction ? prediction.prediction_mm - nominal : 0
-  const statusLabel = service === 'checking' ? 'ENGINE CONNECTING…' : service === 'ready' ? 'ENGINE READY' : 'ENGINE ACTION NEEDED'
-  const statusClass = service === 'ready' ? 'ok' : 'warn'
-  const interval = useMemo(() => prediction?.interval_95_mm || [], [prediction])
+  useEffect(() => {
+    refreshHealth()
+  }, [])
 
   return <main className="page wide">
     <div className="workspace-head">
       <div>
-        <div className="eyebrow">FABRIENT / ENGINEERING WORKSPACE</div>
-        <h1 className="title">Your engineering command center.</h1>
-        <p className="muted">A useful state is always visible: what you can do now, what happened, and what evidence is still needed. No blank workspace.</p>
+        <div className="eyebrow">FABRIENT / WORKSPACE</div>
+        <h1 className="title">Your engineering workspace.</h1>
+        <p className="muted">Bring the file, problem, or goal you already have. Fabrient handles the technical details and only asks when a real engineering decision cannot be inferred safely.</p>
       </div>
-      <div className={`status ${statusClass}`} role="status" aria-live="polite">{statusLabel}</div>
+      <div className={`status ${service === 'ready' ? 'ok' : 'warn'}`} role="status" aria-live="polite">
+        {service === 'checking' ? 'ENGINE CONNECTING…' : service === 'ready' ? 'ENGINE READY' : 'ENGINE ACTION NEEDED'}
+      </div>
     </div>
 
     {service === 'blocked' && <section className="panel" style={{marginTop:16}} role="alert">
       <strong>The engineering service is not reachable.</strong>
-      <p className="error">{error || `Tried ${ENGINE}`}</p>
-      <p className="muted">The workspace remains usable and explicit; no fabricated result is shown. Check the service and retry.</p>
-      <button className="button" onClick={() => {setService('checking'); setError(''); request('/health').then(() => setService('ready')).catch(() => setService('blocked'))}}>Retry connection</button>
+      <p className="error">{error}</p>
+      <p className="muted">No fabricated result is shown.</p>
+      <button className="button" onClick={refreshHealth}>Retry connection</button>
     </section>}
 
-    <section className="return-loop panel" style={{marginTop:16}}>
-      <div>
-        <div className="eyebrow">TODAY / NEXT BEST ACTION</div>
-        <h2>{prediction ? 'Review the verified prediction before build.' : 'Run your first deterministic check.'}</h2>
-        <p className="muted">{lastAction}</p>
-      </div>
-      <div className="loop-steps"><span className={prediction ? 'done' : 'active'}>Analyze</span><span className={prediction ? 'active' : ''}>Review</span><span>Build</span><span>Inspect</span><span>Re-verify</span></div>
-    </section>
-
-    <div className="workspace-grid" style={{marginTop:16}}>
-      <section className="panel">
-        <h2>01 / ENGINEERING INPUT</h2>
-        <p className="muted">These are the authoritative values sent to the deterministic engineering engine.</p>
-        <div className="formgrid">
-          <label>Nominal mm<input type="number" min="0.01" value={nominal} onChange={e=>setNominal(Math.max(.01, Number(e.target.value)||40))}/></label>
-          <label>Material<input value={material} onChange={e=>setMaterial(e.target.value)}/></label>
-          <label>Machine<input value={machine} onChange={e=>setMachine(e.target.value)}/></label>
-          <label>Process °C<input type="number" value={temp} onChange={e=>setTemp(Number(e.target.value)||245)}/></label>
-          <label>Shrinkage %<input type="number" step=".01" value={shrink} onChange={e=>setShrink(Number(e.target.value)||0)}/></label>
-          <label>Shrinkage σ %<input type="number" step=".01" min="0" value={sigma} onChange={e=>setSigma(Math.max(0,Number(e.target.value)||0))}/></label>
-          <label>Tolerance band mm<input type="number" step=".01" min="0.01" value={tolerance} onChange={e=>setTolerance(Math.max(.01,Number(e.target.value)||.4))}/></label>
-        </div>
-        <button className="button primary" onClick={predict} disabled={busy || service !== 'ready'}>{busy ? 'Computing…' : 'Run deterministic prediction'}</button>
-        {error && service === 'ready' && <p className="error" role="alert">{error}</p>}
-      </section>
-
-      <section className="panel">
-        <h2>02 / COMPUTED MODEL</h2>
-        {!prediction ? <div className="panel" style={{marginTop:12}}><strong>Nothing accepted yet.</strong><p className="muted">Run the check to create verified evidence. This state is intentional—not a blank page.</p></div> : <>
-          <div className="result-row">
-            <div><span className="muted">PREDICTED</span><strong>{prediction.prediction_mm.toFixed(4)} mm</strong></div>
-            <div><span className="muted">95% INTERVAL</span><strong>{interval[0]?.toFixed(3)} — {interval[1]?.toFixed(3)}</strong></div>
-            <span className={`status ${prediction.status === 'validated' ? 'ok' : 'warn'}`}>{prediction.status}</span>
-          </div>
-          <View3D size={[40,20,10]} deviation={deviation}/>
-          <details><summary>Technical evidence</summary><pre className="provenance">{JSON.stringify(prediction.provenance, null, 2)}</pre></details>
-        </>}
-      </section>
-    </div>
-
     <section className="panel" style={{marginTop:16}}>
-      <h2>03 / CONTINUE THE REAL WORK</h2>
-      <p className="muted">Once evidence exists, continue into the manufacturing workflow rather than stopping at a software result.</p>
-      <div className="row">
-        <a className="button primary" href="/manufacturing">Continue to manufacturing</a>
-        <a className="button" href="/engineering">Open engineering tools</a>
+      <div className="eyebrow">START WITH WHAT YOU HAVE</div>
+      <h2>Upload the real design or just describe the job.</h2>
+      <p className="muted">You do not need to calculate dimensions, tolerances, temperatures, shrinkage, dates, or other engineering inputs just to get started. Fabrient uses the supplied artifact, project context, saved machine/material information, and deterministic defaults where appropriate.</p>
+      <div className="row" style={{marginTop:14, flexWrap:'wrap'}}>
+        <Link className="button primary" href="/geometry">Add STEP file</Link>
+        <Link className="button" href="/engineering">Open engineering</Link>
+        <Link className="button" href="/monitoring">Monitoring</Link>
+        <Link className="button" href="/manufacturing">Manufacturing</Link>
         <Link className="button" href="/projects">Projects</Link>
       </div>
     </section>
 
+    <EngineeringCopilot />
+
     <section className="panel" style={{marginTop:16}}>
-      <h2>04 / NO-DATE, NO-BLANK RULE</h2>
-      <p className="muted">A new or returning user always sees a deterministic next action, current service state, and an explicit empty state. Missing project data never becomes an empty screen and no fabricated date/result is displayed.</p>
+      <div className="eyebrow">HOW FABRIENT WORKS</div>
+      <h2>You provide the goal. Fabrient handles the machinery.</h2>
+      <div className="workspace-grid" style={{marginTop:12}}>
+        <div><strong>1. Bring the evidence</strong><p className="muted">STEP files, existing project data, measurements, inspection records, or a plain-language goal.</p></div>
+        <div><strong>2. Fabrient decides what is needed</strong><p className="muted">Applicable checks, calculations, simulations, evidence collection, and the next graph step are selected automatically.</p></div>
+        <div><strong>3. You only answer real blockers</strong><p className="muted">If a missing fact can safely be inferred, it is inferred. If choosing wrong could change the engineering result, Fabrient asks.</p></div>
+      </div>
     </section>
   </main>
 }
