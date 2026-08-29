@@ -10,11 +10,13 @@ services:
     buildFilter:
       paths:
         - engineering/**
-        - tests/**
+        - services/**
+        - db/**
         - Dockerfile
-        - engineering/requirements.txt
+        - tests/**
         - shared/**
-        - services/common/**
+        - package.json
+        - package-lock.json
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -38,12 +40,12 @@ services:
     buildFilter:
       paths:
         - services/mcp/**
-        - engineering/**
+        - db/migrations/**
         - tests/mcp/**
-        - Dockerfile
-        - services/mcp/requirements.txt
         - shared/**
         - services/common/**
+        - services/mcp/Dockerfile
+        - services/mcp/requirements.txt
     envVars:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
