@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import hmac
 from pathlib import Path
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -17,15 +18,14 @@ from engineering.app.composed import app  # noqa: E402
 from engineering.app.postgres import ensure_schema, fetch_one  # noqa: E402
 from engineering.app.owned_auth import _bearer, user_from_token  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
-from engineering.app.data_flywheel_worker import start_scheduler, run_once  # noqa: E402
 
-# A database is required for production. Bootstrap is idempotent and protected by
-# PostgreSQL transactional DDL/advisory locking inside the migration file.
+# The composed application owns the flywheel graph scheduler. The legacy worker
+# scheduler is intentionally not started here, preventing two independent loops.
+from engineering.app.graph_flywheel import run_graph_cycle  # noqa: E402
+
 if os.getenv("DATABASE_URL"):
     ensure_schema()
 else:
-    # Keep health/static CAD validation usable in local development without a DB,
-    # but never silently claim that auth/billing/flywheel are production-ready.
     os.environ.setdefault("FLYWHEEL_SCHEDULER_ENABLED", "false")
 
 MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
@@ -34,23 +34,14 @@ _flywheel_explicitly_enabled = os.getenv("FLYWHEEL_ENABLE_PRODUCTION", "false").
 if not _flywheel_explicitly_enabled:
     os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
 
-start_scheduler()
-
 @app.get("/")
 def service_root():
-    return {
-        "status": "ok",
-        "service": "fabrient-engineering",
-        "message": "Fabrient Engineering API is running.",
-        "health": "/health",
-        "docs": "/docs",
-        "openapi": "/openapi.json",
-    }
+    return {"status": "ok", "service": "fabrient-engineering", "message": "Fabrient Engineering API is running.", "health": "/health", "docs": "/docs", "openapi": "/openapi.json"}
 
 @app.get("/health")
 def health():
     db_ready = bool(os.getenv("DATABASE_URL"))
-    return {"status": "ok", "service": "fabrient-engineering", "database_configured": db_ready, "flywheel_enabled": os.getenv("FLYWHEEL_SCHEDULER_ENABLED", "false").lower() == "true"}
+    return {"status": "ok", "service": "fabrient-engineering", "database_configured": db_ready, "flywheel_enabled": os.getenv("FLYWHEEL_SCHEDULER_ENABLED", "false").lower() == "true", "flywheel_mode": "graph_closed_loop" if os.getenv("FLYWHEEL_SCHEDULER_ENABLED", "false").lower() == "true" else "disabled"}
 
 @app.get("/v1/health")
 def v1_health():
@@ -69,17 +60,14 @@ def ready():
 @app.get("/internal/data-flywheel/run")
 def manual_flywheel_run(token: str | None = None):
     expected = os.getenv("DATA_FLYWHEEL_RUN_TOKEN")
-    if not expected or not token or not __import__("hmac").compare_digest(token, expected):
+    if not expected or not token or not hmac.compare_digest(token, expected):
         return JSONResponse(status_code=401, content={"status": "unauthorized"})
     try:
-        return {"status": "completed", "result": run_once()}
+        return run_graph_cycle()
     except Exception as exc:
         return JSONResponse(status_code=500, content={"status": "failed", "reason": str(exc)[:500]})
 
-PROTECTED_ENGINEERING_ACTIONS = {
-    "/v1/dfm/self-fix",
-    "/v1/manufacturing/package",
-}
+PROTECTED_ENGINEERING_ACTIONS = {"/v1/dfm/self-fix", "/v1/manufacturing/package"}
 
 @app.middleware("http")
 async def engineering_auth_gate(request: Request, call_next):
@@ -102,11 +90,7 @@ async def request_size_gate(request: Request, call_next):
         if content_length and "application/json" in content_type:
             try:
                 if int(content_length) > MAX_JSON_BODY_BYTES:
-                    return JSONResponse(status_code=413, content={
-                        "status": "rejected",
-                        "reason": "JSON request body is too large.",
-                        "max_bytes": MAX_JSON_BODY_BYTES,
-                    })
+                    return JSONResponse(status_code=413, content={"status": "rejected", "reason": "JSON request body is too large.", "max_bytes": MAX_JSON_BODY_BYTES})
             except ValueError:
                 return JSONResponse(status_code=400, content={"status": "rejected", "reason": "Invalid Content-Length."})
     return await call_next(request)
@@ -129,13 +113,7 @@ async def sim2real_quality_gate(request: Request, call_next):
 
 allowed = [origin.strip().rstrip("/") for origin in os.getenv("FABRIENT_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
 if os.getenv("NODE_ENV", "production") == "production":
-    mandatory_production_origins = [
-        "https://getfabrient.com",
-        "https://www.getfabrient.com",
-        "https://fabrinat-omega.vercel.app",
-        "https://fabrinat-omerschsaban-hubs-projects.vercel.app",
-        "https://fabrinat-git-main-omerschsaban-hubs-projects.vercel.app",
-    ]
+    mandatory_production_origins = ["https://getfabrient.com", "https://www.getfabrient.com", "https://fabrinat-omega.vercel.app", "https://fabrinat-omerschsaban-hubs-projects.vercel.app", "https://fabrinat-git-main-omerschsaban-hubs-projects.vercel.app"]
     allowed = list(dict.fromkeys(allowed + mandatory_production_origins))
 
 @app.middleware("http")
