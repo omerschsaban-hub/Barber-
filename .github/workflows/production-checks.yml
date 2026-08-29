@@ -1,0 +1,69 @@
+name: Fabrient Production Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Never run several copies of the same release validation at once.
+# A newer commit supersedes an older one before it can trigger production deploys.
+concurrency:
+  group: fabrient-production-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  production-checks:
+    name: production-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend lint
+        run: npm run lint
+
+      - name: Frontend unit tests
+        run: npm run test:unit
+
+      - name: Frontend production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          NEXT_PUBLIC_ENGINEERING_API: http://127.0.0.1:8000
+          NEXT_PUBLIC_ENGINEERING_URL: http://127.0.0.1:8000
+          FABRIENT_WEB_ORIGIN: http://127.0.0.1:3000
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r engineering/requirements.txt
+          pip install -r services/mcp/requirements.txt
+          pip install pytest pytest-asyncio httpx ruff
+
+      - name: Backend lint
+        run: ruff check engineering services/mcp tests
+
+      - name: Backend and MCP tests
+        run: pytest -q tests/unit tests/mcp
