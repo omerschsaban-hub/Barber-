@@ -43,7 +43,8 @@ export default function EngineeringCopilot() {
   }
 
   const missing=result?.intent?.missing_information||[];
-  const needsGeometry=missing.some(item=>/step|stp|cad|geometry|dimension/i.test(item));
+  const nextMissing=missing[0];
+  const needsGeometry=Boolean(nextMissing&&/step|stp|cad|geometry|dimension/i.test(nextMissing));
   const hasSavedProfile=Object.keys(savedProfile).length>0;
 
   return <section className="panel" style={{marginTop:24,border:'1px solid rgba(120,160,255,.35)'}}>
@@ -68,10 +69,11 @@ export default function EngineeringCopilot() {
       <strong>{result.status||'Result'}</strong>
       {result.intent?.intent_summary&&<p>{result.intent.intent_summary}</p>}
       {result.intent?.entity&&<p><strong>Target:</strong> {result.intent.entity}</p>}
-      {missing.length>0&&<div>
+      {nextMissing&&<div>
         <strong>One thing is needed:</strong>
-        <ul>{missing.slice(0,3).map((item,i)=><li key={`${item}-${i}`}>{item}</li>)}</ul>
+        <p className="muted">{nextMissing}</p>
         {needsGeometry&&<Link className="button" href="/geometry" style={{display:'inline-block',marginTop:8}}>Add STEP file</Link>}
+        {!needsGeometry&&<p className="muted small">Provide this once; Fabrient will continue automatically.</p>}
       </div>}
       {result.engineering&&<details style={{marginTop:8}}><summary>Evidence and assumptions</summary><pre className="provenance">{JSON.stringify(result.engineering,null,2)}</pre></details>}
       {result.error&&<p className="error">{result.error}</p>}
