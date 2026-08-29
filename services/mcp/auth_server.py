@@ -1,5 +1,5 @@
 from __future__ import annotations
-import base64, hashlib, hmac, json, os, secrets
+import base64, hashlib, hmac, os, secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import urlencode, parse_qs
