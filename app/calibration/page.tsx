@@ -1,25 +1,14 @@
 'use client';
 import Link from 'next/link';
 import {useEffect, useMemo, useState} from 'react';
+import {EngineeringProfile, ENGINEERING_PROFILE_DEFAULTS, loadEngineeringProfile, saveEngineeringProfile} from '@/lib/engineering-profile';
 
 const ENGINE = '/api/engineering';
-const PROFILE_KEY = 'fabrient-engineering-profile-v2';
 
-type Profile = {
-  nominal_mm: number;
-  material: string;
-  machine: string;
-  process_temperature_c: number;
-  ambient_temperature_c: number;
-  shrinkage_pct: number;
-  shrinkage_uncertainty_pct: number;
-  tolerance_mm: number;
-};
-
-const DEFAULTS: Profile = {nominal_mm:40,material:'PETG',machine:'Not set',process_temperature_c:245,ambient_temperature_c:23,shrinkage_pct:0.5,shrinkage_uncertainty_pct:0.15,tolerance_mm:0.4};
+type Profile = EngineeringProfile;
 
 export default function Calibration() {
-  const [profile,setProfile]=useState<Profile>(DEFAULTS);
+  const [profile,setProfile]=useState<Profile>(ENGINEERING_PROFILE_DEFAULTS);
   const [advanced,setAdvanced]=useState(false);
   const [result,setResult]=useState<any>();
   const [error,setError]=useState('');
@@ -28,16 +17,14 @@ export default function Calibration() {
   const [hasRealProfile,setHasRealProfile]=useState(false);
 
   useEffect(() => {
-    try {
-      const raw=localStorage.getItem(PROFILE_KEY);
-      if(raw){setProfile({...DEFAULTS,...JSON.parse(raw)});setSaved(true);setHasRealProfile(true);}
-    } catch { /* keep safe defaults */ }
+    const stored=loadEngineeringProfile();
+    if(stored){setProfile(stored);setSaved(true);setHasRealProfile(true);}
   },[]);
 
   function set<K extends keyof Profile>(key:K,value:Profile[K]) {
     setProfile(current=>{
       const next={...current,[key]:value};
-      try {localStorage.setItem(PROFILE_KEY,JSON.stringify(next));setSaved(true);} catch { /* optional persistence */ }
+      setSaved(saveEngineeringProfile(next));
       return next;
     });
     setHasRealProfile(true);
