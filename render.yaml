@@ -6,7 +6,15 @@ services:
     dockerContext: .
     plan: starter
     healthCheckPath: /ready
-    autoDeploy: true
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - engineering/**
+        - tests/**
+        - Dockerfile
+        - engineering/requirements.txt
+        - shared/**
+        - services/common/**
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -26,7 +34,16 @@ services:
     dockerContext: .
     plan: starter
     healthCheckPath: /health
-    autoDeploy: true
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - services/mcp/**
+        - engineering/**
+        - tests/mcp/**
+        - Dockerfile
+        - services/mcp/requirements.txt
+        - shared/**
+        - services/common/**
     envVars:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
