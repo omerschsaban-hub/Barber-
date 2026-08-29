@@ -15,9 +15,6 @@ _POOL: ConnectionPool | None = None
 
 def _dsn() -> str:
     dsn = os.environ["DATABASE_URL"].strip()
-    # Render PostgreSQL requires TLS. Enforce it for every environment so staging
-    # cannot silently pass locally and fail once deployed. Preserve any explicit
-    # sslmode chosen by the operator.
     if "sslmode=" not in dsn:
         separator = "&" if "?" in dsn else "?"
         dsn = f"{dsn}{separator}sslmode=require"
@@ -29,8 +26,8 @@ def pool() -> ConnectionPool:
     if _POOL is None:
         _POOL = ConnectionPool(
             conninfo=_dsn(),
-            min_size=int(os.getenv("DB_POOL_MIN", "1")),
-            max_size=int(os.getenv("DB_POOL_MAX", "8")),
+            min_size=max(1, int(os.getenv("DB_POOL_MIN", "1"))),
+            max_size=max(1, int(os.getenv("DB_POOL_MAX", "8"))),
             kwargs={"row_factory": dict_row},
             open=True,
         )
@@ -45,11 +42,10 @@ def transaction() -> Iterator[Any]:
 
 
 def ensure_schema() -> None:
-    migrations = sorted(MIGRATIONS_DIR.glob("*_owned_*.sql"))
+    migrations = sorted(MIGRATIONS_DIR.glob("*.sql"))
     if not migrations:
-        raise RuntimeError("No owned PostgreSQL migrations found")
+        raise RuntimeError("No PostgreSQL migrations found")
     with pool().connection() as conn:
-        # Serialize bootstrap across multiple Render instances/processes.
         conn.execute("select pg_advisory_lock(%s)", (74201926,))
         try:
             for migration in migrations:
