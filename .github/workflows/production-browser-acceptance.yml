@@ -41,6 +41,12 @@ jobs:
           case "$code" in 2??|3??) ;; *) cat /tmp/frontend.html; exit 1;; esac
           test -s /tmp/frontend.html
           ! grep -Eiq 'Application error|Unhandled Runtime Error|Internal Server Error' /tmp/frontend.html
+      - name: Verify frontend-to-backend readiness through the same-origin proxy
+        run: |
+          code=$(curl -sS -L -o /tmp/backend-ready.json -w '%{http_code}' --max-time 30 "$PLAYWRIGHT_BASE_URL/api/engineering-health")
+          cat /tmp/backend-ready.json
+          test "$code" -ge 200
+          test "$code" -lt 300
       - name: Run real production Playwright suite
         env:
           CI: 'true'
@@ -59,5 +65,6 @@ jobs:
         run: |
           echo '# Production Browser Acceptance' >> "$GITHUB_STEP_SUMMARY"
           echo '- Real deployed frontend target was exercised with Playwright.' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Same-origin frontend-to-backend readiness was verified before browser tests.' >> "$GITHUB_STEP_SUMMARY"
           echo '- The suite fails on blank content, uncaught page errors, failed requests, 5xx responses, localhost backend routing, and critical workflow failures.' >> "$GITHUB_STEP_SUMMARY"
           echo '- A green result is not a substitute for the separate MCP/engineering/full manufacturing acceptance gates.' >> "$GITHUB_STEP_SUMMARY"
