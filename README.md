@@ -4,7 +4,7 @@
 
 Fabrient helps people building physical products get from an engineering idea to something they can actually make, test, improve and trust.
 
-You can start with a plain-English request, the CAD you already have, measurements, manufacturing information, or a problem you are trying to solve. Fabrient helps work through the job instead of m[...]
+You can start with a plain-English request, the CAD you already have, measurements, manufacturing information, or a problem you are trying to solve. Fabrient helps work through the job instead of making you stitch together a dozen disconnected tools.
 
 ## What Fabrient is for
 
@@ -32,7 +32,7 @@ The core loop is deliberately simple:
 
 **Start → Understand → Check → Improve → Build → Prove**
 
-You describe what you are trying to accomplish. Fabrient works through the information it has, checks the parts that can be checked automatically, helps identify what needs changing, and keeps the[...]
+You describe what you are trying to accomplish. Fabrient works through the information it has, checks the parts that can be checked automatically, helps identify what needs changing, and keeps the evidence behind the result.
 
 When you make the physical thing, reality comes back into the loop. Measurements, fit, failures and corrections can then improve the next decision.
 
@@ -44,7 +44,7 @@ The experience is intentionally simple, but the system underneath it is not a to
 
 ### Engineering and CAD
 
-Fabrient uses deterministic engineering code and CAD tooling for the things that need repeatable answers. The current implementation uses **CadQuery / OCCT** for parametric CAD and STEP exchange, [...]
+Fabrient uses deterministic engineering code and CAD tooling for the things that need repeatable answers. The current implementation uses **CadQuery / OCCT** for parametric CAD and STEP exchange, with explicit validation around geometry and engineering operations.
 
 That means an AI response is not allowed to quietly become the engineering truth. The actual engineering layer produces the result that matters.
 
@@ -52,7 +52,7 @@ That means an AI response is not allowed to quietly become the engineering truth
 
 ML is used where real observations can make the engineering baseline better.
 
-The current implementation can learn machine/process behavior from real observations and can model remaining error after a deterministic baseline. It uses held-out validation before treating a lea[...]
+The current implementation can learn machine/process behavior from real observations and can model remaining error after a deterministic baseline. It uses held-out validation before treating a learned model as validated.
 
 In plain English: **the system can learn from what your machine really did, but it does not get to invent the evidence.**
 
@@ -94,7 +94,7 @@ A green screen is not the definition of done. **The useful outcome is an artifac
 
 Fabrient is designed so humans and software agents can work with the same engineering system.
 
-An agent can help gather context, choose the next bounded action, run an engineering operation, look at the result and continue. The system still keeps hard boundaries around consequential changes[...]
+An agent can help gather context, choose the next bounded action, run an engineering operation, look at the result and continue. The system still keeps hard boundaries around consequential changes.
 
 The basic rule is simple:
 
@@ -108,6 +108,16 @@ Fabrient does not intentionally:
 - pretend a simulation is the same as a physical build;
 - claim a manufacturing release while required evidence is still missing;
 - make consequential geometry/topology changes without the required human gate.
+
+## Billing
+
+Fabrient's intended payment provider is **PayPal**.
+
+The intended billing architecture is server-authoritative: PayPal handles checkout/payment, verified PayPal events update the backend, and PostgreSQL remains the authoritative source for customer entitlement state.
+
+Actual PayPal credentials, merchant configuration, products/plans, webhook registration and production checkout implementation are deployment/account configuration and must not be committed to the repository.
+
+No browser redirect or client-side state is sufficient proof of payment.
 
 ## Current product areas
 
@@ -135,7 +145,7 @@ The current production architecture uses:
 - authenticated MCP engineering tools
 - GitHub Actions and Playwright acceptance testing
 
-PostgreSQL is the canonical production database architecture. Legacy Supabase references are treated as migration/compatibility material and must be audited before removal; new production databas[...]
+PostgreSQL is the canonical production database architecture. Legacy Supabase references are treated as migration/compatibility material and must be audited before removal; new production database work should use PostgreSQL.
 
 ## For developers
 
@@ -175,8 +185,10 @@ uvicorn app.composed:app --reload --port 8000
 
 Set `NEXT_PUBLIC_ENGINEERING_API` when the engineering service is not running on `http://localhost:8000`.
 
+For PayPal, use the variables documented in `.env.example` and keep secrets server-side. Use sandbox while testing and live only after the complete payment/webhook flow has been verified.
+
 ## Public URL
 
-The intended public hostname is **getfabrient.com**. Application metadata uses that hostname as the canonical/Open Graph URL. The domain still needs to be attached and configured in the hosting a[...]
+The intended public hostname is **getfabrient.com**. Application metadata uses that hostname as the canonical/Open Graph URL. The domain still needs to be attached and configured in the hosting environment.
 
-This README was updated with a minor, non-functional documentation change to verify CI and Actions workflows.
+This README was updated to reflect the PayPal billing direction. Actual payment-provider integration status must be verified from the implementation and deployment configuration rather than inferred from documentation.
