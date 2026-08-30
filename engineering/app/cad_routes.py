@@ -7,12 +7,14 @@ import io
 import tempfile
 from pathlib import Path
 import re
+import hashlib
 import numpy as np
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .cad_kernel import extract_step, OCC_AVAILABLE, cq
+from .storage import StorageConfigurationError, put_bytes, require_durable_storage, configured as storage_configured
 
 router = APIRouter(prefix="/v1/geometry", tags=["cad"])
 MAX_STEP_BYTES = 25_000_000
@@ -71,13 +73,24 @@ def _validate_generated_step(raw: bytes, filename: str) -> dict:
         raise HTTPException(422, f"Generated STEP failed kernel round-trip validation: {validation.get('reason', 'unknown error')}")
     return validation
 
+
+def _persist_step(raw: bytes) -> dict:
+    digest = hashlib.sha256(raw).hexdigest()
+    try:
+        require_durable_storage()
+        if not storage_configured():
+            return {"mode": "inline", "durable": False}
+        ref = put_bytes(prefix="cad/generated", data=raw, content_type="application/step", sha256=digest)
+        return {"mode": "object_storage", "durable": True, "object_key": ref.key, "download_url": ref.download_url, "size_bytes": ref.size_bytes, "sha256": ref.sha256}
+    except StorageConfigurationError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
 @router.post("/generate")
 def generate_enclosure(x: EnclosureRequest):
     if not OCC_AVAILABLE or cq is None: raise HTTPException(503, "OCCT/CadQuery runtime is unavailable; CAD generation is disabled rather than approximated.")
     if x.wall_mm * 2 + x.clearance_mm >= min(x.width_mm, x.depth_mm): raise HTTPException(422, "Wall and clearance consume the available enclosure footprint.")
     if x.mounting_hole_inset_mm * 2 >= min(x.width_mm, x.depth_mm): raise HTTPException(422, "Mounting-hole inset is too large for the enclosure.")
     try:
-        # Deterministic parametric solid: outer shell + four true cylindrical mounting holes.
         outer = cq.Workplane("XY").box(x.width_mm, x.depth_mm, x.height_mm, centered=(False, False, False))
         inner = cq.Workplane("XY").box(x.width_mm-2*x.wall_mm, x.depth_mm-2*x.wall_mm, max(x.height_mm-x.wall_mm, x.wall_mm), centered=(False, False, False)).translate((x.wall_mm, x.wall_mm, x.wall_mm))
         enclosure = outer.cut(inner)
@@ -92,7 +105,10 @@ def generate_enclosure(x: EnclosureRequest):
             raw = path.read_bytes()
         if not raw or len(raw) > MAX_STEP_BYTES: raise HTTPException(500, "Generated STEP is empty or exceeds the supported release size.")
         validation = _validate_generated_step(raw, path.name)
-        return {"status":"validated", "format":"STEP", "filename":path.name, "step_base64":base64.b64encode(raw).decode("ascii"), "size_bytes":len(raw), "parameters":x.model_dump(), "validation":validation, "provenance":{"generator":"CadQuery/OCCT", "generation":"deterministic-parametric", "round_trip":"required", "synthetic_measurements":False}}
+        storage = _persist_step(raw)
+        response = {"status":"validated", "format":"STEP", "filename":path.name, "size_bytes":len(raw), "parameters":x.model_dump(), "validation":validation, "provenance":{"generator":"CadQuery/OCCT", "generation":"deterministic-parametric", "round_trip":"required", "synthetic_measurements":False}, "storage":storage}
+        if storage["mode"] == "inline": response["step_base64"] = base64.b64encode(raw).decode("ascii")
+        return response
     except HTTPException: raise
     except Exception as exc: raise HTTPException(500, f"Deterministic CAD generation failed: {exc}") from exc
 
