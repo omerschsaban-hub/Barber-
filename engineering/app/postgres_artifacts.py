@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from uuid import UUID
+from collections.abc import Iterator
 
 from .postgres import get_conn
 
@@ -48,18 +49,26 @@ def get_metadata(artifact_id: str, owner_id: str) -> Artifact | None:
     return Artifact(*row) if row else None
 
 
-def get_bytes(artifact_id: str, owner_id: str) -> tuple[Artifact, bytes] | None:
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT m.id::text, m.owner_id::text, m.project_id::text, m.filename, m.content_type, m.size_bytes, m.sha256, d.data
-                FROM artifact_metadata m JOIN artifact_data d ON d.artifact_id=m.id
-                WHERE m.id=%s AND m.owner_id=%s
-                """,
-                (UUID(artifact_id), UUID(owner_id)),
-            )
-            row = cur.fetchone()
-    if not row:
+def stream_bytes(artifact_id: str, owner_id: str, chunk_size: int = 1024 * 1024) -> tuple[Artifact, Iterator[bytes]] | None:
+    """Stream BYTEA in bounded chunks while retaining ownership enforcement."""
+    metadata = get_metadata(artifact_id, owner_id)
+    if not metadata:
         return None
-    return Artifact(*row[:7]), bytes(row[7])
+
+    def chunks() -> Iterator[bytes]:
+        offset = 1
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                while offset <= metadata.size_bytes:
+                    cur.execute(
+                        "SELECT substring(data FROM %s FOR %s) FROM artifact_data WHERE artifact_id=%s",
+                        (offset, chunk_size, UUID(artifact_id)),
+                    )
+                    row = cur.fetchone()
+                    piece = bytes(row[0]) if row and row[0] is not None else b""
+                    if not piece:
+                        break
+                    yield piece
+                    offset += len(piece)
+
+    return metadata, chunks()
