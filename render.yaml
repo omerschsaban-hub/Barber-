@@ -30,18 +30,14 @@ services:
         sync: false
       - key: DATA_FLYWHEEL_INGEST_SECRET
         sync: false
-      - key: STORAGE_BUCKET
-        sync: false
-      - key: STORAGE_ENDPOINT
-        sync: false
-      - key: STORAGE_ACCESS_KEY_ID
-        sync: false
-      - key: STORAGE_SECRET_ACCESS_KEY
-        sync: false
-      - key: STORAGE_REGION
-        value: us-east-1
-      - key: STORAGE_SIGNED_URL_TTL
-        value: "900"
+      - key: DB_POOL_MIN
+        value: "2"
+      - key: DB_POOL_MAX
+        value: "8"
+      - key: MAX_STEP_BYTES
+        value: "25000000"
+      - key: MAX_COMPRESSED_BYTES
+        value: "10000000"
       - key: FLYWHEEL_ENABLE_PRODUCTION
         value: "true"
       - key: FLYWHEEL_SCHEDULER_ENABLED
