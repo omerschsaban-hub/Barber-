@@ -26,6 +26,18 @@ services:
         sync: false
       - key: REVENUECAT_CONFIG
         sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_ENVIRONMENT
+        value: sandbox
+      - key: PAYPAL_HOBBY_PLAN_ID
+        sync: false
+      - key: PAYPAL_STARTUP_PLAN_ID
+        sync: false
       - key: DATA_FLYWHEEL_RUN_TOKEN
         sync: false
       - key: DATA_FLYWHEEL_INGEST_SECRET
