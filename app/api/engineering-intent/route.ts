@@ -11,7 +11,7 @@ const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API ||
     ? 'https://fabrient-engineering.onrender.com'
     : 'http://localhost:8000');
 
-const MODEL = process.env.OPENAI_MODEL || 'gpt-5-mini';
+const MODEL = process.env.OPENAI_MODEL || (process.env.OPENAI_API_BASE ? 'gpt-5.5' : 'gpt-5.6');
 const OPENAI_URL = `${(process.env.OPENAI_API_BASE || 'https://api.openai.com/v1').replace(/\/$/, '')}/responses`;
 const BILLING_API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com';
 

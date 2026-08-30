@@ -35,7 +35,8 @@ async def structured_reasoning(
     endpoint, key = _llm_endpoint_and_key()
     if not key:
         raise OpenRouterError("OPENAI_API_KEY or OPENROUTER_API_KEY is not configured")
-    selected = model or os.getenv("OPENAI_MODEL") or os.getenv("OPENROUTER_MODEL") or "gpt-5-mini"
+    default_model = "gpt-5.5" if os.getenv("OPENAI_API_BASE") else "gpt-5.6"
+    selected = model or os.getenv("OPENAI_MODEL") or os.getenv("OPENROUTER_MODEL") or default_model
     payload = {
         "model": selected,
         "messages": [
