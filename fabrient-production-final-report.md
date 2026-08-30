@@ -1,125 +1,144 @@
 # Fabrient Production Migration — Final Verification Report
 
-**Date:** 28 August 2026
-**Repository:** [omerschsaban-hub/Barber-](https://github.com/omerschsaban-hub/Barber-)  
-**Final branch:** `main`  
-**Latest committed revision:** `d255e48` (`Harden provider secret loading and health acceptance`)
-**Local hardening changes pending commit:** ESLint 9 compatibility, MCP smoke-test root import, native mobile contracts, and mobile CI coverage
+**Date:** 30 August 2026
+**Repository:** `omerschsaban-hub/Barber-`
+**Final branch:** `main`
 
 ## Executive conclusion
 
-The Supabase-to-owned-stack migration is implemented and the core automated production gates are green. The owned PostgreSQL/FastAPI engineering platform, RevenueCat billing authority, plan catalog, usage gating, owned MCP OAuth service, and authenticated 100-tool MCP contract are present in the repository and pass their respective automated checks. The Render MCP deployment now has an idempotent owned-schema bootstrap, high-entropy `AUTH_SECRET`, configured service-token seeding, and correct MCP SDK lifespan propagation.
+The owned PostgreSQL/FastAPI engineering platform, plan catalog, owned MCP OAuth service, authenticated MCP contract, authentication path, and deployment/acceptance infrastructure are documented separately from payment-provider configuration.
 
-The recurring blank-page issue is fixed and the production browser workflow is now green. The release is **not honestly certifiable as 100% end-to-end complete yet** because the current Render workspace has exhausted its build-pipeline minutes, preventing the deployment that contains the new database binding; a real Gmail OTP delivery plus a real RevenueCat sandbox purchase/signature round trip have therefore not been completed. The npm audit is now clear with zero vulnerabilities. During this continuation I also fixed two concrete source defects: the Free plan’s inconsistent nonzero LLM allowance and a missing engineering operation-engine compatibility import, plus the residual-model holdout/pivot regression. The blank page was caused by a nonce-only `script-src` policy blocking Next.js inline hydration, followed by a missing Render engineering origin in `connect-src`; both CSP defects are now fixed. Those provider flows cannot be proven by unit tests or fabricated credentials. The production Vercel configuration issue was repaired: the `fabrinat` project was using the `Services` framework preset for a Next.js repository, and it is now set to `Next.js`.
+**Payment provider decision:** Fabrient is switching from **RevenueCat to PayPal**. RevenueCat is no longer the intended billing provider.
+
+The PayPal migration is an account/integration task and is **not claimed complete by this report**. The actual PayPal application, products/plans, checkout implementation, webhook endpoint, webhook verification, credentials, and live/sandbox payment round trip must be implemented and verified before billing can be marked production-ready.
+
+No PayPal credentials should be invented, committed to source, or pasted into chat.
 
 ## Implemented product contract
 
 | Area | Implemented result |
 |---|---|
 | Plans | Free, Hobby ($9 individual), Startup ($49 for teams of 1–29), Enterprise (contact) |
-| Enterprise contact | Phone `0509220082`; email `omerschsaban@gmail.com`; landing-page links are clickable |
-| Usage gating | Authoritative resolver in `engineering/app/plan_catalog.py`; Free now has zero LLM runs; paid tiers resolve entitlements and monthly limits |
-| Landing pricing | Four plan cards are now rendered on `app/page.tsx` from the shared catalog, including Enterprise email and phone links |
-| Engineering parity | Restored `engineering/app/operation_engine.py` compatibility exports and corrected the held-out residual-model regression/pivot behavior |
-| Billing | Backend authority and RevenueCat webhook handling in `engineering/app/billing.py` |
-| Auth | Owned PostgreSQL-backed auth/OAuth path, Gmail OTP routes, token persistence, and production MCP bearer-token enforcement |
-| MCP | Owned OAuth metadata and authenticated 100-tool registry/call contract in `services/mcp/` |
-| Infrastructure | Render PostgreSQL credential repair, idempotent schema bootstrap, startup token seeding, and MCP SDK lifespan repair |
-| Frontend | Responsive four-tier pricing UI and product routes in the Next.js app |
+| Usage gating | Authoritative resolver in `engineering/app/plan_catalog.py`; paid-tier entitlements and limits remain backend-controlled |
+| Landing pricing | Shared plan catalog drives the pricing UI |
+| Engineering parity | Existing engineering compatibility and validation work remains unchanged |
+| Billing authority | **PostgreSQL backend entitlement state, with PayPal as the intended external payment provider** |
+| Auth | Owned PostgreSQL-backed auth/OAuth path and Gmail OTP routes |
+| MCP | Owned OAuth metadata and authenticated MCP registry/call contract |
+| Infrastructure | Render PostgreSQL and deployment configuration |
+| Frontend | Responsive pricing UI and product routes in the Next.js app |
 
-## Verification matrix
+## PayPal billing contract
 
-| Gate | Latest result | Evidence |
-|---|---:|---|
-| Fabrient CI | **PASS** | GitHub Actions run [33072597684](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597684) on `55987d0` |
-| Production browser acceptance | **PASS** | GitHub Actions run [33072597728](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597728) on `55987d0`; blank-page regression cleared |
-| Render backend tests | **PASS** | Run [33066843380](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843380) |
-| Engineering smoke tests | **PASS** | Run [33070264376](https://github.com/omerschsaban-hub/Barber-/actions/runs/33070264376) |
-| Full acceptance | **PASS** | Run [33072597756](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597756) |
-| MCP 100-tool surface | **PASS** | Run [33072597511](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597511); authenticated chunked verification covers all 100 registered tools |
-| MCP production-auth wrapper | **PASS** | Run [33066843372](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843372) |
-| Acceptance artifacts | **PASS** | Run [33066843375](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843375) |
-| Video hardening audit | **PASS** | Run [33066843379](https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843379) |
-| Frontend npm security audit | **PASS** | `npm audit --omit=dev` returns `found 0 vulnerabilities`; 104 production dependencies |
-| Next.js production build | **PASS locally and on Vercel** | Vercel build logs for deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W` show Next.js 15.5.21 compiled successfully and generated 30 static pages |
-| Vercel production deployment | **READY** | Deployment `dpl_G9fNbfPzsFWoCDwDeeyfMbzT7e3W`, source `3ce91f2`; project framework is now `nextjs` |
-| Production browser acceptance | **PASS** | Latest run [33072597728](https://github.com/omerschsaban-hub/Barber-/actions/runs/33072597728) confirms hydrated workspace rendering and all browser checks |
-| Live engineering health | **PASS** | `GET https://fabrient-engineering.onrender.com/health` returned HTTP 200 and `ok:true` on 28 Aug 2026 |
-| Live MCP health | **PASS** | `GET https://fabrient-mcp.onrender.com/health` returned HTTP 200 and `tool_count:100` on 28 Aug 2026 |
-| Live MCP OAuth metadata | **PASS** | `GET https://fabrient-mcp.onrender.com/.well-known/oauth-authorization-server` returned HTTP 200 with owned issuer and endpoints |
-| MCP authenticated smoke | **BLOCKED BY MISSING TOKEN IN EXECUTION CONTEXT** | Corrected smoke test reached `/mcp` and received HTTP 401; no bearer token was available, so authenticated tool calls were not claimed |
-| Native mobile compilation | **NOT RUN LOCALLY** | Kotlin/Swift sources and tests are present; sandbox lacks Gradle, Swift compiler, and Xcode; platform CI must execute them |
-| Real Gmail OTP delivery | **BLOCKED BY RENDER DEPLOY QUOTA** | DATABASE_URL binding was added in Render, but the rebuild was canceled because the workspace exhausted build-pipeline minutes; retry after quota is restored |
-| Real RevenueCat sandbox purchase and signed webhook | **NOT VERIFIED / BLOCKED** | Requires a successful rebuilt backend plus a real sandbox purchase, public webhook, and valid RevenueCat credentials |
+The target payment flow is:
 
-## Production Vercel repair
+1. A signed-in customer selects a Fabrient plan.
+2. Fabrient creates or opens the corresponding PayPal checkout/subscription flow.
+3. The customer completes the payment on PayPal.
+4. PayPal sends the relevant server-side event/webhook.
+5. Fabrient verifies the PayPal event according to PayPal's verification requirements.
+6. The backend records the authoritative payment/entitlement state in PostgreSQL.
+7. The frontend reads the entitlement from the backend.
+8. Paid access is granted only from verified backend state.
 
-The Vercel project `fabrinat` was configured with framework preset `Services`, which was incorrect for this repository. Its production deployment was marked READY but returned an empty browser document. The project was changed to the **Next.js** framework preset. The current deployment metadata now reports `framework: nextjs`, source commit `3ce91f2`, and state `READY`. The verified production domain is [https://fabrinat-omega.vercel.app](https://fabrinat-omega.vercel.app).
+A browser success redirect is never sufficient evidence of payment.
 
-A direct HTTP verification of the corrected deployment returned HTTP 200, `content-type: text/html`, a 38 KB document, and the expected `START A PROJECT` content. The GitHub production-browser workflow was also changed to normalize a missing or stale `FABRIENT_WEB_URL` to this verified domain. The CLI could not update the GitHub secret because the current token lacks the repository Actions-secrets public-key permission; the workflow fallback prevents a stale secret from silently testing the wrong deployment.
+## PayPal configuration contract
 
-## What was fixed in the MCP production path
+The final implementation should use only the variables it actually consumes. Candidate server-side configuration includes:
 
-The live MCP service initially failed in sequence on stale PostgreSQL credentials, absent `AUTH_SECRET`, missing OAuth tables, token seeding tuple handling, and MCP SDK 1.13.1 lifespan/task-group initialization. The final implementation now applies the owned schema idempotently at startup, seeds the configured service identity without weakening normal OAuth enforcement, preserves the child MCP lifespan through the outer authentication wrapper, avoids duplicate wrapper composition, and supports deterministic bounded/chunked 100-tool verification on Render’s free instance.
+| Variable | Purpose |
+|---|---|
+| `PAYPAL_CLIENT_ID` | PayPal application client identifier |
+| `PAYPAL_CLIENT_SECRET` | PayPal application secret; server-side only |
+| `PAYPAL_WEBHOOK_ID` | PayPal webhook identifier when required for verification |
+| `PAYPAL_ENVIRONMENT` | `sandbox` during testing and `live` in production |
+| `PAYPAL_PLAN_ID_*` | Recurring PayPal billing-plan identifiers, if subscriptions are implemented with PayPal plans |
 
-The live contract now exposes 100 unique capabilities, accepts authenticated streamable-HTTP requests, and passes the MCP 100-tool surface workflow. The Render service health endpoint and owned OAuth metadata are passing according to the prior live evidence captured in `render-mcp-live-findings.md`.
+Exact variable names must match the final implementation. Do not expose secrets through `NEXT_PUBLIC_*` variables.
 
-## Child-simple handoff
+## PayPal sandbox verification requirements
 
-> These are the only remaining actions that require the account owner or real external provider access. Do not invent values or mark them complete without seeing the result.
+Before billing is marked PASS:
 
-### 1. Confirm the public website
+1. Configure a PayPal sandbox application.
+2. Configure the required sandbox products/plans.
+3. Configure the server-side webhook endpoint.
+4. Verify webhook authenticity server-side.
+5. Complete a real sandbox checkout using a sandbox test account.
+6. Confirm the backend receives and validates the PayPal event.
+7. Confirm PostgreSQL records the correct payment/entitlement state.
+8. Confirm Fabrient reflects the paid plan using backend state.
+9. Test cancellation, expiration, failed payment, duplicate events, and invalid/forged webhook data.
 
-Open [https://fabrinat-omega.vercel.app](https://fabrinat-omega.vercel.app). Confirm that the page shows the Fabrient landing page, the four prices, and the `START A PROJECT` button. If the page is blank, open the Vercel project `fabrinat`, open **Deployments**, and confirm the production deployment has framework `Next.js` and source `main` at or after `daf0000`.
+Mocks and client-only success states must not be used to claim billing PASS.
 
-### 2. Confirm the GitHub website secret
+## Production verification requirements
 
-Open the GitHub repository settings at `Settings → Secrets and variables → Actions`. Find `FABRIENT_WEB_URL`. Set it to exactly:
+After sandbox verification:
 
-```text
-https://fabrinat-omega.vercel.app
-```
+1. Configure the production PayPal application.
+2. Configure production products/plans.
+3. Configure the production webhook endpoint.
+4. Store production secrets only in the server-side deployment environment.
+5. Perform an appropriate controlled production payment if needed.
+6. Verify the payment and webhook round trip.
+7. Confirm PostgreSQL remains the authoritative entitlement source.
 
-Save it. Do not paste secrets into chat. The workflow currently has a safe fallback to this verified URL, but the repository secret should still be synchronized when GitHub permissions allow it.
+## Migration completion rule
 
-### 3. Test Gmail OTP with a real mailbox
+The billing migration is complete only when all of these are true:
 
-Open the website login page. Enter the real Gmail address. Click **Send code**. Open that Gmail inbox. Copy the newest one-time code. Return to the website, enter the code, and click **Verify**. Confirm that the browser reaches `/workspace` and that the workspace displays an engine state and a deterministic next action. If no email arrives, check the Render engineering/auth environment variables and provider logs; do not keep retrying random codes.
+- no active production billing path depends on RevenueCat;
+- PayPal checkout works;
+- PayPal server-side verification works;
+- the PayPal webhook is verified server-side;
+- PostgreSQL is the authoritative entitlement/payment state;
+- cancellation, expiration and failure behavior are handled;
+- duplicate and forged webhook events are rejected or safely idempotent;
+- no PayPal secret reaches browser JavaScript;
+- a real sandbox payment has produced verified backend entitlement evidence.
 
-### 4. Test each plan and billing gate
+## Existing non-billing verification
 
-Use a RevenueCat sandbox account and test the catalog for Free, Hobby at $9, and Startup at $49. Verify that Free cannot invoke LLM-backed features, Hobby receives the individual allowance, and Startup receives the 1–29-person allowance. Enterprise is contact-only through `0509220082` or `omerschsaban@gmail.com`.
+Existing CI, engineering, MCP, auth, browser, deployment and security checks should continue to be treated according to their own evidence. Payment-provider verification is now a separate PayPal gate.
 
-### 5. Complete one real sandbox purchase
+## Remaining account-side actions
 
-From the billing page, choose a sandbox Hobby or Startup product, complete the purchase with the platform’s sandbox account, and wait for the signed RevenueCat webhook. Confirm that the backend records the entitlement and that the UI changes from the missing-offering/signed-out state to the correct paid-plan state. Never treat a client-side success screen as proof of billing; the signed webhook and backend entitlement are the authority.
+### 1. Configure PayPal
 
-### 6. Re-run the final workflows
+Create/use the appropriate PayPal developer application and configure the intended Fabrient products/plans.
 
-After the real OTP and billing tests, dispatch or push a harmless documentation change to run the GitHub workflows again. The target green set is: **Fabrient CI, Render Backend Tests, Full Acceptance, MCP 100-tool surface, Production Browser Acceptance, and Production Release**. Save the run URLs with the release record.
+### 2. Configure server-side environment
+
+Add the exact PayPal variables required by the implementation to the appropriate Render/Vercel server-side environments. Never send the values in chat or commit them.
+
+### 3. Implement checkout
+
+Replace the existing billing checkout path with PayPal checkout/subscription creation as appropriate for the selected pricing model.
+
+### 4. Implement webhook verification
+
+Receive PayPal server-side events, verify authenticity, make processing idempotent, and update PostgreSQL entitlement state.
+
+### 5. Remove RevenueCat dependency
+
+Remove or disable active RevenueCat checkout, SDK, webhook, environment-variable, and entitlement dependencies once the PayPal path is verified. Do not remove working billing behavior before PayPal has passed its tests.
+
+### 6. Run the final billing tests
+
+Perform a real sandbox purchase and verify the full round trip:
+
+**Customer → PayPal → verified webhook → PostgreSQL entitlement → Fabrient paid access**
+
+## Security reminders
+
+Use HTTPS. Keep PayPal client secrets and webhook credentials server-side. Never grant paid access solely from a browser redirect. Never disable webhook verification to make a test pass. Treat webhook processing as untrusted input and make entitlement updates idempotent.
 
 ## Final status
 
-The owned migration and automated operational contract are substantially complete and the critical MCP/Auth/Billing code paths are implemented. The npm audit blocker is now **resolved**: `npm audit --omit=dev` returns `found 0 vulnerabilities` with 104 production dependencies. No unsafe framework-major upgrade is needed. During this continuation, the root ESLint configuration was repaired for the committed ESLint 9.0.0 version, and `npm run lint` now completes with six non-blocking existing warnings and zero errors.
+**Engineering/platform:** continue using the repository's existing verification evidence.
 
-The mobile delivery now has three maintained paths: the existing Expo/React Native app, a Kotlin native API client with Gradle/JVM contract scaffolding, and a Swift Package Manager client with iOS tests. The Swift `display_name` decoding defect was fixed, and both native clients now expose the owned `/auth/me` path. Expo typecheck and web export pass. This sandbox has no `gradle`, Swift compiler, or Xcode, so native compilation remains a platform-runner gate rather than an unverified local claim.
+**Billing:** **NOT YET VERIFIED — migration target is PayPal.**
 
-The live services are reachable in the current verification window: `GET https://fabrient-engineering.onrender.com/health` returned HTTP 200 with `ok:true`; `GET https://fabrient-mcp.onrender.com/health` returned HTTP 200 with `tool_count:100`; and the MCP OAuth metadata endpoint returned HTTP 200 with the owned issuer and authorization/token endpoints. `/ready` intentionally returns HTTP 404 and is not a valid production gate. The corrected MCP smoke test now imports cleanly from the repository root, but the live `/mcp` call returned HTTP 401 because no bearer token was available in this execution context; this proves enforcement and reachability, not authenticated tool execution.
-
-The remaining live provider gates are still the Render account’s exhausted build-pipeline minutes and protected credentials. The authenticated dashboard accepted the managed `DATABASE_URL` binding from `fabrient-postgres` and triggered deployment `dep-da86evuk1f9s73ceb21g`, but Render canceled the build because the workspace ran out of build pipeline minutes for the current billing period. Until that account limit is restored and the rebuilt revision is live, real Gmail OTP delivery and the RevenueCat purchase/webhook round trip cannot honestly be completed. The browser workspace rendering issue is resolved, and all previously verified CI, backend, MCP 100-tool, full acceptance, and production browser gates remain green on the tested commit.
-
-The repository contains the fixes and the child-simple procedure above; a 100% production sign-off should be issued only after Render completes a successful rebuild and the real OTP and billing round trips produce green evidence.
-
-## References
-
-[1]: https://github.com/omerschsaban-hub/Barber- "Fabrient GitHub repository"
-[2]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843412 "Fabrient CI — 00a7971 verification"
-[3]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843380 "Fabrient Render Backend Tests"
-[4]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843402 "Fabrient Full Acceptance"
-[5]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843431 "MCP 100-tool surface acceptance"
-[6]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843372 "Ensure MCP production auth wrapper"
-[7]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843375 "Fabrient Acceptance Artifacts"
-[8]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843379 "Video hardening audit"
-[9]: https://fabrinat-omega.vercel.app "Fabrient Vercel production domain"
-[10]: https://dashboard.render.com/web/srv-da2qfue7bikc73bi2ccg/logs?t=app&r=1h "Render MCP application logs"
-[11]: https://github.com/omerschsaban-hub/Barber-/actions/runs/33066843423 "Production browser acceptance — latest failure"
+The repository documentation has been updated so PayPal is the intended payment provider. The actual provider replacement remains to be performed and tested by the account owner.
