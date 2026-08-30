@@ -43,7 +43,7 @@ def load() -> None:
             os.environ[env_name] = revenuecat[key]
 
     os.environ.setdefault("GMAIL_SENDER", "omerschaban@gmail.com")
-    os.environ.setdefault("OPENAI_MODEL", "gpt-5.6")
+    os.environ.setdefault("OPENAI_MODEL", "gpt-5-mini")
     os.environ.setdefault("DB_POOL_MIN", "1")
     os.environ.setdefault("DB_POOL_MAX", "8")
     os.environ.setdefault("FLYWHEEL_ENABLE_PRODUCTION", "false")
