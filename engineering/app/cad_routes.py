@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import base64, binascii, gzip, io, re, hashlib, os, uuid, tempfile
+import base64, binascii, gzip, io, re, hashlib, os, tempfile, uuid
 from pathlib import Path
 import numpy as np
-from fastapi import APIRouter, HTTPException, Request, Header
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from .cad_kernel import extract_step, OCC_AVAILABLE, cq
-from .postgres_artifacts import put_bytes, get_metadata, get_bytes
+from .postgres_artifacts import put_bytes, get_metadata, stream_bytes
 from .owned_auth import _bearer, user_from_token
 
 router = APIRouter(prefix="/v1/geometry", tags=["cad"])
-MAX_STEP_BYTES = int(os.getenv("MAX_STEP_BYTES", str(25_000_000)))
-MAX_COMPRESSED_BYTES = int(os.getenv("MAX_COMPRESSED_BYTES", str(10_000_000)))
-MAX_ARTIFACT_BYTES = MAX_STEP_BYTES
+MAX_STEP_BYTES = int(os.getenv("MAX_STEP_BYTES", "25000000"))
+MAX_COMPRESSED_BYTES = int(os.getenv("MAX_COMPRESSED_BYTES", "10000000"))
 
 class EnclosureRequest(BaseModel):
     width_mm: float = Field(gt=1, le=1000)
@@ -72,11 +71,12 @@ def _validate_generated_step(raw: bytes, filename: str) -> dict:
         raise HTTPException(422, f"Generated STEP failed kernel round-trip validation: {validation.get('reason', 'unknown error')}")
     return validation
 
-def _store(owner_id: str, filename: str, raw: bytes, project_id: str | None = None) -> dict:
+def _store(owner_id: str, filename: str, raw: bytes) -> dict:
     artifact_id = str(uuid.uuid4())
-    digest = hashlib.sha256(raw).hexdigest()
-    artifact = put_bytes(artifact_id=artifact_id, owner_id=owner_id, project_id=project_id, filename=filename, content_type="application/step", data=raw, max_bytes=MAX_ARTIFACT_BYTES)
-    return {"mode": "postgres", "durable": True, "artifact_id": artifact.id, "size_bytes": artifact.size_bytes, "sha256": digest}
+    artifact = put_bytes(artifact_id=artifact_id, owner_id=owner_id, project_id=None, filename=filename,
+                         content_type="application/step", data=raw, max_bytes=MAX_STEP_BYTES)
+    return {"mode": "postgres", "durable": True, "artifact_id": artifact.id,
+            "size_bytes": artifact.size_bytes, "sha256": artifact.sha256}
 
 @router.post("/generate")
 def generate_enclosure(x: EnclosureRequest, request: Request):
@@ -90,43 +90,35 @@ def generate_enclosure(x: EnclosureRequest, request: Request):
         enclosure = outer.cut(inner)
         hole_r = x.mounting_hole_diameter_mm / 2
         positions = [(x.mounting_hole_inset_mm, x.mounting_hole_inset_mm), (x.width_mm-x.mounting_hole_inset_mm, x.mounting_hole_inset_mm), (x.width_mm-x.mounting_hole_inset_mm, x.depth_mm-x.mounting_hole_inset_mm), (x.mounting_hole_inset_mm, x.depth_mm-x.mounting_hole_inset_mm)]
-        for px, py in positions:
-            enclosure = enclosure.cut(cq.Workplane("XY").center(px, py).circle(hole_r).extrude(x.wall_mm + 2))
+        for px, py in positions: enclosure = enclosure.cut(cq.Workplane("XY").center(px, py).circle(hole_r).extrude(x.wall_mm + 2))
         with tempfile.TemporaryDirectory(prefix="fabrient-cad-") as d:
-            path = Path(d) / f"enclosure-r{x.revision}.step"
-            cq.exporters.export(enclosure, str(path), exportType="STEP")
-            raw = path.read_bytes()
+            path = Path(d) / f"enclosure-r{x.revision}.step"; cq.exporters.export(enclosure, str(path), exportType="STEP"); raw = path.read_bytes()
         if not raw or len(raw) > MAX_STEP_BYTES: raise HTTPException(500, "Generated STEP is empty or exceeds the supported release size.")
-        validation = _validate_generated_step(raw, path.name)
-        storage = _store(identity["id"], path.name, raw)
+        validation = _validate_generated_step(raw, path.name); storage = _store(identity["id"], path.name, raw)
         return {"status":"validated", "format":"STEP", "filename":path.name, "size_bytes":len(raw), "parameters":x.model_dump(), "validation":validation, "provenance":{"generator":"CadQuery/OCCT", "generation":"deterministic-parametric", "round_trip":"required", "synthetic_measurements":False}, "storage":storage}
     except HTTPException: raise
     except Exception as exc: raise HTTPException(500, f"Deterministic CAD generation failed: {exc}") from exc
 
 @router.get("/artifacts/{artifact_id}")
 def artifact_metadata(artifact_id: str, request: Request):
-    identity = _identity(request)
-    artifact = get_metadata(artifact_id, identity["id"])
+    identity = _identity(request); artifact = get_metadata(artifact_id, identity["id"])
     if not artifact: raise HTTPException(404, "Artifact not found")
-    return {"artifact_id":artifact.id,"filename":artifact.filename,"content_type":artifact.content_type,"size_bytes":artifact.size_bytes,"sha256":artifact.sha256,"created":True}
+    return {"artifact_id":artifact.id,"filename":artifact.filename,"content_type":artifact.content_type,"size_bytes":artifact.size_bytes,"sha256":artifact.sha256}
 
 @router.get("/artifacts/{artifact_id}/download")
 def artifact_download(artifact_id: str, request: Request):
-    identity = _identity(request)
-    found = get_bytes(artifact_id, identity["id"])
+    identity = _identity(request); found = stream_bytes(artifact_id, identity["id"])
     if not found: raise HTTPException(404, "Artifact not found")
-    artifact, stream = found
-    return StreamingResponse(stream, media_type=artifact.content_type, headers={"Content-Disposition": f'attachment; filename="{Path(artifact.filename).name}"', "Content-Length": str(artifact.size_bytes), "X-Artifact-SHA256": artifact.sha256})
+    artifact, chunks = found
+    return StreamingResponse(chunks, media_type=artifact.content_type, headers={"Content-Disposition": f'attachment; filename="{Path(artifact.filename).name}"', "Content-Length": str(artifact.size_bytes), "X-Artifact-SHA256": artifact.sha256})
 
 @router.post("/step")
 async def step_geometry(request: Request):
-    _identity(request)
-    name, raw = await _read_step_request(request)
+    _identity(request); name, raw = await _read_step_request(request)
     with tempfile.TemporaryDirectory(prefix="fabrient-step-") as d:
         path = Path(d) / name; path.write_bytes(raw); result = extract_step(str(path))
     if result.get("status") == "error":
-        text = raw.decode("utf-8", errors="ignore"); points=[]
-        pattern=r"CARTESIAN_POINT\s*\([^;]*?\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*\)"
+        text = raw.decode("utf-8", errors="ignore"); points=[]; pattern=r"CARTESIAN_POINT\s*\([^;]*?\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*\)"
         for match in re.finditer(pattern,text,re.I|re.S): points.append(tuple(float(v) for v in match.groups()))
         if not points: raise HTTPException(422,result.get("reason","STEP extraction failed"))
         arr=np.asarray(points,dtype=float); mins,maxs=arr.min(axis=0),arr.max(axis=0)
