@@ -13,9 +13,9 @@ from pathlib import Path
 import psycopg
 
 
-_LOCAL_MIGRATION = Path(__file__).with_name("001_owned_postgres.sql")
-_REPO_MIGRATION = Path(__file__).parents[2] / "db" / "migrations" / "001_owned_postgres.sql"
-MIGRATION = _LOCAL_MIGRATION if _LOCAL_MIGRATION.exists() else _REPO_MIGRATION
+_LOCAL_MIGRATIONS = [Path(__file__).with_name("001_owned_postgres.sql"), Path(__file__).with_name("010_schema_reconciliation.sql")]
+_REPO_MIGRATIONS = [Path(__file__).parents[2] / "db" / "migrations" / p.name for p in _LOCAL_MIGRATIONS]
+MIGRATIONS = _LOCAL_MIGRATIONS if all(p.exists() for p in _LOCAL_MIGRATIONS) else _REPO_MIGRATIONS
 
 
 def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
@@ -43,14 +43,20 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
     )
 
 
-def main() -> None:
+def _dsn() -> str:
     url = os.environ.get("DATABASE_URL", "").strip()
     if not url:
         raise RuntimeError("DATABASE_URL must be configured before MCP startup")
-    sql = MIGRATION.read_text(encoding="utf-8")
-    with psycopg.connect(url) as conn:
+    if "sslmode=" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    return url
+
+
+def main() -> None:
+    with psycopg.connect(_dsn()) as conn:
         with conn.transaction():
-            conn.execute(sql)
+            for migration in MIGRATIONS:
+                conn.execute(migration.read_text(encoding="utf-8"))
             _seed_configured_mcp_token(conn)
     print("owned PostgreSQL schema migration applied", flush=True)
 
