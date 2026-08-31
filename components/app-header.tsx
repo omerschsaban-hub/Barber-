@@ -22,6 +22,7 @@ export default function AppHeader() {
         <Link href="/graph">Evidence</Link>
         <Link href="/records">Exports</Link>
         <Link href="/integrations">Integrations</Link>
+        <Link href="/changelog">Changelog</Link>
       </div>
       <div>
         <Link href="/login" className="button">Sign in</Link>
