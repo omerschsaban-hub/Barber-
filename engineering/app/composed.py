@@ -1,5 +1,6 @@
-from . import env_bootstrap  # noqa: F401  # load minimal deployment config before integration imports
+from . import env_bootstrap  # noqa: F401
 from .main import app
+from .reality_routes import router as reality_loop_router
 from .advanced import router as advanced_router
 from .real_cv_sim2real import router as real_cv_sim2real_router
 from .sim2real_loop import router as sim2real_loop_router
@@ -27,22 +28,18 @@ from .workspace_capabilities import router as workspace_capabilities_router
 from .agent_execution import router as agent_execution_router
 from .performance_cache import DeterministicResponseCache
 
-for router in (advanced_router, real_cv_sim2real_router, sim2real_loop_router, cv_json_router, risk_map_router, validate_dimension_router, mcp_compat_fixes_router, manufacturing_router, cad_router, final_pipeline_router, quality_router, compat_router, data_flywheel_router, data_flywheel_worker_router, moat_intelligence_router, integration_gateway_router, competitive_product_loop_router, customer_obsession_router, owned_auth_router, billing_router, paypal_billing_router, workspace_capabilities_router, agent_execution_router):
+# Reality loop is first so the canonical physics + ML + evidence implementation
+# owns the sim-to-real contracts also consumed by MCP compatibility routes.
+for router in (reality_loop_router, advanced_router, real_cv_sim2real_router, sim2real_loop_router, cv_json_router, risk_map_router, validate_dimension_router, mcp_compat_fixes_router, manufacturing_router, cad_router, final_pipeline_router, quality_router, compat_router, data_flywheel_router, data_flywheel_worker_router, moat_intelligence_router, integration_gateway_router, competitive_product_loop_router, customer_obsession_router, owned_auth_router, billing_router, paypal_billing_router, workspace_capabilities_router, agent_execution_router):
     app.include_router(router)
 install_product_intelligence(app)
 install_universal_quality(app)
-
-# Pure calculations are safe to cache briefly. Stateful, personalized, upload and
-# manufacturing operations deliberately remain uncached.
 app.add_middleware(DeterministicResponseCache)
 
-# The MCP registry is the single source of truth for the 100-tool compatibility surface.
-# Parse only its literal registry so the engineering runtime does not depend on the MCP SDK.
 import ast
 from pathlib import Path
 from fastapi import Request
 from .operation_engine import run_tool_operation
-
 _registry_path = Path(__file__).resolve().parents[2] / "services" / "mcp" / "server.py"
 _registry_tree = ast.parse(_registry_path.read_text(encoding="utf-8"), filename=str(_registry_path))
 CAPABILITY_REGISTRY = None
@@ -56,27 +53,18 @@ if not isinstance(CAPABILITY_REGISTRY, tuple) or len(CAPABILITY_REGISTRY)!=100:
     raise RuntimeError("Authoritative MCP registry could not be loaded with exactly 100 tools")
 if len({name for name,_,_ in CAPABILITY_REGISTRY})!=100:
     raise RuntimeError("Authoritative MCP registry contains duplicate tool names")
-
 _existing_paths={route.path for route in app.routes if hasattr(route,"path")}
 def _make_mcp_compat_handler(operation: str):
     async def _handler(request: Request):
-        try:
-            payload=await request.json()
-        except Exception:
-            payload={}
-        if not isinstance(payload, dict):
-            payload={}
+        try: payload=await request.json()
+        except Exception: payload={}
+        if not isinstance(payload, dict): payload={}
         result=run_tool_operation(operation,payload,topology_verified=bool(payload.get("geometry_verified")))
-        result.setdefault("provenance", {})
-        result["provenance"].update({"source":"mcp_registry_compatibility_boundary","synthetic":False})
-        result["inputs_received"]=sorted(payload.keys())
-        return result
+        result.setdefault("provenance",{}); result["provenance"].update({"source":"mcp_registry_compatibility_boundary","synthetic":False})
+        result["inputs_received"]=sorted(payload.keys()); return result
     return _handler
 for _name,_description,_path in CAPABILITY_REGISTRY:
     if _path not in _existing_paths:
         app.add_api_route(_path,_make_mcp_compat_handler(_name),methods=["POST"],name=f"mcp_compat_{_name}")
-
-# Production data flywheel: the existing worker remains authoritative, while the
-# graph scheduler provides a single closed-loop execution lane across all instances.
 from .graph_flywheel import start_graph_scheduler
 start_graph_scheduler()
