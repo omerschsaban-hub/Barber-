@@ -1,0 +1,132 @@
+.changelog-page {
+  min-height: calc(100vh - 72px);
+  padding: 72px 24px 96px;
+  background: #f3f0e8;
+  color: #172019;
+}
+
+.changelog-hero,
+.changelog-list {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.changelog-hero {
+  padding-bottom: 56px;
+}
+
+.changelog-eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .58;
+}
+
+.changelog-hero h1 {
+  margin: 0;
+  font-size: clamp(42px, 7vw, 72px);
+  line-height: .98;
+  letter-spacing: -.045em;
+}
+
+.changelog-intro {
+  max-width: 620px;
+  margin: 20px 0 24px;
+  font-size: 18px;
+  line-height: 1.55;
+  opacity: .72;
+}
+
+.changelog-back {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+
+.release {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 40px;
+  padding: 38px 0;
+  border-top: 1px solid rgba(23, 32, 25, .14);
+}
+
+.release-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  opacity: .62;
+}
+
+.release-version {
+  font-weight: 800;
+  color: #172019;
+  opacity: 1;
+}
+
+.release-content h2 {
+  margin: 0 0 22px;
+  font-size: 25px;
+  letter-spacing: -.02em;
+}
+
+.release-content ul {
+  display: grid;
+  gap: 15px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release-content li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.change-badge {
+  flex: 0 0 auto;
+  min-width: 72px;
+  padding: 4px 7px;
+  border: 1px solid rgba(23, 32, 25, .16);
+  border-radius: 999px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, .38);
+}
+
+@media (max-width: 700px) {
+  .changelog-page {
+    padding: 48px 18px 72px;
+  }
+
+  .release {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .release-meta {
+    flex-direction: row;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .release-content li {
+    gap: 9px;
+  }
+
+  .change-badge {
+    min-width: 64px;
+  }
+}
