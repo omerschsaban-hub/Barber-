@@ -41,6 +41,13 @@ def transaction() -> Iterator[Any]:
             yield conn
 
 
+@contextmanager
+def get_conn() -> Iterator[Any]:
+    """Provide the legacy connection context used by artifact storage."""
+    with pool().connection() as conn:
+        yield conn
+
+
 def ensure_schema() -> None:
     # Only forward migrations are executable. *_down.sql files are rollback
     # scripts and must never be run during application startup.
