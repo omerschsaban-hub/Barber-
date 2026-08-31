@@ -1,49 +1,31 @@
-import { useState } from 'react'
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
+import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Card, Header, Screen, StatusPill, Action } from '@/components/ui'
 import { theme } from '@/lib/theme'
-import { getCustomerInfo, isPro, presentCustomerCenter, restorePurchases } from '@/lib/revenuecat'
+import { billingAccess } from '@/lib/api'
+import { useRouter } from 'expo-router'
+
+const WEB_BILLING_URL = `${process.env.EXPO_PUBLIC_FABRIENT_WEB_URL || 'https://fabrinat-omega.vercel.app'}/billing`
 
 export default function Settings() {
   const router = useRouter()
-  const [pro, setPro] = useState(false)
+  const [plan, setPlan] = useState('free')
 
-  const refresh = async () => {
-    try {
-      const info = await getCustomerInfo()
-      setPro(isPro(info))
-    } catch (error: any) {
-      Alert.alert('Subscription status unavailable', error?.message ?? 'Please try again.')
-    }
-  }
+  const refresh = useCallback(async () => {
+    try { setPlan((await billingAccess()).plan || 'free') }
+    catch (error: any) { Alert.alert('Subscription status unavailable', error?.message ?? 'Please try again.') }
+  }, [])
+
+  useEffect(() => { void refresh() }, [refresh])
 
   const manage = async () => {
-    if (!pro) {
-      router.push('/paywall')
-      return
-    }
-    try {
-      await presentCustomerCenter()
-      await refresh()
-    } catch (error: any) {
-      Alert.alert('Subscription management unavailable', error?.message ?? 'Please try again.')
-    }
-  }
-
-  const restore = async () => {
-    try {
-      const info = await restorePurchases()
-      setPro(isPro(info))
-      Alert.alert(isPro(info) ? 'Restored' : 'No active subscription', isPro(info) ? 'Fabrinat Pro is active.' : 'No active Pro subscription was found.')
-    } catch (error: any) {
-      Alert.alert('Restore failed', error?.message ?? 'Please try again.')
-    }
+    if (plan === 'free') { router.push('/paywall'); return }
+    await Linking.openURL(WEB_BILLING_URL)
   }
 
   return <Screen><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}><Header title="Settings" subtitle="Mobile app preferences and connection state." />
-    <Card><Text style={styles.label}>SUBSCRIPTION</Text><View style={styles.row}><View style={styles.flex}><Text style={styles.name}>{pro ? 'Fabrinat Pro' : 'Fabrinat Free'}</Text><Text style={styles.detail}>{pro ? 'Advanced engineering features are unlocked.' : 'Core engineering workflow is available for free.'}</Text></View><StatusPill label={pro ? 'PRO' : 'FREE'} tone={pro ? 'success' : 'warning'} /></View><View style={styles.actions}><Action title={pro ? 'Manage subscription' : 'View Pro plans'} primary onPress={() => void manage()} /><Action title="Restore purchases" onPress={() => void restore()} /></View></Card>
-    <Card><Text style={styles.label}>BACKEND</Text><View style={styles.row}><Text style={styles.name}>Fabrient services</Text><StatusPill label="CONNECTED" tone="success" /></View><Text style={styles.detail}>The mobile client uses the authenticated Fabrient API; privileged database and provider secrets never enter the app.</Text></Card>
+    <Card><Text style={styles.label}>SUBSCRIPTION</Text><View style={styles.row}><View style={styles.flex}><Text style={styles.name}>{plan === 'free' ? 'Fabrient Free' : `Fabrient ${plan}`}</Text><Text style={styles.detail}>{plan === 'free' ? 'Core engineering workflow is available for free.' : 'Advanced engineering features are unlocked.'}</Text></View><StatusPill label={plan === 'free' ? 'FREE' : 'ACTIVE'} tone={plan === 'free' ? 'warning' : 'success'} /></View><View style={styles.actions}><Action title={plan === 'free' ? 'View PayPal plans' : 'Manage plan in browser'} primary onPress={() => void manage()} /></View></Card>
+    <Card><Text style={styles.label}>BACKEND</Text><View style={styles.row}><Text style={styles.name}>Fabrient services</Text><StatusPill label="CONNECTED" tone="success" /></View><Text style={styles.detail}>The mobile client uses the authenticated Fabrient API; payment secrets remain server-side.</Text></Card>
     <Card><Text style={styles.label}>APP</Text>{['Notifications', 'Offline cache', 'Appearance', 'About Fabrient'].map((x, i) => <View key={x} style={[styles.option, i > 0 && styles.border]}><Text style={styles.name}>{x}</Text><Text style={styles.chevron}>›</Text></View>)}</Card>
     <Text style={styles.footer}>Fabrient Mobile · v1.0.0</Text>
   </ScrollView></Screen>

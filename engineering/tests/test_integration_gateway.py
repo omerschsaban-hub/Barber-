@@ -6,7 +6,7 @@ from app.mcp_integrations import MCP_PROVIDERS
 
 def test_verified_providers_are_registered():
     expected = {
-        "autodesk_product_help", "github", "linear", "stripe", "cloudflare",
+        "autodesk_product_help", "github", "linear", "cloudflare",
         "cloudflare_docs", "cloudflare_observability", "netlify", "notion", "vercel",
     }
     assert set(MCP_PROVIDERS) == expected

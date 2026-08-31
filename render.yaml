@@ -24,8 +24,6 @@ services:
         sync: false
       - key: GMAIL_OAUTH_JSON
         sync: false
-      - key: REVENUECAT_CONFIG
-        sync: false
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET

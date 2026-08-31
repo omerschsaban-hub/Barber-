@@ -1,18 +1,18 @@
 # Fabrient Native Mobile Clients
 
-This directory contains native API client layers for Android/Kotlin and iOS/Swift. Both clients use the owned Fabrient FastAPI service and intentionally keep session tokens in platform secure storage supplied by the host application. No production credentials, RevenueCat secret keys, webhook secrets, database URLs, or Gmail OAuth values belong in these sources.
+This directory contains native API client layers for Android/Kotlin and iOS/Swift. Both clients use the owned Fabrient FastAPI service and intentionally keep session tokens in platform secure storage supplied by the host application. No production credentials, PayPal secrets, webhook secrets, database URLs, or Gmail OAuth values belong in these sources.
 
 ## Shared API contract
 
-The clients cover OTP request and verification, authenticated billing access, engineering health, and logout. The default API origin is `https://fabrient-engineering.onrender.com`; applications may inject a staging or local origin at construction time. Requests use bounded timeouts and report non-2xx responses as errors.
+The clients cover OTP request and verification, authenticated billing access, engineering health, and logout. The default API origin is `https://fabrient-engineering.onrender.com`; applications may inject a staging or local origin at construction time. Requests use bounded timeouts and report non-2xx responses as errors. Paid-plan checkout opens the authenticated Fabrient web billing page, where PayPal handles approval.
 
 ## Android/Kotlin
 
-The Kotlin source is under `android/src/main/kotlin`. The Gradle descriptor is ready for a JVM contract-test run with `gradle test`. A production Android app should wrap the client with Jetpack Compose or the existing product UI, store the session token in Android Keystore-backed storage, and use the RevenueCat public SDK key from a build-time public configuration—not a secret.
+The Kotlin source is under `android/src/main/kotlin`. The Gradle descriptor is ready for a JVM contract-test run with `gradle test`. A production Android app should wrap the client with Jetpack Compose or the existing product UI, store the session token in Android Keystore-backed storage, and open the Fabrient web checkout for paid plans.
 
 ## iOS/Swift
 
-The Swift package is under `ios`. Run `swift test` on macOS with Xcode/Swift installed. A production iOS app should store the session token in Keychain, use the RevenueCat public SDK key from public app configuration, and never ship RevenueCat server keys or webhook secrets.
+The Swift package is under `ios`. Run `swift test` on macOS with Xcode/Swift installed. A production iOS app should store the session token in Keychain and open the Fabrient web checkout for paid plans. Never ship PayPal client secrets or webhook credentials in the app.
 
 ## Verification
 

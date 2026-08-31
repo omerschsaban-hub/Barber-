@@ -15,7 +15,7 @@ PLAN_LIMITS: dict[str, dict[str, int | float]] = {
 }
 
 # These defaults make the migration backward-compatible. Operators can replace
-# them with the exact RevenueCat entitlement IDs without changing application code.
+# them with the exact provider entitlement IDs without changing application code.
 DEFAULT_ENTITLEMENTS = {
     "hobbyist": ("fabrinat_hobby", LEGACY_PRO_ENTITLEMENT),
     "startup": ("fabrinat_startup",),
