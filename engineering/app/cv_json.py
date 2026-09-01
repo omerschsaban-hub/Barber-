@@ -37,7 +37,7 @@ class RealCVJsonRequest(BaseModel):
 def _decode_image(value: str) -> bytes:
     try:
         raw = base64.b64decode(value, validate=True)
-    except (ValueError, binascii.Error) as exc:
+    except (TypeError, ValueError, binascii.Error) as exc:
         raise HTTPException(422, "image_base64 must be valid base64") from exc
     if len(raw) > 10_000_000:
         raise HTTPException(413, "Image exceeds 10 MB")

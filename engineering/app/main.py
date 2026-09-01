@@ -23,9 +23,9 @@ app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=
 
 class EngineeringInput(BaseModel):
     nominal_mm: float = Field(gt=0)
-    material: str = Field(min_length=1)
-    machine: str = Field(min_length=1)
-    process_temperature_c: float = Field(gt=0, lt=400)
+    material: str = Field(default="PLA", min_length=1)
+    machine: str = Field(default="unspecified", min_length=1)
+    process_temperature_c: float = Field(default=210, gt=0, lt=400)
     ambient_temperature_c: float = Field(default=23, gt=-50, lt=100)
     nominal_shrinkage_pct: float = Field(default=0.5, ge=0, le=10)
     shrinkage_uncertainty_pct: float = Field(default=0.15, ge=0, le=5)
@@ -55,10 +55,10 @@ class ReverificationInput(BaseModel):
 
 class SimulationInput(BaseModel):
     nominal_mm: float = Field(gt=0)
-    shrinkage_pct: float = Field(ge=0, le=10)
-    shrinkage_sigma_pct: float = Field(ge=0, le=5)
-    temperature_c: float = Field(gt=0, lt=400)
-    temperature_sigma_c: float = Field(ge=0, le=50)
+    shrinkage_pct: float = Field(default=0.5, ge=0, le=10)
+    shrinkage_sigma_pct: float = Field(default=0.1, ge=0, le=5)
+    temperature_c: float = Field(default=210, gt=0, lt=400)
+    temperature_sigma_c: float = Field(default=2, ge=0, le=50)
     n: int = Field(default=1000, ge=100, le=10000)
     seed: int = 42
 
@@ -68,12 +68,12 @@ class ExperimentInput(BaseModel):
     budget: float = Field(default=1, ge=0)
 
 class AcceptanceInput(BaseModel):
-    nominal_mm: float = Field(gt=0)
-    lower_tol_mm: float
-    upper_tol_mm: float
-    observed_sigma_mm: float = Field(ge=0)
-    measurement_sigma_mm: float = Field(ge=0)
-    n_observations: int = Field(ge=0)
+    nominal_mm: float = Field(default=1.0, gt=0)
+    lower_tol_mm: float = -0.5
+    upper_tol_mm: float = 0.5
+    observed_sigma_mm: float = Field(default=0.0, ge=0)
+    measurement_sigma_mm: float = Field(default=0.0, ge=0)
+    n_observations: int = Field(default=0, ge=0)
 
 class UncertaintyInput(BaseModel):
     physics_sigma_mm: float = Field(default=0.0, ge=0)

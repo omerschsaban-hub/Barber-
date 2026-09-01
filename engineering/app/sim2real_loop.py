@@ -102,7 +102,7 @@ def run_reality_loop(x: RealityLoopRequest):
         "automation": {
             "software_loop": ["compare", "identify", "calibrate", "residual_ml", "validate", "select_next_experiment"],
             "physical_execution": "not automated in MVP; requires real measurements supplied by the connected test workflow",
-            "fabrication_policy": "never fabricate physical observations, validation, or hardware execution",
+            "fabrication_policy": "never invent or fabricate physical observations, validation, or hardware execution",
         },
         "iteration": {"current_observations": len(x.observations), "max_iterations": x.max_iterations},
     }

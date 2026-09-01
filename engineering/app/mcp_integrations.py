@@ -11,7 +11,7 @@ MCP_PROVIDERS: dict[str, dict[str, Any]] = {
     "cloudflare_observability": {"name": "Cloudflare Observability", "description": "Inspect authorized Cloudflare logs and analytics to investigate application behavior and operational issues.", "kind": "official_remote", "auth": "oauth_or_token", "endpoint": "https://observability.mcp.cloudflare.com/mcp", "docs": "https://developers.cloudflare.com/workers/get-started/prompting/"},
     "netlify": {"name": "Netlify", "description": "Inspect and manage authorized Netlify sites, deployments, and hosting workflows through Netlify's remote MCP server.", "kind": "official_remote", "auth": "oauth", "endpoint": "https://netlify-mcp.netlify.app/mcp", "docs": "https://docs.netlify.com/build/build-with-ai/agent-setup-guides/agent-setup-overview/"},
     "notion": {"name": "Notion", "description": "Search and work with authorized Notion workspace content through Notion's hosted MCP server.", "kind": "official_remote", "auth": "oauth", "endpoint": "https://mcp.notion.so/mcp", "docs": "https://developers.cloudflare.com/agents/model-context-protocol/apis/client-api/"},
-    "vercel": {"name": "Vercel", "description": "Work with authorized Vercel projects and deployment workflows through Vercel's remote MCP server.", "kind": "official_remote", "auth": "oauth", "endpoint": "https://mcp.vercel.com/", "docs": "https://vercel.com/docs/mcp"},
+    "vercel": {"name": "Vercel", "description": "Work with authorized Vercel projects and deployment workflows through Vercel's remote MCP server.", "kind": "official_remote", "auth": "oauth", "endpoint": "https://mcp.vercel.com/mcp", "docs": "https://vercel.com/docs/mcp"},
 }
 
 def public_provider_catalog() -> list[dict[str, Any]]:

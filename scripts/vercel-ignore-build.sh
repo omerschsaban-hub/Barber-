@@ -13,7 +13,16 @@ fi
 base="$VERCEL_GIT_PREVIOUS_SHA"
 head="${VERCEL_GIT_COMMIT_SHA:-HEAD}"
 
-mapfile -t changed < <(git diff --name-only "$base" "$head")
+if ! changed_output="$(git diff --name-only "$base" "$head" 2>/dev/null)"; then
+  # Vercel may restore a cache whose previous commit is no longer present in
+  # the checkout.  A missing comparison is ambiguous: deploy rather than
+  # cancel and risk serving a stale frontend.
+  exit 1
+fi
+if [[ -z "$changed_output" ]]; then
+  exit 0
+fi
+mapfile -t changed <<<"$changed_output"
 
 if (( ${#changed[@]} == 0 )); then
   exit 0

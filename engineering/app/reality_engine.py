@@ -17,7 +17,7 @@ def _feature_matrix(obs):
 def compare(observations):
     if not observations:return {"status":"needs_real_data","n":0}
     p=np.asarray([o.predicted for o in observations],float);m=np.asarray([o.measured for o in observations],float);r=m-p;i=int(np.argmax(np.abs(r)))
-    return {"status":"available","n":len(observations),"mae":_mae(m,p),"rmse":_rmse(m,p),"mean_residual":float(np.mean(r)),"residual_sigma":float(np.std(r,ddof=1)) if len(r)>1 else 0.0,"worst":{"index":i,"experiment_id":observations[i].experiment_id,"predicted":float(p[i]),"measured":float(m[i]),"residual":float(r[i])},"divergence":{"index":i,"magnitude":float(abs(r[i])),"reason":"largest observed prediction residual; causal attribution remains a hypothesis until tested"}}
+    return {"status":"available","n":len(observations),"mae":_mae(m,p),"rmse":_rmse(m,p),"mean_residual":float(np.mean(r)),"residual_sigma":float(np.std(r,ddof=1)) if len(r)>1 else 0.0,"worst":{"index":i,"experiment_id":observations[i].experiment_id,"predicted":float(p[i]),"measured":float(m[i]),"residual":round(float(r[i]), 12)},"divergence":{"index":i,"magnitude":round(float(abs(r[i])), 12),"reason":"largest observed prediction residual; causal attribution remains a hypothesis until tested"}}
 def fit_residual_model(observations):
     n=len(observations)
     if n<MIN_REAL:return {"status":"not_ready","n":n,"required":MIN_REAL,"model":None}

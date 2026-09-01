@@ -4,6 +4,7 @@ import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
@@ -14,10 +15,23 @@ _POOL: ConnectionPool | None = None
 
 
 def _dsn() -> str:
-    dsn = os.environ["DATABASE_URL"].strip()
-    if "sslmode=" not in dsn:
-        separator = "&" if "?" in dsn else "?"
-        dsn = f"{dsn}{separator}sslmode=require"
+    """Return a psycopg-compatible DSN with TLS enabled by default."""
+    raw = os.environ["DATABASE_URL"].strip()
+    if not raw:
+        raise RuntimeError("DATABASE_URL is empty")
+
+    if raw.startswith(("postgres://", "postgresql://")):
+        parsed = urlsplit(raw)
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        query.setdefault("sslmode", "require")
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
+
+    # Query parameters are URI syntax and become an invalid option when passed
+    # to libpq's keyword DSN format (for example, ``?sslmode=require``).
+    dsn = raw.replace("?sslmode=", " sslmode=").replace("&sslmode=", " sslmode=")
+    tokens = (token for token in dsn.split() if "=" in token)
+    if not any(token.split("=", 1)[0].lower() == "sslmode" for token in tokens):
+        dsn = f"{dsn} sslmode=require"
     return dsn
 
 

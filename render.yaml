@@ -77,6 +77,8 @@ services:
     envVars:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
+      - key: DATABASE_URL
+        sync: false
       - key: FABRIENT_MCP_OAUTH_ISSUER
         value: https://fabrient-mcp.onrender.com
       - key: FABRIENT_MCP_RESOURCE_URL

@@ -28,9 +28,9 @@ from .workspace_capabilities import router as workspace_capabilities_router
 from .agent_execution import router as agent_execution_router
 from .performance_cache import DeterministicResponseCache
 
-# Reality loop is first so the canonical physics + ML + evidence implementation
-# owns the sim-to-real contracts also consumed by MCP compatibility routes.
-for router in (reality_loop_router, advanced_router, real_cv_sim2real_router, sim2real_loop_router, cv_json_router, risk_map_router, validate_dimension_router, mcp_compat_fixes_router, manufacturing_router, cad_router, final_pipeline_router, quality_router, compat_router, data_flywheel_router, data_flywheel_worker_router, moat_intelligence_router, integration_gateway_router, competitive_product_loop_router, customer_obsession_router, owned_auth_router, billing_router, paypal_billing_router, workspace_capabilities_router, agent_execution_router):
+# The evidence-gated real-CV/sim-to-real routes must precede older overlapping
+# compatibility routes because FastAPI dispatches the first matching route.
+for router in (real_cv_sim2real_router, sim2real_loop_router, reality_loop_router, advanced_router, cv_json_router, risk_map_router, validate_dimension_router, mcp_compat_fixes_router, manufacturing_router, cad_router, final_pipeline_router, quality_router, compat_router, data_flywheel_router, data_flywheel_worker_router, moat_intelligence_router, integration_gateway_router, competitive_product_loop_router, customer_obsession_router, owned_auth_router, billing_router, paypal_billing_router, workspace_capabilities_router, agent_execution_router):
     app.include_router(router)
 install_product_intelligence(app)
 install_universal_quality(app)

@@ -22,7 +22,7 @@ class SystemObservation(BaseModel):
     axis: int = Field(default=0, ge=0, le=2)
 
 class SystemIdentificationRequest(BaseModel):
-    observations: list[SystemObservation]
+    observations: list[SystemObservation] = Field(default_factory=list)
 
 class ReportMeasurement(BaseModel):
     feature: str

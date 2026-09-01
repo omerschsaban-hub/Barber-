@@ -1,5 +1,6 @@
 import base64
 import gzip
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -8,6 +9,11 @@ import app.cad_routes as cad_routes
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def authenticated_test_identity(monkeypatch):
+    monkeypatch.setattr(cad_routes, "user_from_token", lambda token: {"id": "test-user"})
 
 
 def test_step_json_base64_upload_reaches_kernel(monkeypatch):
