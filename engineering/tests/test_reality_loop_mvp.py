@@ -1,5 +1,3 @@
-import pytest
-
 from engineering.app.real_cv_sim2real import RealObservation, Sim2RealRequest, sim2real_run
 from engineering.app.sim2real_loop import Experiment, RealityLoopRequest, run_reality_loop
 
