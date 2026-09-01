@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { engineeringOrigin } from '@/lib/engineering-origin'
 
-const API = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com'
+const API = engineeringOrigin()
 
 export async function GET() {
   const token = (await cookies()).get('fabrient_session')?.value
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const response = await fetch(`${API.replace(/\/$/, '')}/billing/access`, {
+    const response = await fetch(`${API}/billing/access`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
