@@ -20,7 +20,15 @@ ALTER TABLE public.oauth_clients ALTER COLUMN public_client SET DEFAULT TRUE;
 ALTER TABLE public.oauth_clients ALTER COLUMN public_client SET NOT NULL;
 
 ALTER TABLE public.billing_entitlements ADD COLUMN IF NOT EXISTS active BOOLEAN;
-UPDATE public.billing_entitlements SET active = (status = 'active') WHERE active IS NULL;
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'billing_entitlements' AND column_name = 'status'
+  ) THEN
+    UPDATE public.billing_entitlements SET active = (status = 'active') WHERE active IS NULL;
+  END IF;
+END $$;
+UPDATE public.billing_entitlements SET active = FALSE WHERE active IS NULL;
 ALTER TABLE public.billing_entitlements ALTER COLUMN active SET DEFAULT FALSE;
 ALTER TABLE public.billing_entitlements ALTER COLUMN active SET NOT NULL;
 ALTER TABLE public.billing_entitlements ADD COLUMN IF NOT EXISTS source TEXT;
