@@ -9,11 +9,7 @@ from pathlib import Path
 import psycopg
 
 
-_LOCAL_MIGRATIONS = [
-    Path(__file__).with_name("001_owned_postgres.sql"),
-    Path(__file__).with_name("010_schema_reconciliation.sql"),
-    Path(__file__).with_name("011_integration_oauth.sql"),
-]
+_LOCAL_MIGRATIONS = [Path(__file__).with_name("001_owned_postgres.sql"), Path(__file__).with_name("010_schema_reconciliation.sql")]
 _REPO_MIGRATIONS = [Path(__file__).parents[2] / "db" / "migrations" / p.name for p in _LOCAL_MIGRATIONS]
 MIGRATIONS = _LOCAL_MIGRATIONS if all(p.exists() for p in _LOCAL_MIGRATIONS) else _REPO_MIGRATIONS
 
