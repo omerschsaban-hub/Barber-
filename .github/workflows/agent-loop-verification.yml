@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run agent:preflight
       - run: npm run agent:loop:verify
+      - run: npm run agent:loop:selftest
 
   deterministic-gates:
     runs-on: ubuntu-latest
