@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 import httpx
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
-from .auth_db import user_from_bearer
+from services.mcp.auth_db import user_from_bearer
 from .integration_oauth import complete as oauth_complete, connection_token, start as oauth_start
 from .mcp_integrations import MCP_PROVIDERS, public_provider_catalog, search_mcp_providers, provider_tool_help
 from .product_intelligence import record
