@@ -12,6 +12,12 @@ export default function Login() {
   const redirect = typeof window !== 'undefined' ? safeRedirect(new URLSearchParams(window.location.search).get('redirect')) : '/workspace';
   useEffect(() => { if (!seconds) return; const id = setInterval(() => setSeconds(s => Math.max(0, s - 1)), 1000); return () => clearInterval(id); }, [seconds]);
   useEffect(() => { if (step === 'code') codeRef.current?.focus(); }, [step]);
+  useEffect(() => {
+    // Wake the engineering service while the user is entering their email.
+    // Render Free services sleep after idle periods; this avoids making the OTP
+    // request pay the cold-start penalty when possible.
+    void fetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).catch(() => undefined);
+  }, []);
   async function sendCode(e?: FormEvent) {
     e?.preventDefault(); setError(''); const normalized = email.trim().toLowerCase();
     if (!/^\S+@gmail\.com$/i.test(normalized)) { setError('Use your Gmail address.'); return; }
