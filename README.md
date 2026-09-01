@@ -2,6 +2,8 @@
 
 **Build it. Prove it.**
 
+<!-- Render deployment smoke test: 2026-09-01. No runtime or product behavior is changed. -->
+
 Fabrient helps people building physical products get from an engineering idea to something they can actually make, test, improve and trust.
 
 You can start with a plain-English request, the CAD you already have, measurements, manufacturing information, or a problem you are trying to solve. Fabrient helps work through the job instead of making you stitch together a dozen disconnected tools.
