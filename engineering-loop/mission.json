@@ -1,0 +1,17 @@
+{
+  "name": "fabrient-engineering-loop",
+  "objective": "Run bounded autonomous engineering work against the real Fabrient repository and deployed systems, with the agent choosing the next useful action and an independent verifier deciding whether the mission is actually complete.",
+  "success_conditions": [
+    "The agent receives the current mission, persistent state, repository context, and the complete runtime-connected tool inventory.",
+    "Every iteration records an explicit next action and evidence returned by a tool or verifier.",
+    "Deterministic local gates pass before completion can be declared.",
+    "Production-facing work is verified against the deployed runtime when the mission requires it.",
+    "The loop stops on success, budget exhaustion, repeated failure, or a blocked high-risk action rather than pretending success."
+  ],
+  "budgets": {"max_iterations": 20, "max_failures": 5, "max_runtime_minutes": 30},
+  "risk_policy": {
+    "auto_allowed": ["read", "search", "test", "lint", "build", "inspect", "create_branch", "commit_branch"],
+    "checkpoint_required": ["production_deploy", "database_migration", "billing_change", "auth_boundary_change", "secret_change", "destructive_delete"],
+    "never_guess": ["credentials", "secrets", "production_identity", "payment_state", "deployment_success"]
+  }
+}
