@@ -13,12 +13,19 @@ const checks = [
   ['loop requires evidence', loop.includes('require_evidence') && loop.includes('decision.evidence')],
   ['loop requires runtime-connected tools', loop.includes('no runtime-connected tools were supplied') && loop.includes('inventory.connected')],
   ['loop validates every requested tool', loop.includes('validateToolCalls') && loop.includes('allowed.has')],
+  ['loop records action signatures', loop.includes('action_signatures') && loop.includes('actionSignature')],
+  ['loop detects stagnation', loop.includes('failed_stagnation') && loop.includes('priorCount >= 2')],
+  ['agent failures are recoverable', loop.includes("phase: 'agent-error'") && loop.includes('recoverable: true')],
+  ['loop persists state before invoking agent', loop.includes('state.iteration = i') && loop.includes('saveState(state)')],
   ['loop has independent deterministic gates', loop.includes('deterministicGates') && loop.includes('npm')],
   ['loop blocks high-risk actions without checkpoint', loop.includes('FABRIENT_LOOP_CHECKPOINT')],
   ['loop cannot claim done without gates', loop.includes('decision.done === true') && loop.includes('gates.every')],
+  ['loop supports deterministic test mode', loop.includes('FABRIENT_LOOP_TEST_MODE')],
   ['package exposes agent loop command', packageJson.scripts?.['agent:loop'] === 'node scripts/agent-loop.mjs'],
+  ['package exposes loop self-test', packageJson.scripts?.['agent:loop:selftest'] === 'node scripts/agent-loop-selftest.mjs'],
   ['MCP provider catalog is present', registry.includes('MCP_PROVIDERS')],
   ['preflight script is present', existsSync('scripts/agent-preflight.mjs')],
+  ['loop fixture is present', existsSync('scripts/agent-loop-fixture.mjs')],
 ]
 
 for (const [name, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'} ${name}`)
