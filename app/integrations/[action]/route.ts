@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const API = (process.env.FABRIENT_ENGINEERING_API || process.env.NEXT_PUBLIC_FABRIENT_ENGINEERING_API || 'http://localhost:8000').replace(/\/$/, '')
+const PUBLIC_WEB_URL = process.env.NEXT_PUBLIC_FABRIENT_WEB_URL || 'https://fabrinat-omega.vercel.app'
 
 const FALLBACK_PROVIDERS = [
-  { id: 'fabrient-mcp', name: 'Fabrient MCP', description: 'Authenticated engineering tools for geometry, evidence, manufacturing, and release workflows.', auth: 'oauth', endpoint: 'https://fabrient-mcp.onrender.com/mcp', docs: 'https://getfabrient.com/integrations', configured: true, kind: 'mcp_server' },
-  { id: 'cad-import', name: 'CAD / STEP import', description: 'Bring existing STEP and CAD artifacts into a Fabrient engineering job.', auth: 'none', endpoint: '/import', docs: 'https://getfabrient.com/import', configured: true, kind: 'engineering_artifact' },
-  { id: 'measurement-evidence', name: 'Measurement evidence', description: 'Attach inspection records, images, units, provenance, and physical observations to a project.', auth: 'none', endpoint: '/records', docs: 'https://getfabrient.com/records', configured: true, kind: 'evidence' },
-  { id: 'manufacturing-release', name: 'Manufacturing release', description: 'Prepare build guidance, manufacturing notes, inspection planning, and validated release packages.', auth: 'none', endpoint: '/records', docs: 'https://getfabrient.com/records', configured: true, kind: 'manufacturing' },
+  { id: 'fabrient-mcp', name: 'Fabrient MCP', description: 'Authenticated engineering tools for geometry, evidence, manufacturing, and release workflows.', auth: 'oauth', endpoint: 'https://fabrient-mcp.onrender.com/mcp', docs: `${PUBLIC_WEB_URL}/integrations`, configured: true, kind: 'mcp_server' },
+  { id: 'cad-import', name: 'CAD / STEP import', description: 'Bring existing STEP and CAD artifacts into a Fabrient engineering job.', auth: 'none', endpoint: '/import', docs: `${PUBLIC_WEB_URL}/import`, configured: true, kind: 'engineering_artifact' },
+  { id: 'measurement-evidence', name: 'Measurement evidence', description: 'Attach inspection records, images, units, provenance, and physical observations to a project.', auth: 'none', endpoint: '/records', docs: `${PUBLIC_WEB_URL}/records`, configured: true, kind: 'evidence' },
+  { id: 'manufacturing-release', name: 'Manufacturing release', description: 'Prepare build guidance, manufacturing notes, inspection planning, and validated release packages.', auth: 'none', endpoint: '/records', docs: `${PUBLIC_WEB_URL}/records`, configured: true, kind: 'manufacturing' },
 ]
 
 const FALLBACK_TOOLS = [
