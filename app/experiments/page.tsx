@@ -1,14 +1,13 @@
 'use client';
 import {useState} from 'react';
-const ENGINE = process.env.NEXT_PUBLIC_ENGINEERING_API || process.env.NEXT_PUBLIC_ENGINEERING_URL || 'http://localhost:8000';
 export default function Experiments(){
   const [result,setResult]=useState<any>(); const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
   async function choose(){
     setBusy(true);setError('');setResult(undefined);
     try{
-      const r=await fetch(`${ENGINE}/v1/next-experiment?machine_id=unassigned`,{method:'POST'});
+      const r=await fetch('/api/engineering/v1/next-experiment?machine_id=unassigned',{method:'POST',headers:{'content-type':'application/json'},body:'{}',cache:'no-store'});
       const j=await r.json().catch(()=>({detail:'Engineering service returned invalid JSON.'}));
-      if(!r.ok) throw new Error(j.detail||`Engineering request failed (${r.status})`);
+      if(!r.ok) throw new Error(j.detail||j.error||`Engineering request failed (${r.status})`);
       if(!j.experiment||!Array.isArray(j.experiment.dimensions_mm)||!Array.isArray(j.experiment.features)) throw new Error('Experiment response is incomplete.');
       setResult(j);
     }catch(e:any){setError(e?.message||'Unable to select the next experiment.');}

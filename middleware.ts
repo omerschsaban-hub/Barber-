@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { engineeringOrigin } from '@/lib/engineering-origin'
 
 const mutationWindowMs = 60_000
 const mutationLimit = 60
 const mutationCounts = new Map<string, { count: number; resetAt: number }>()
 
 function withSecurityHeaders(request: NextRequest) {
-  // Next.js App Router emits inline bootstrap/hydration scripts. A nonce-only
-  // policy without attaching that nonce to every generated bootstrap script
-  // leaves the server HTML visible but prevents hydration, producing a blank
-  // page. Keep scripts same-origin and explicitly allow the framework's inline
-  // bootstrap; do not advertise an unused nonce.
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com`,
@@ -80,13 +76,13 @@ export async function middleware(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith('/projects')) return response
 
   const token = request.cookies.get('fabrient_session')?.value
-  const api = process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API
-  if (!token || !api) {
+  const api = engineeringOrigin()
+  if (!token) {
     return withHeaders(NextResponse.redirect(new URL('/login', request.url)), requestHeaders)
   }
 
   try {
-    const check = await fetch(`${api.replace(/\/$/, '')}/auth/me`, {
+    const check = await fetch(`${api}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })

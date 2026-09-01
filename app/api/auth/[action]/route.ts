@@ -1,9 +1,10 @@
 import {NextRequest, NextResponse} from 'next/server'
+import {engineeringOrigin} from '@/lib/engineering-origin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const ENGINE = (process.env.ENGINEERING_API_INTERNAL || process.env.NEXT_PUBLIC_ENGINEERING_API || 'https://fabrient-engineering.onrender.com').replace(/\/$/, '')
+const ENGINE = engineeringOrigin()
 const MAX_AUTH_BODY_BYTES = 32 * 1024
 
 export async function POST(request: NextRequest, {params}: {params: Promise<{action: string}>}) {
@@ -40,7 +41,7 @@ async function proxy(request: NextRequest, path: string, body?: ArrayBuffer) {
       headers,
       body: request.method === 'GET' ? undefined : body,
       cache: 'no-store',
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(12_000),
     })
     const response = new NextResponse(upstream.body, {status: upstream.status})
     const type = upstream.headers.get('content-type')
