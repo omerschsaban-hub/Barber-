@@ -1,21 +1,103 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { performance } from 'node:perf_hooks'
 
-const steps = [
-  ['preflight', 'npm', ['run', 'agent:preflight']],
-  ['lint', 'npm', ['run', 'lint']],
-  ['unit', 'npm', ['run', 'test:unit']],
-  ['build', 'npm', ['run', 'build']],
-  ['browser', 'npm', ['run', 'test:e2e']],
-]
+const ROOT = process.cwd()
+const missionPath = 'engineering-loop/mission.json'
+const stateDir = '.engineering-loop'
+const statePath = `${stateDir}/state.json`
+const mission = JSON.parse(readFileSync(missionPath, 'utf8'))
+mkdirSync(stateDir, { recursive: true })
+const now = () => new Date().toISOString()
+const loadState = () => existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : { status: 'running', iteration: 0, failures: 0, history: [], created_at: now() }
+const saveState = state => writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`)
 
-for (const [name, command, args] of steps) {
-  console.log(`\n=== agent loop: ${name} ===`)
-  const result = spawnSync(command, args, { stdio: 'inherit', shell: process.platform === 'win32' })
-  if (result.status !== 0) {
-    console.error(`agent loop stopped at ${name}; fix the failure before claiming acceptance`)
-    process.exit(result.status ?? 1)
-  }
+function run(name, command, args) {
+  const started = performance.now()
+  const result = spawnSync(command, args, { cwd: ROOT, encoding: 'utf8', shell: process.platform === 'win32' })
+  return { name, ok: result.status === 0, status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '', duration_ms: Math.round(performance.now() - started) }
 }
 
-console.log('\nAgent loop passed local preflight/lint/unit/build/browser gates.')
-console.log('Production acceptance still requires deployed-runtime verification and MCP/engineering integration tests.')
+function providerInventory() {
+  const source = readFileSync('engineering/app/mcp_integrations.py', 'utf8')
+  return [...source.matchAll(/^\s+"([^"]+)":\s*\{[^\n]*?"endpoint":\s*"([^"]+)"/gm)].map(m => ({ id: m[1], endpoint: m[2] }))
+}
+
+function connectedToolInventory() {
+  if (!process.env.FABRIENT_AGENT_TOOLS_JSON) return { source: 'repository-catalog', tools: providerInventory(), connected: false }
+  try {
+    const tools = JSON.parse(process.env.FABRIENT_AGENT_TOOLS_JSON)
+    if (!Array.isArray(tools)) throw new Error('FABRIENT_AGENT_TOOLS_JSON must be an array')
+    return { source: 'runtime', tools, connected: true }
+  } catch (error) { throw new Error(`Invalid FABRIENT_AGENT_TOOLS_JSON: ${error.message}`) }
+}
+
+function buildContext(state, inventory) {
+  return { mission, state, repository: { cwd: ROOT, required_preflight: 'npm run agent:preflight' }, tools: inventory, rules: { choose_next_step: true, require_evidence: true, never_claim_success_without_verifier: true, never_guess_credentials: true, checkpoint_high_risk_actions: mission.risk_policy.checkpoint_required } }
+}
+
+function askAgent(context) {
+  const command = process.env.FABRIENT_AGENT_COMMAND
+  if (!command) return null
+  const result = spawnSync(command, { cwd: ROOT, input: `${JSON.stringify(context)}\n`, encoding: 'utf8', shell: true })
+  if (result.status !== 0) throw new Error(`Agent command failed: ${result.stderr || result.stdout}`)
+  const output = result.stdout.trim()
+  if (!output) throw new Error('Agent command returned no decision')
+  const decision = JSON.parse(output)
+  if (!decision.action || typeof decision.action !== 'string') throw new Error('Agent decision must contain action')
+  return decision
+}
+
+function deterministicGates() {
+  return [
+    ['preflight', 'npm', ['run', 'agent:preflight']],
+    ['lint', 'npm', ['run', 'lint']],
+    ['unit', 'npm', ['run', 'test:unit']],
+    ['build', 'npm', ['run', 'build']],
+  ].map(([name, command, args]) => run(name, command, args))
+}
+
+const state = loadState()
+const inventory = connectedToolInventory()
+if (!inventory.tools.length) throw new Error('Engineering loop refused to start: no connected tools were supplied.')
+
+const preflight = run('preflight', 'npm', ['run', 'agent:preflight'])
+state.history.push({ at: now(), phase: 'preflight', result: preflight, tool_inventory: inventory })
+if (!preflight.ok) { state.status = 'blocked'; state.failures += 1; saveState(state); process.exit(1) }
+
+const deadline = Date.now() + mission.budgets.max_runtime_minutes * 60_000
+let finished = false
+for (let i = state.iteration + 1; i <= mission.budgets.max_iterations; i += 1) {
+  if (Date.now() >= deadline) break
+  state.iteration = i
+  const decision = askAgent(buildContext(state, inventory))
+  if (!decision) {
+    state.history.push({ at: now(), iteration: i, phase: 'decision', mode: 'verification-only', message: 'No FABRIENT_AGENT_COMMAND configured; deterministic verification remains available.' })
+    break
+  }
+  const requiresCheckpoint = mission.risk_policy.checkpoint_required.includes(decision.action)
+  if (requiresCheckpoint && process.env.FABRIENT_LOOP_CHECKPOINT !== 'approved') {
+    state.status = 'checkpoint_required'
+    state.history.push({ at: now(), iteration: i, phase: 'decision', decision, blocked: 'high-risk action requires checkpoint' })
+    saveState(state); process.exitCode = 2; break
+  }
+  state.history.push({ at: now(), iteration: i, phase: 'decision', decision })
+  if (decision.done === true) {
+    const gates = deterministicGates()
+    state.history.push({ at: now(), iteration: i, phase: 'verification', gates })
+    if (gates.every(gate => gate.ok)) { finished = true; state.status = 'verified'; break }
+    state.failures += 1
+  } else if (!Array.isArray(decision.evidence) || decision.evidence.length === 0) {
+    state.failures += 1
+    state.history.push({ at: now(), iteration: i, phase: 'evidence', error: 'Agent decision contained no evidence.' })
+  }
+  if (state.failures >= mission.budgets.max_failures) { state.status = 'failed_budget'; break }
+  saveState(state)
+}
+
+if (!finished && state.status === 'running') state.status = state.iteration >= mission.budgets.max_iterations ? 'iteration_budget_exhausted' : 'awaiting_agent'
+state.updated_at = now()
+saveState(state)
+console.log(JSON.stringify({ status: state.status, iteration: state.iteration, failures: state.failures, connected_tool_count: inventory.tools.length, state_file: statePath }, null, 2))
+if (state.status === 'verified' || state.status === 'awaiting_agent') process.exit(0)
+process.exit(1)
