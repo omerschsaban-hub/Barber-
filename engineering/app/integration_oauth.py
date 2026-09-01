@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 import httpx
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import HTTPException
-from .auth_db import _pool, user_from_bearer
+from services.mcp.auth_db import _pool, user_from_bearer
 from .mcp_integrations import MCP_PROVIDERS
 
 PUBLIC_WEB_URL = os.getenv("FABRIENT_WEB_URL", os.getenv("NEXT_PUBLIC_FABRIENT_WEB_URL", "https://fabrinat-omega.vercel.app")).rstrip("/")
