@@ -83,6 +83,10 @@ Fabrient must not:
 
 The landing page should explain the system as an engineering architecture rather than a feature checklist: language coordinates the work, deterministic computation establishes the baseline, ML learns residual behavior from real observations, measurement closes the loop, and release happens only when the evidence gates pass.
 
-## Canonical public hostname
+## Current public hostname
 
-`https://getfabrient.com` is the intended public hostname. It is referenced by application metadata as the canonical/Open Graph URL. The domain must still be attached/configured in the hosting account before it is the live production hostname.
+The live product is currently served from the verified Vercel production subdomain:
+
+`https://fabrinat-omega.vercel.app`
+
+A custom domain is **not required for the current product** and should not block engineering, authentication, MCP, integrations, or launch testing. If a custom domain is added later, it should be introduced as a configuration change, with OAuth redirect URLs, canonical metadata, CORS origins, MCP authorization links, mobile deep links and automated tests updated together.
