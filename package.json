@@ -1,10 +1,7 @@
 {
   "name": "fabrient",
   "private": true,
-  "engines": {
-    "node": ">=22 <23",
-    "npm": ">=10"
-  },
+  "engines": {"node": ">=22 <23", "npm": ">=10"},
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -16,7 +13,8 @@
     "test:deep": "npm run agent:preflight && npm run test:unit && npm run test:e2e",
     "test:all": "npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",
     "agent:preflight": "node scripts/agent-preflight.mjs",
-    "agent:loop": "node scripts/agent-loop.mjs"
+    "agent:loop": "node scripts/agent-loop.mjs",
+    "agent:loop:verify": "node scripts/agent-loop-verify.mjs"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
@@ -33,10 +31,7 @@
     "react-dom": "19.1.1",
     "three": "0.185.1"
   },
-  "overrides": {
-    "sharp": "^0.35.0",
-    "postcss": "8.5.26"
-  },
+  "overrides": {"sharp": "^0.35.0", "postcss": "8.5.26"},
   "devDependencies": {
     "@playwright/test": "1.62.1",
     "@types/node": "26.4.0",
