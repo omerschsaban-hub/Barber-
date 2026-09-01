@@ -19,7 +19,6 @@ export default function AppHeader() {
       <div className="nav-secondary">
         <Link href="/geometry">Geometry</Link>
         <Link href="/calibration">Calibration</Link>
-        <Link href="/graph">Evidence</Link>
         <Link href="/records">Exports</Link>
         <Link href="/integrations">Integrations</Link>
         <Link href="/changelog">Changelog</Link>
