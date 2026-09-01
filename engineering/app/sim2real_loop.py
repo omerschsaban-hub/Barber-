@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from .real_cv_sim2real import RealObservation, Sim2RealRequest, sim2real_compare, sim2real_run
