@@ -14,7 +14,8 @@
     "test:all": "npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",
     "agent:preflight": "node scripts/agent-preflight.mjs",
     "agent:loop": "node scripts/agent-loop.mjs",
-    "agent:loop:verify": "node scripts/agent-loop-verify.mjs"
+    "agent:loop:verify": "node scripts/agent-loop-verify.mjs",
+    "agent:loop:selftest": "node scripts/agent-loop-selftest.mjs"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
@@ -22,13 +23,11 @@
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",
     "@vercel/analytics": "2.0.1",
-    "@vercel/speed-insights": "2.0.0",
+    "@vercel/speed-insights": "2.0.1",
     "lucide-react": "1.34.0",
     "next": "15.5.21",
     "papaparse": "5.7.0",
     "pdf-lib": "1.17.1",
-    "react": "19.1.1",
-    "react-dom": "19.1.1",
     "three": "0.185.1"
   },
   "overrides": {"sharp": "^0.35.0", "postcss": "8.5.26"},
