@@ -1,16 +1,14 @@
-const DEFAULT_API = 'https://fabrient-engineering.onrender.com'
+import { engineeringOrigin } from './engineering-origin'
 
 /**
- * Browser calls use the same-origin Next.js proxy. This avoids exposing the
- * engineering origin to the browser, keeps the session cookie same-origin,
- * and makes frontend/backend routing identical in production and preview.
- * Server-side calls keep using the real engineering origin.
+ * Browser calls use the same-origin Next.js proxy. Server-side calls use one
+ * canonical engineering origin so Vercel environment-variable drift cannot
+ * silently route different API paths to different backends.
  */
 export function backendUrl(path = ''): string {
   const normalized = path.replace(/^\//, '')
   if (typeof window !== 'undefined') return `/api/engineering/${normalized}`
-  const base = (process.env.FABRIENT_API_URL || process.env.NEXT_PUBLIC_ENGINEERING_API || DEFAULT_API).replace(/\/$/, '')
-  return `${base}/${normalized}`
+  return `${engineeringOrigin()}/${normalized}`
 }
 
 function isRetryable(method: string, status?: number) {
@@ -32,7 +30,7 @@ export async function backendFetch(path: string, init: RequestInit = {}): Promis
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 20_000)
+    const timeout = setTimeout(() => controller.abort(), 12_000)
     try {
       const response = await fetch(backendUrl(path), {
         ...init,
