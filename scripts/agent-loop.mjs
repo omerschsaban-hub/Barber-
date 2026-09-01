@@ -18,22 +18,22 @@ function run(name, command, args) {
   return { name, ok: result.status === 0, status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '', duration_ms: Math.round(performance.now() - started) }
 }
 
-function providerInventory() {
+function providerCatalog() {
   const source = readFileSync('engineering/app/mcp_integrations.py', 'utf8')
   return [...source.matchAll(/^\s+"([^"]+)":\s*\{[^\n]*?"endpoint":\s*"([^"]+)"/gm)].map(m => ({ id: m[1], endpoint: m[2] }))
 }
 
 function connectedToolInventory() {
-  if (!process.env.FABRIENT_AGENT_TOOLS_JSON) return { source: 'repository-catalog', tools: providerInventory(), connected: false }
+  if (!process.env.FABRIENT_AGENT_TOOLS_JSON) return { source: 'none', tools: [], connected: false, catalog: providerCatalog() }
   try {
     const tools = JSON.parse(process.env.FABRIENT_AGENT_TOOLS_JSON)
-    if (!Array.isArray(tools)) throw new Error('FABRIENT_AGENT_TOOLS_JSON must be an array')
-    return { source: 'runtime', tools, connected: true }
+    if (!Array.isArray(tools) || tools.length === 0) throw new Error('FABRIENT_AGENT_TOOLS_JSON must be a non-empty array')
+    return { source: 'runtime', tools, connected: true, catalog: providerCatalog() }
   } catch (error) { throw new Error(`Invalid FABRIENT_AGENT_TOOLS_JSON: ${error.message}`) }
 }
 
 function buildContext(state, inventory) {
-  return { mission, state, repository: { cwd: ROOT, required_preflight: 'npm run agent:preflight' }, tools: inventory, rules: { choose_next_step: true, require_evidence: true, never_claim_success_without_verifier: true, never_guess_credentials: true, checkpoint_high_risk_actions: mission.risk_policy.checkpoint_required } }
+  return { mission, state, repository: { cwd: ROOT, required_preflight: 'npm run agent:preflight' }, tools: inventory, rules: { choose_next_step: true, require_evidence: true, require_tool_calls: true, never_claim_success_without_verifier: true, never_guess_credentials: true, checkpoint_high_risk_actions: mission.risk_policy.checkpoint_required } }
 }
 
 function askAgent(context) {
@@ -45,7 +45,13 @@ function askAgent(context) {
   if (!output) throw new Error('Agent command returned no decision')
   const decision = JSON.parse(output)
   if (!decision.action || typeof decision.action !== 'string') throw new Error('Agent decision must contain action')
+  if (!Array.isArray(decision.tool_calls)) throw new Error('Agent decision must contain tool_calls')
   return decision
+}
+
+function validateToolCalls(decision, inventory) {
+  const allowed = new Set(inventory.tools.map(tool => tool.id ?? tool.name ?? tool.provider))
+  return decision.tool_calls.every(call => call && typeof call.tool === 'string' && allowed.has(call.tool))
 }
 
 function deterministicGates() {
@@ -59,7 +65,7 @@ function deterministicGates() {
 
 const state = loadState()
 const inventory = connectedToolInventory()
-if (!inventory.tools.length) throw new Error('Engineering loop refused to start: no connected tools were supplied.')
+if (!inventory.connected || !inventory.tools.length) throw new Error('Engineering loop refused to start: no runtime-connected tools were supplied.')
 
 const preflight = run('preflight', 'npm', ['run', 'agent:preflight'])
 state.history.push({ at: now(), phase: 'preflight', result: preflight, tool_inventory: inventory })
@@ -71,9 +77,13 @@ for (let i = state.iteration + 1; i <= mission.budgets.max_iterations; i += 1) {
   if (Date.now() >= deadline) break
   state.iteration = i
   const decision = askAgent(buildContext(state, inventory))
-  if (!decision) {
-    state.history.push({ at: now(), iteration: i, phase: 'decision', mode: 'verification-only', message: 'No FABRIENT_AGENT_COMMAND configured; deterministic verification remains available.' })
-    break
+  if (!decision) { state.status = 'agent_not_configured'; break }
+  if (!validateToolCalls(decision, inventory)) {
+    state.failures += 1
+    state.history.push({ at: now(), iteration: i, phase: 'tool-validation', error: 'Agent referenced a tool that is not in the runtime-connected inventory.', decision })
+    if (state.failures >= mission.budgets.max_failures) { state.status = 'failed_budget'; break }
+    saveState(state)
+    continue
   }
   const requiresCheckpoint = mission.risk_policy.checkpoint_required.includes(decision.action)
   if (requiresCheckpoint && process.env.FABRIENT_LOOP_CHECKPOINT !== 'approved') {
