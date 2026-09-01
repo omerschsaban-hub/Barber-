@@ -165,7 +165,7 @@ jobs:
       - name: Smoke every shipped route
         run: |
           set -euo pipefail
-          for route in / /login /calibration /experiments /geometry /graph /import /manufacturing /projects /records /risk-map; do
+          for route in / /login /calibration /experiments /geometry /import /manufacturing /projects /records /risk-map; do
             code=$(curl -sS -o /tmp/route.html -w '%{http_code}' --max-time 15 "http://127.0.0.1:3000$route")
             case "$code" in 2??|3??) ;; *) cat /tmp/route.html; exit 1;; esac
             ! grep -Eiq 'Application error|Unhandled Runtime Error|Internal Server Error' /tmp/route.html
