@@ -13,10 +13,14 @@ export default function Login() {
   useEffect(() => { if (!seconds) return; const id = setInterval(() => setSeconds(s => Math.max(0, s - 1)), 1000); return () => clearInterval(id); }, [seconds]);
   useEffect(() => { if (step === 'code') codeRef.current?.focus(); }, [step]);
   useEffect(() => {
-    // Wake the engineering service while the user is entering their email.
-    // Render Free services sleep after idle periods; this avoids making the OTP
-    // request pay the cold-start penalty when possible.
-    void fetch('/api/auth/me', { method: 'GET', cache: 'no-store' }).catch(() => undefined);
+    // Start waking Render as soon as the login screen is visible. This endpoint
+    // only reaches /health, so it does not require auth, Gmail, or PostgreSQL.
+    // A second request is intentionally sent shortly afterward to cover users
+    // who open the page and submit the form immediately.
+    const warm = () => { void fetch('/api/auth/warmup', { method: 'GET', cache: 'no-store' }).catch(() => undefined); };
+    warm();
+    const retry = window.setTimeout(warm, 2500);
+    return () => window.clearTimeout(retry);
   }, []);
   async function sendCode(e?: FormEvent) {
     e?.preventDefault(); setError(''); const normalized = email.trim().toLowerCase();
