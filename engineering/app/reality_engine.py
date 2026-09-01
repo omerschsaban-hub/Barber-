@@ -1,7 +1,6 @@
 from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
-from typing import Any
 import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
