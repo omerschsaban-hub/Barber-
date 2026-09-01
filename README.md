@@ -129,7 +129,6 @@ No browser redirect or client-side state is sufficient proof of payment.
 - `/manufacturing` — design, manufacturing checks, build and release
 - `/geometry` — CAD/STEP geometry work
 - `/records` — inspection records and exports
-- `/graph` — the agent workflow
 - `/projects` — project history
 
 ## Architecture
