@@ -1,8 +1,4 @@
-"""Apply the owned PostgreSQL schema before the MCP service starts.
-
-The migration is idempotent and is intentionally run at container startup so
-Render's free plan does not require an interactive shell or a separate job.
-"""
+"""Apply the owned PostgreSQL schema before the MCP service starts."""
 from __future__ import annotations
 
 import hashlib
@@ -13,7 +9,11 @@ from pathlib import Path
 import psycopg
 
 
-_LOCAL_MIGRATIONS = [Path(__file__).with_name("001_owned_postgres.sql"), Path(__file__).with_name("010_schema_reconciliation.sql")]
+_LOCAL_MIGRATIONS = [
+    Path(__file__).with_name("001_owned_postgres.sql"),
+    Path(__file__).with_name("010_schema_reconciliation.sql"),
+    Path(__file__).with_name("011_integration_oauth.sql"),
+]
 _REPO_MIGRATIONS = [Path(__file__).parents[2] / "db" / "migrations" / p.name for p in _LOCAL_MIGRATIONS]
 MIGRATIONS = _LOCAL_MIGRATIONS if all(p.exists() for p in _LOCAL_MIGRATIONS) else _REPO_MIGRATIONS
 
@@ -32,7 +32,7 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
     ).fetchone()
     conn.execute(
         """insert into oauth_clients(client_id, client_name, redirect_uris, public_client)
-           values('fabrient-smoke', 'Fabrient MCP smoke service', ARRAY['https://fabrient.com/oauth/callback'], true)
+           values('fabrient-smoke', 'Fabrient MCP smoke service', ARRAY['https://fabrinat-omega.vercel.app/oauth/callback'], true)
            on conflict (client_id) do nothing"""
     )
     conn.execute(
