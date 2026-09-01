@@ -1,5 +1,5 @@
 from __future__ import annotations
-import base64,hashlib,hmac,os,secrets,time
+import asyncio,base64,hashlib,hmac,os,secrets,time
 from email.message import EmailMessage
 from typing import Any
 import httpx
@@ -8,6 +8,9 @@ from pydantic import BaseModel,Field
 from .postgres import execute,fetch_all,fetch_one,transaction
 router=APIRouter(prefix='/auth',tags=['owned-auth'])
 COOKIE_NAME='fabrient_session'; OTP_TTL_SECONDS=600; SESSION_TTL_SECONDS=2592000; MAX_OTP_ATTEMPTS=5
+_GMAIL_TOKEN: str|None=None
+_GMAIL_TOKEN_EXPIRES_AT=0.0
+_GMAIL_TOKEN_LOCK=asyncio.Lock()
 def _secret()->bytes:
  value=os.getenv('AUTH_SECRET')
  if not value or len(value)<32: raise RuntimeError('AUTH_SECRET must be configured with at least 32 bytes of entropy')
@@ -20,16 +23,31 @@ def _rate_limit(bucket:str,limit:int,window_seconds:int)->None:
  rows=fetch_all("INSERT INTO rate_limits(bucket,window_started_at,count) VALUES(%s,now(),1) ON CONFLICT(bucket) DO UPDATE SET count=CASE WHEN rate_limits.window_started_at<=now()-(%s*interval '1 second') THEN 1 ELSE rate_limits.count+1 END,window_started_at=CASE WHEN rate_limits.window_started_at<=now()-(%s*interval '1 second') THEN now() ELSE rate_limits.window_started_at END,updated_at=now() RETURNING count",(bucket,window_seconds,window_seconds))
  if rows and int(rows[0]['count'])>limit:raise HTTPException(429,'Too many requests. Please try again later.')
 async def _gmail_access_token()->str:
- refresh,client_id,client_secret=os.getenv('GMAIL_REFRESH_TOKEN'),os.getenv('GMAIL_CLIENT_ID'),os.getenv('GMAIL_CLIENT_SECRET')
- if not refresh or not client_id or not client_secret:raise RuntimeError('Gmail OAuth credentials are not configured')
- async with httpx.AsyncClient(timeout=10) as client:r=await client.post('https://oauth2.googleapis.com/token',data={'client_id':client_id,'client_secret':client_secret,'refresh_token':refresh,'grant_type':'refresh_token'})
- if r.status_code!=200:raise RuntimeError('Gmail OAuth token refresh failed')
- token=r.json().get('access_token')
- if not token:raise RuntimeError('Gmail OAuth response did not contain an access token')
- return token
+ global _GMAIL_TOKEN,_GMAIL_TOKEN_EXPIRES_AT
+ now=time.monotonic()
+ if _GMAIL_TOKEN and now < _GMAIL_TOKEN_EXPIRES_AT:
+  return _GMAIL_TOKEN
+ async with _GMAIL_TOKEN_LOCK:
+  now=time.monotonic()
+  if _GMAIL_TOKEN and now < _GMAIL_TOKEN_EXPIRES_AT:
+   return _GMAIL_TOKEN
+  refresh,client_id,client_secret=os.getenv('GMAIL_REFRESH_TOKEN'),os.getenv('GMAIL_CLIENT_ID'),os.getenv('GMAIL_CLIENT_SECRET')
+  if not refresh or not client_id or not client_secret:raise RuntimeError('Gmail OAuth credentials are not configured')
+  async with httpx.AsyncClient(timeout=4) as client:r=await client.post('https://oauth2.googleapis.com/token',data={'client_id':client_id,'client_secret':client_secret,'refresh_token':refresh,'grant_type':'refresh_token'})
+  if r.status_code!=200:raise RuntimeError('Gmail OAuth token refresh failed')
+  token=r.json().get('access_token')
+  if not token:raise RuntimeError('Gmail OAuth response did not contain an access token')
+  _GMAIL_TOKEN=token
+  _GMAIL_TOKEN_EXPIRES_AT=time.monotonic()+max(30,int(r.json().get('expires_in',3600))-60)
+  return token
 async def _send_otp_email(email:str,code:str)->None:
  token=await _gmail_access_token();msg=EmailMessage();msg['To']=email;msg['From']=os.getenv('GMAIL_SENDER','omerschsaban@gmail.com');msg['Subject']='Your Fabrient sign-in code';msg.set_content(f'Your Fabrient sign-in code is {code}. It expires in 10 minutes and can only be used once.');raw=base64.urlsafe_b64encode(msg.as_bytes()).decode().rstrip('=')
- async with httpx.AsyncClient(timeout=10) as client:r=await client.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},json={'raw':raw})
+ async with httpx.AsyncClient(timeout=6) as client:r=await client.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},json={'raw':raw})
+ if r.status_code==401:
+  global _GMAIL_TOKEN,_GMAIL_TOKEN_EXPIRES_AT
+  _GMAIL_TOKEN=None;_GMAIL_TOKEN_EXPIRES_AT=0
+  token=await _gmail_access_token()
+  async with httpx.AsyncClient(timeout=6) as client:r=await client.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},json={'raw':raw})
  if r.status_code>=300:raise RuntimeError('Gmail API rejected the OTP message')
 class EmailRequest(BaseModel):email:str=Field(min_length=6,max_length=254)
 class VerifyRequest(BaseModel):email:str=Field(min_length=6,max_length=254);code:str=Field(pattern=r'^\d{6}$')
