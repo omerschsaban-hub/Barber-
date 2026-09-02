@@ -9,6 +9,45 @@ def test_owned_schema_contains_core_security_tables():
         assert f"CREATE TABLE IF NOT EXISTS {table}" in sql
 
 
+def test_complete_migration_set_is_shipped_to_mcp():
+    dockerfile = (ROOT / "services/mcp/Dockerfile").read_text()
+    migrate = (ROOT / "services/mcp/migrate.py").read_text()
+    migration_dir = ROOT / "db/migrations"
+    migration_files = sorted(migration_dir.glob("*.sql"))
+
+    assert len(migration_files) >= 10
+    assert "COPY db/migrations ./migrations" in dockerfile
+    assert "glob(\"*.sql\")" in migrate
+    assert "sorted(" in migrate
+    assert "schema_migrations" in migrate
+
+
+def test_required_platform_tables_are_defined_across_migrations():
+    migration_sql = "\n".join(p.read_text() for p in sorted((ROOT / "db/migrations").glob("*.sql")))
+    for table in (
+        "projects",
+        "project_members",
+        "billing_customers",
+        "api_keys",
+        "audit_logs",
+        "oauth_authorization_requests",
+        "plan_usage_monthly",
+        "workspace_invitations",
+        "project_approvals",
+        "notifications",
+        "webhook_subscriptions",
+        "organization_policies",
+        "agent_jobs",
+        "agent_action_ledger",
+        "agent_artifacts",
+        "artifact_metadata",
+        "artifact_data",
+        "integration_connections",
+        "integration_oauth_states",
+    ):
+        assert f"CREATE TABLE IF NOT EXISTS {table}" in migration_sql
+
+
 def test_no_supabase_in_new_flywheel_paths():
     for rel in ("engineering/app/data_flywheel.py", "engineering/app/data_flywheel_agents.py", "engineering/app/data_flywheel_worker.py", "engineering/app/postgres.py"):
         text = (ROOT / rel).read_text()
