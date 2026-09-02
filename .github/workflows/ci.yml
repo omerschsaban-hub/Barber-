@@ -138,6 +138,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
+      - name: Video checklist static audit
+        run: npm run audit:videos
       - name: Production build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
