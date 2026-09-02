@@ -89,18 +89,46 @@ export default function Home() {
           <div><span>03</span><strong>Real measurement</strong><p>Inspection data and image-based evidence with physical references, quality checks and provenance.</p></div>
           <div><span>04</span><strong>Machine learning</strong><p>Current system identification and residual learning use real observations and held-out validation rather than invented calibration.</p></div>
           <div><span>05</span><strong>Uncertainty + decisions</strong><p>Evidence is kept visible. Weak evidence becomes a limitation or a request for more information, not fake certainty.</p></div>
+          <div><span>06</span><strong>Audit + release</strong><p>Important inputs, results, artifacts and decisions stay traceable through the job and into manufacturing.</p></div>
         </div>
       </section>
 
-      <section className="cad-work pricing-section">
-        <div className="cad-section-head"><div><span>PLANS</span><h2>Use it alone. Bring a team when the work demands it.</h2></div><p>Limits are enforced by the backend, not by hiding buttons in the interface.</p></div>
-        <PlanFeatureMatrix plans={PLAN_ORDER} />
-        <div className="plan-grid">
-          {PLAN_ORDER.map(plan => {
-            const item = FABRINAT_PLANS[plan]
-            return <article className="plan-card" key={plan}><span>{item.name}</span><h3>{item.price}</h3><p>{planUsageLabel(plan)}</p><ul>{item.highlights.map((x: string) => <li key={x}>{x}</li>)}</ul>{plan === 'enterprise' ? <a href={`mailto:${ENTERPRISE_CONTACT}`}>Talk to us</a> : <Link href="/login?redirect=/billing">Start</Link>}</article>
+      <section className="cad-work technical-section">
+        <div className="cad-section-head"><div><span>THE AGENT PROMISE</span><h2>Automation that knows when to stop.</h2></div></div>
+        <div className="agent-story">
+          <div className="agent-node"><span>YOU</span><strong>“Make this enclosure fit the board and get it ready to manufacture.”</strong></div>
+          <div className="agent-arrow">↓</div>
+          <div className="agent-node"><span>FABRIENT</span><strong>Gathers the context, works through the checks, proposes bounded changes, measures what it can, and keeps the evidence together.</strong></div>
+          <div className="agent-arrow">↓</div>
+          <div className="agent-node"><span>WHEN IT KNOWS ENOUGH</span><strong>You get the result and the artifacts. When it does not, it asks for the missing evidence or human decision instead of guessing.</strong></div>
+        </div>
+        <div className="prohibition-strip"><span>NO MADE-UP MEASUREMENTS</span><span>NO FAKE CERTAINTY</span><span>NO SILENT TOLERANCE CHANGES</span><span>NO PRETENDING A SIMULATION IS A BUILD</span></div>
+      </section>
+
+      <section className="cad-work pricing-section" id="pricing">
+        <div className="cad-section-head"><div><span>PLANS THAT MATCH THE WORK</span><h2>Start small. Add the control you need.</h2></div><p>Every plan keeps the engineering state and evidence visible. Free is useful on purpose, Hobby gives one builder every individual feature, Startup adds team execution, and Enterprise adds organization-wide control.</p></div>
+        <div className="pricing-grid">
+          {PLAN_ORDER.map((key) => {
+            const plan = FABRINAT_PLANS[key]
+            const enterprise = key === 'enterprise'
+            return (
+              <article className={`pricing-card${key === 'startup' ? ' featured' : ''}`} key={key}>
+                <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
+                <p className="pricing-audience">{plan.audience} · {plan.teamSize}</p>
+                <h3>{plan.tagline}</h3>
+                <p className="pricing-usage"><strong>{planUsageLabel(key)}</strong><br />{plan.limits.projects === -1 ? 'Unlimited projects' : `${plan.limits.projects} project${plan.limits.projects === 1 ? '' : 's'}`} · {plan.limits.storageGb === -1 ? 'Unlimited storage' : `${plan.limits.storageGb} GB storage`}</p>
+                <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
+                {enterprise ? <div className="pricing-contact"><a href={`mailto:${ENTERPRISE_CONTACT.email}`}>{ENTERPRISE_CONTACT.email}</a><a href={`tel:${ENTERPRISE_CONTACT.phone}`}>{ENTERPRISE_CONTACT.phone}</a></div> : <Link className="cad-button" href="/login?redirect=/workspace">START WITH {plan.name.toUpperCase()}</Link>}
+              </article>
+            )
           })}
         </div>
+        <PlanFeatureMatrix />
+      </section>
+
+      <section className="cad-work final-cta-section">
+        <div><span>START WITH THE THING YOU ARE ACTUALLY BUILDING</span><h2>Bring the problem.<br /><em>We will work through the rest.</em></h2><p>CAD, dimensions, measurements, a manufacturing problem, or just the goal. Start with what you have.</p></div>
+        <Link href="/login?redirect=/workspace" className="cad-button cad-button-main">START A PROJECT <span>→</span></Link>
       </section>
     </main>
   )
