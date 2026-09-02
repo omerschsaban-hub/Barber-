@@ -91,7 +91,7 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
     web_origin = os.environ.get("FABRIENT_WEB_ORIGIN", "https://fabrient.com").rstrip("/")
     user = conn.execute("""INSERT INTO users(email, display_name, email_verified_at, role)
        VALUES('mcp-smoke@fabrient.local', 'MCP smoke service', now(), 'admin')
-       ON CONFLICT ((lower(email))) DO UPDATE SET email_verified_at=coalesce(users.email_verified_at, now())
+       ON CONFLICT (email) DO UPDATE SET email_verified_at=coalesce(users.email_verified_at, now())
        RETURNING id""").fetchone()
     conn.execute("""INSERT INTO oauth_clients(client_id, client_name, redirect_uris, public_client)
        VALUES('fabrient-smoke', 'Fabrient MCP smoke service', %s, true)
