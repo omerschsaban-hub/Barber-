@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
 
 const ENGINE = engineeringOrigin();
 const MODEL = process.env.OPENAI_MODEL || (process.env.OPENAI_API_BASE ? 'gpt-5.5' : 'gpt-5.6');
-const OPENAI_URL = `${(process.env.OPENAI_API_BASE || 'https://api.openai.com/v1').replace(/\/$/,'')}/responses`;
 const BILLING_API = ENGINE;
 const ALLOWED_OPERATIONS = new Set(['/v1/predict','/v1/simulate','/v1/calibrate','/v1/uncertainty','/v1/reverification','/v1/next-experiment','/v1/acceptance','/v1/agents/run','/v1/sim2real/run','/v1/sim2real/compare','/v1/final/risk','/v1/system-identification']);
 const INTENT_SCHEMA = {type:'object',additionalProperties:false,properties:{operation:{type:'string',enum:Array.from(ALLOWED_OPERATIONS)},payload:{type:'object',additionalProperties:true},intent_summary:{type:'string'},entity:{type:['string','null']},resolved_dimensions_mm:{type:['object','null'],additionalProperties:false,properties:{width:{type:['number','null']},height:{type:['number','null']},depth:{type:['number','null']}},required:['width','height','depth']},evidence_sources:{type:'array',items:{type:'string'}},missing_information:{type:'array',items:{type:'string'}},confidence:{type:'number'}},required:['operation','payload','intent_summary','entity','resolved_dimensions_mm','evidence_sources','missing_information','confidence']} as const;
