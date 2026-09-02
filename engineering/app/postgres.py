@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -12,6 +14,7 @@ from psycopg_pool import ConnectionPool
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = ROOT / "db" / "migrations"
 _POOL: ConnectionPool | None = None
+MIGRATION_LOCK = 74201926
 
 
 def _dsn() -> str:
@@ -26,8 +29,6 @@ def _dsn() -> str:
         query.setdefault("sslmode", "require")
         return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
 
-    # Query parameters are URI syntax and become an invalid option when passed
-    # to libpq's keyword DSN format (for example, ``?sslmode=require``).
     dsn = raw.replace("?sslmode=", " sslmode=").replace("&sslmode=", " sslmode=")
     tokens = (token for token in dsn.split() if "=" in token)
     if not any(token.split("=", 1)[0].lower() == "sslmode" for token in tokens):
@@ -62,19 +63,65 @@ def get_conn() -> Iterator[Any]:
         yield conn
 
 
-def ensure_schema() -> None:
-    # Only forward migrations are executable. *_down.sql files are rollback
-    # scripts and must never be run during application startup.
-    migrations = sorted(p for p in MIGRATIONS_DIR.glob("*.sql") if not p.name.endswith("_down.sql"))
+def _migration_files() -> list[Path]:
+    migrations = sorted(
+        p for p in MIGRATIONS_DIR.glob("*.sql") if not p.name.endswith("_down.sql")
+    )
     if not migrations:
         raise RuntimeError("No PostgreSQL forward migrations found")
+    return migrations
+
+
+def _checksum(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def ensure_schema() -> None:
+    """Apply only new, immutable forward migrations and verify their checksums."""
+    migrations = _migration_files()
     with pool().connection() as conn:
-        conn.execute("select pg_advisory_lock(%s)", (74201926,))
+        conn.execute("select pg_advisory_lock(%s)", (MIGRATION_LOCK,))
         try:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version TEXT PRIMARY KEY,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )"""
+            )
+            conn.execute(
+                "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT"
+            )
+
             for migration in migrations:
+                version = migration.name
+                checksum = _checksum(migration)
+                row = conn.execute(
+                    "SELECT checksum FROM schema_migrations WHERE version=%s",
+                    (version,),
+                ).fetchone()
+                if row is not None:
+                    recorded = row["checksum"]
+                    if recorded is None:
+                        conn.execute(
+                            "UPDATE schema_migrations SET checksum=%s WHERE version=%s",
+                            (checksum, version),
+                        )
+                    elif not hmac.compare_digest(str(recorded), checksum):
+                        raise RuntimeError(
+                            f"PostgreSQL migration checksum mismatch for {version}: "
+                            "an already-applied migration was modified"
+                        )
+                    continue
+
                 conn.execute(migration.read_text(encoding="utf-8"))
+                conn.execute(
+                    """INSERT INTO schema_migrations(version, checksum)
+                       VALUES(%s, %s)
+                       ON CONFLICT(version) DO UPDATE SET checksum=excluded.checksum""",
+                    (version, checksum),
+                )
         finally:
-            conn.execute("select pg_advisory_unlock(%s)", (74201926,))
+            conn.execute("select pg_advisory_unlock(%s)", (MIGRATION_LOCK,))
 
 
 def fetch_all(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
