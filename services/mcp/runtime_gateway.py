@@ -35,9 +35,8 @@ _WINDOW = 60.0
 _buckets: dict[str, list[float]] = {}
 _current_token: ContextVar[str | None] = ContextVar("fabrient_mcp_bearer", default=None)
 
-# The registry remains in source for staged promotion, but the live MCP catalog is
-# deliberately limited to a small, proven core until each additional tool has a
-# semantic end-to-end test. FastMCP's public remove_tool API makes this deterministic.
+# Keep the full registry in source for staged promotion, but expose only the small,
+# proven core to MCP clients. Additional tools are promoted after semantic E2E tests.
 for _tool in list(mcp_server.mcp._tool_manager.list_tools()):
     if _tool.name not in CORE_TOOLS:
         mcp_server.mcp.remove_tool(_tool.name)
@@ -53,6 +52,15 @@ async def _engine_get(path: str, token: str) -> dict[str, Any] | None:
         return data if isinstance(data, dict) else None
     except (httpx.HTTPError, ValueError):
         return None
+
+
+async def _engine_health() -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            response = await client.get(f"{ENGINE_URL}/health")
+        return response.status_code == 200
+    except httpx.HTTPError:
+        return False
 
 
 async def _identity(request: Request) -> dict[str, Any] | None:
@@ -113,6 +121,12 @@ async def health(_: Request):
     }, headers={"Cache-Control": "no-store"})
 
 
+async def ready(_: Request):
+    if not await _engine_health():
+        return JSONResponse({"status": "not_ready", "reason": "engineering_backend_unavailable"}, 503, headers={"Cache-Control": "no-store"})
+    return JSONResponse({"status": "ready", "service": "fabrient-mcp", "engine": "ready", "core_tool_count": len(CORE_TOOLS)}, headers={"Cache-Control": "no-store"})
+
+
 async def capabilities(request: Request):
     identity = await _identity(request)
     if identity is None:
@@ -121,15 +135,14 @@ async def capabilities(request: Request):
     if access is None:
         return JSONResponse({"error": "authorization_unavailable"}, 503)
     plan = str(access.get("plan") or "free")
-    tools = list(CORE_TOOLS)
     return JSONResponse({
         "name": "Fabrient Engineering",
         "authenticated": True,
         "plan": plan,
-        "tools": tools,
-        "tool_count": len(tools),
+        "tools": list(CORE_TOOLS),
+        "tool_count": len(CORE_TOOLS),
         "total_registry_count": len(mcp_server.CAPABILITY_REGISTRY),
-        "gated_tool_count": len(mcp_server.CAPABILITY_REGISTRY) - len(tools),
+        "gated_tool_count": len(mcp_server.CAPABILITY_REGISTRY) - len(CORE_TOOLS),
         "access_policy": "reliable_core_first",
         "architecture": "MCP is transport/interface; Engineering API owns auth, billing, business logic, and Postgres",
     }, headers={"Cache-Control": "private, max-age=5"})
@@ -145,7 +158,7 @@ async def account(request: Request):
 class MCPGatewayAuth(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         public = {
-            "/", "/health", "/.well-known/oauth-protected-resource",
+            "/", "/health", "/ready", "/.well-known/oauth-protected-resource",
             "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server",
             "/oauth/register", "/oauth/authorize", "/oauth/token", "/oauth/revoke",
         }
@@ -173,7 +186,7 @@ class MCPGatewayAuth(BaseHTTPMiddleware):
 
 
 routes = [
-    Route("/", health), Route("/health", health), Route("/capabilities", capabilities), Route("/account", account),
+    Route("/", health), Route("/health", health), Route("/ready", ready), Route("/capabilities", capabilities), Route("/account", account),
     Route("/.well-known/oauth-protected-resource", oauth.protected),
     Route("/.well-known/oauth-protected-resource/mcp", oauth.protected),
     Route("/.well-known/oauth-authorization-server", oauth.metadata),
