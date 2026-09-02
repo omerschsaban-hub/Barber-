@@ -11,6 +11,9 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: 'images.pexels.com', pathname: '/photos/**' }]
+  },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   }
