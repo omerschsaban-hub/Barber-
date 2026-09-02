@@ -17,6 +17,7 @@ from engineering.app import env_bootstrap as _env_bootstrap  # noqa: E402,F401
 from engineering.app.composed import app  # noqa: E402
 from engineering.app.postgres import ensure_schema, fetch_one  # noqa: E402
 from engineering.app.owned_auth import _bearer, user_from_token  # noqa: E402
+from engineering.app.plan_catalog import access_for_user  # noqa: E402
 from services.engine.sim2real_policy import auto_fix, TARGET_MAPE_PERCENT  # noqa: E402
 
 # The composed application owns the flywheel graph scheduler. The legacy worker
@@ -56,6 +57,22 @@ def ready():
     except Exception:
         return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "PostgreSQL is unavailable"})
     return {"status": "ready", "database": "ready"}
+
+@app.get("/v1/mcp/access")
+def mcp_access(request: Request):
+    """Single source of truth for MCP identity, plan, and entitlements."""
+    token = _bearer(request, request.headers.get("authorization"))
+    try:
+        identity = user_from_token(token)
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable", "reason": "Authentication database is unavailable."})
+    if not identity:
+        return JSONResponse(status_code=401, content={"status": "unauthorized", "reason": "A valid Fabrient session is required."})
+    try:
+        access = access_for_user(identity["id"])
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable", "reason": "Billing database is unavailable."})
+    return {"user": {"id": identity["id"], "email": identity["email"], "display_name": identity.get("display_name"), "role": identity.get("role")}, **access}
 
 @app.get("/internal/data-flywheel/run")
 def manual_flywheel_run(token: str | None = None):
