@@ -1,3 +1,9 @@
+databases:
+  - name: fabrient-postgres
+    databaseName: fabrient
+    user: fabrient
+    plan: basic-256mb
+
 services:
   - type: web
     name: fabrient-engineering
@@ -19,7 +25,9 @@ services:
         - package-lock.json
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: fabrient-postgres
+          property: connectionString
       - key: AUTH_SECRET
         sync: false
       - key: GMAIL_OAUTH_JSON
@@ -78,7 +86,9 @@ services:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: fabrient-postgres
+          property: connectionString
       - key: FABRIENT_MCP_OAUTH_ISSUER
         value: https://fabrient-mcp.onrender.com
       - key: FABRIENT_MCP_RESOURCE_URL
