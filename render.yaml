@@ -71,7 +71,7 @@ services:
     dockerfilePath: ./services/mcp/Dockerfile
     dockerContext: .
     plan: starter
-    healthCheckPath: /health
+    healthCheckPath: /ready
     autoDeployTrigger: checksPass
     buildFilter:
       paths:
@@ -85,6 +85,8 @@ services:
     envVars:
       - key: FABRIENT_ENGINE_URL
         value: https://fabrient-engineering.onrender.com
+      - key: FABRIENT_WEB_ORIGIN
+        value: https://getfabrient.com
       - key: DATABASE_URL
         fromDatabase:
           name: fabrient-postgres
