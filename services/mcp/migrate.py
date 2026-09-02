@@ -1,9 +1,9 @@
-"""Apply the complete owned PostgreSQL schema before the MCP service starts.
+"""Apply the owned PostgreSQL schema before MCP starts.
 
-This runner deliberately applies every forward migration on every startup. The
-migrations are written to be idempotent, and this behavior is important for repair:
-a previous broken deployment may have recorded migration markers while leaving the
-actual schema incomplete. Rollback files are never executable at startup.
+Production migrations are forward-only. Rollback files are never executable.
+Each migration is recorded with a SHA-256 checksum so an already-applied
+migration cannot silently be edited underneath production. The first startup
+also bootstraps checksums for the existing migration ledger.
 """
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ import os
 from pathlib import Path
 
 import psycopg
-
 
 APP_MIGRATIONS = Path(__file__).with_name("migrations")
 REPO_MIGRATIONS = Path(__file__).parents[2] / "db" / "migrations"
@@ -44,13 +43,52 @@ def _ensure_migration_table(conn: psycopg.Connection[object]) -> None:
             applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )"""
     )
+    conn.execute(
+        "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT"
+    )
+
+
+def _checksum(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _apply_migrations(conn: psycopg.Connection[object]) -> None:
     _ensure_migration_table(conn)
     for migration in _migration_files():
-        print(f"applying PostgreSQL migration {migration.name}", flush=True)
+        version = migration.name
+        checksum = _checksum(migration)
+        row = conn.execute(
+            "SELECT checksum FROM schema_migrations WHERE version=%s",
+            (version,),
+        ).fetchone()
+
+        if row is not None:
+            recorded = row[0] if not isinstance(row, dict) else row["checksum"]
+            if recorded is None:
+                # Existing installations predate checksums. Trust the current
+                # immutable production file once, then enforce it forever.
+                conn.execute(
+                    "UPDATE schema_migrations SET checksum=%s WHERE version=%s",
+                    (checksum, version),
+                )
+                print(f"bootstrapped checksum for PostgreSQL migration {version}", flush=True)
+            elif not hmac.compare_digest(str(recorded), checksum):
+                raise RuntimeError(
+                    f"PostgreSQL migration checksum mismatch for {version}: "
+                    "an already-applied migration was modified"
+                )
+            else:
+                print(f"PostgreSQL migration already applied: {version}", flush=True)
+            continue
+
+        print(f"applying PostgreSQL migration {version}", flush=True)
         conn.execute(migration.read_text(encoding="utf-8"))
+        conn.execute(
+            """INSERT INTO schema_migrations(version, checksum)
+               VALUES(%s, %s)
+               ON CONFLICT(version) DO UPDATE SET checksum=excluded.checksum""",
+            (version, checksum),
+        )
 
 
 def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
@@ -59,21 +97,25 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
     if not token or len(secret) < 32:
         return
     token_hash = hmac.new(secret.encode(), token.encode(), hashlib.sha256).digest()
+    web_origin = os.environ.get("FABRIENT_WEB_ORIGIN", "https://fabrient.com").rstrip("/")
     user = conn.execute(
-        """insert into users(email, display_name, email_verified_at, role)
-           values('mcp-smoke@fabrient.local', 'MCP smoke service', now(), 'admin')
-           on conflict ((lower(email))) do update set email_verified_at=coalesce(users.email_verified_at, now())
-           returning id"""
+        """INSERT INTO users(email, display_name, email_verified_at, role)
+           VALUES('mcp-smoke@fabrient.local', 'MCP smoke service', now(), 'admin')
+           ON CONFLICT ((lower(email))) DO UPDATE
+             SET email_verified_at=coalesce(users.email_verified_at, now())
+           RETURNING id"""
     ).fetchone()
     conn.execute(
-        """insert into oauth_clients(client_id, client_name, redirect_uris, public_client)
-           values('fabrient-smoke', 'Fabrient MCP smoke service', ARRAY['https://fabrinat-omega.vercel.app/oauth/callback'], true)
-           on conflict (client_id) do nothing"""
+        """INSERT INTO oauth_clients(client_id, client_name, redirect_uris, public_client)
+           VALUES('fabrient-smoke', 'Fabrient MCP smoke service', %s, true)
+           ON CONFLICT (client_id) DO NOTHING""",
+        ([f"{web_origin}/oauth/callback"],),
     )
     conn.execute(
-        """insert into oauth_access_tokens(token_hash, client_id, user_id, scope, expires_at)
-           values(%s, 'fabrient-smoke', %s, 'openid email mcp:use', now() + interval '1 year')
-           on conflict (token_hash) do update set revoked_at=null, expires_at=excluded.expires_at, scope=excluded.scope""",
+        """INSERT INTO oauth_access_tokens(token_hash, client_id, user_id, scope, expires_at)
+           VALUES(%s, 'fabrient-smoke', %s, 'openid email mcp:use', now() + interval '1 year')
+           ON CONFLICT (token_hash) DO UPDATE
+             SET revoked_at=null, expires_at=excluded.expires_at, scope=excluded.scope""",
         (token_hash, user[0]),
     )
 
@@ -88,8 +130,6 @@ def _dsn() -> str:
 
 
 def main() -> None:
-    # A session-level advisory lock prevents Engineering and MCP from applying the
-    # same repair migrations concurrently against the shared database.
     with psycopg.connect(_dsn(), autocommit=True) as conn:
         conn.execute("select pg_advisory_lock(%s)", (MIGRATION_LOCK,))
         try:
