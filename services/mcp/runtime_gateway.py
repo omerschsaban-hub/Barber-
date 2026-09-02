@@ -35,6 +35,13 @@ _WINDOW = 60.0
 _buckets: dict[str, list[float]] = {}
 _current_token: ContextVar[str | None] = ContextVar("fabrient_mcp_bearer", default=None)
 
+# The registry remains in source for staged promotion, but the live MCP catalog is
+# deliberately limited to a small, proven core until each additional tool has a
+# semantic end-to-end test. FastMCP's public remove_tool API makes this deterministic.
+for _tool in list(mcp_server.mcp._tool_manager.list_tools()):
+    if _tool.name not in CORE_TOOLS:
+        mcp_server.mcp.remove_tool(_tool.name)
+
 
 async def _engine_get(path: str, token: str) -> dict[str, Any] | None:
     try:
@@ -76,9 +83,8 @@ class ForwardBackendAuthClient(httpx.AsyncClient):
         return await super().request(method, url, *args, **kwargs)
 
 
-# server.py creates its tools at import time, but those tools resolve httpx.AsyncClient
-# when called. Patch the client class so every MCP -> Engine call carries the same
-# authenticated user token without duplicating business/auth logic in MCP.
+# server.py resolves httpx.AsyncClient when each tool executes. This carries the
+# already-validated MCP bearer token into the shared engineering service.
 httpx.AsyncClient = ForwardBackendAuthClient  # type: ignore[assignment]
 
 
@@ -115,10 +121,7 @@ async def capabilities(request: Request):
     if access is None:
         return JSONResponse({"error": "authorization_unavailable"}, 503)
     plan = str(access.get("plan") or "free")
-    # We intentionally expose a small, reliable core while the remaining registry
-    # is kept available internally for staged rollout. Paid plans do not bypass the
-    # reliability gate; new tools are promoted only after semantic tests pass.
-    tools = [name for name in CORE_TOOLS if name in {x[0] for x in mcp_server.CAPABILITY_REGISTRY}]
+    tools = list(CORE_TOOLS)
     return JSONResponse({
         "name": "Fabrient Engineering",
         "authenticated": True,
@@ -167,13 +170,6 @@ class MCPGatewayAuth(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = "no-store"
             return response
         return await call_next(request)
-
-
-async def oauth_user(request: Request) -> dict[str, Any] | None:
-    identity = await _identity(request)
-    if identity is None:
-        return None
-    return {k: v for k, v in identity.items() if k != "access_token"}
 
 
 routes = [
