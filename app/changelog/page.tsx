@@ -1,16 +1,19 @@
 import Link from 'next/link';
+import Breadcrumbs from '@/components/breadcrumbs';
 import { changelog, changelogKindLabel } from '@/lib/changelog';
 import './changelog.css';
 
 export const metadata = {
-  title: 'Changelog — Fabrient',
-  description: 'Product updates, improvements, fixes, and important changes in Fabrient.',
+  title: 'Changelog',
+  description: 'Product updates, fixes, and engineering improvements shipped in Fabrient.',
+  alternates: { canonical: '/changelog' },
 };
 
 export default function ChangelogPage() {
   return (
     <main className="changelog-page">
       <section className="changelog-hero">
+        <Breadcrumbs items={[{ label: 'Fabrient', href: '/' }, { label: 'Changelog' }]} />
         <p className="changelog-eyebrow">Fabrient updates</p>
         <h1>What’s new</h1>
         <p className="changelog-intro">
