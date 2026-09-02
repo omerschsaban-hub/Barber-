@@ -48,6 +48,12 @@ def test_required_platform_tables_are_defined_across_migrations():
         assert f"CREATE TABLE IF NOT EXISTS {table}" in migration_sql
 
 
+def test_render_postgres_migrations_do_not_depend_on_supabase_auth():
+    migration_sql = "\n".join(p.read_text() for p in sorted((ROOT / "db/migrations").glob("*.sql")))
+    assert "auth.uid(" not in migration_sql
+    assert " to authenticated" not in migration_sql.lower()
+
+
 def test_no_supabase_in_new_flywheel_paths():
     for rel in ("engineering/app/data_flywheel.py", "engineering/app/data_flywheel_agents.py", "engineering/app/data_flywheel_worker.py", "engineering/app/postgres.py"):
         text = (ROOT / rel).read_text()
