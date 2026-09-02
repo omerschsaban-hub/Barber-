@@ -1,4 +1,11 @@
-"""Apply the owned PostgreSQL schema before the MCP service starts."""
+"""Apply the complete owned PostgreSQL schema before the MCP service starts.
+
+The repository contains multiple additive migrations. The previous runner copied and
+executed only two files, which meant production could boot with a partial schema.
+This runner discovers every SQL migration shipped with the service, applies them in
+stable filename order, and records a normalized filename marker after successful
+application. All migrations are expected to be idempotent.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -9,9 +16,55 @@ from pathlib import Path
 import psycopg
 
 
-_LOCAL_MIGRATIONS = [Path(__file__).with_name("001_owned_postgres.sql"), Path(__file__).with_name("010_schema_reconciliation.sql")]
-_REPO_MIGRATIONS = [Path(__file__).parents[2] / "db" / "migrations" / p.name for p in _LOCAL_MIGRATIONS]
-MIGRATIONS = _LOCAL_MIGRATIONS if all(p.exists() for p in _LOCAL_MIGRATIONS) else _REPO_MIGRATIONS
+APP_MIGRATIONS = Path(__file__).with_name("migrations")
+REPO_MIGRATIONS = Path(__file__).parents[2] / "db" / "migrations"
+
+
+def _migration_dir() -> Path:
+    """Return the migration directory available in the container or repository."""
+    if APP_MIGRATIONS.is_dir():
+        return APP_MIGRATIONS
+    if REPO_MIGRATIONS.is_dir():
+        return REPO_MIGRATIONS
+    raise RuntimeError("PostgreSQL migration directory is missing")
+
+
+def _migration_files() -> list[Path]:
+    files = sorted(_migration_dir().glob("*.sql"), key=lambda p: p.name)
+    if not files:
+        raise RuntimeError("No PostgreSQL migrations found")
+    return files
+
+
+def _ensure_migration_table(conn: psycopg.Connection[object]) -> None:
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )"""
+    )
+
+
+def _apply_migrations(conn: psycopg.Connection[object]) -> None:
+    """Apply every repository migration exactly once by filename marker.
+
+    Existing migrations also write their historical version markers. The filename
+    marker is intentionally separate so migrations that predate the convention are
+    still tracked reliably.
+    """
+    _ensure_migration_table(conn)
+    for migration in _migration_files():
+        marker = f"file:{migration.name}"
+        already_applied = conn.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = %s", (marker,)
+        ).fetchone()
+        if already_applied:
+            continue
+        conn.execute(migration.read_text(encoding="utf-8"))
+        conn.execute(
+            "INSERT INTO schema_migrations(version) VALUES (%s) ON CONFLICT DO NOTHING",
+            (marker,),
+        )
 
 
 def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
@@ -29,7 +82,7 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
     conn.execute(
         """insert into oauth_clients(client_id, client_name, redirect_uris, public_client)
            values('fabrient-smoke', 'Fabrient MCP smoke service', ARRAY['https://fabrinat-omega.vercel.app/oauth/callback'], true)
-           on conflict (client_id) do nothing"""
+           on conflict (client_id) do nothing""",
     )
     conn.execute(
         """insert into oauth_access_tokens(token_hash, client_id, user_id, scope, expires_at)
@@ -51,10 +104,9 @@ def _dsn() -> str:
 def main() -> None:
     with psycopg.connect(_dsn()) as conn:
         with conn.transaction():
-            for migration in MIGRATIONS:
-                conn.execute(migration.read_text(encoding="utf-8"))
+            _apply_migrations(conn)
             _seed_configured_mcp_token(conn)
-    print("owned PostgreSQL schema migration applied", flush=True)
+    print("complete owned PostgreSQL schema migration applied", flush=True)
 
 
 if __name__ == "__main__":
