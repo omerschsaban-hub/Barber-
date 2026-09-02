@@ -1,10 +1,9 @@
 """Apply the complete owned PostgreSQL schema before the MCP service starts.
 
-The repository contains multiple additive migrations. The previous runner copied and
-executed only two files, which meant production could boot with a partial schema.
-This runner discovers every SQL migration shipped with the service, applies them in
-stable filename order, and records a normalized filename marker after successful
-application. All migrations are expected to be idempotent.
+This runner deliberately applies every forward migration on every startup. The
+migrations are written to be idempotent, and this behavior is important for repair:
+a previous broken deployment may have recorded migration markers while leaving the
+actual schema incomplete. Rollback files are never executable at startup.
 """
 from __future__ import annotations
 
@@ -18,6 +17,7 @@ import psycopg
 
 APP_MIGRATIONS = Path(__file__).with_name("migrations")
 REPO_MIGRATIONS = Path(__file__).parents[2] / "db" / "migrations"
+MIGRATION_LOCK = 74201926
 
 
 def _migration_dir() -> Path:
@@ -29,9 +29,11 @@ def _migration_dir() -> Path:
 
 
 def _migration_files() -> list[Path]:
-    files = sorted(_migration_dir().glob("*.sql"), key=lambda p: p.name)
+    files = sorted(
+        p for p in _migration_dir().glob("*.sql") if not p.name.endswith("_down.sql")
+    )
     if not files:
-        raise RuntimeError("No PostgreSQL migrations found")
+        raise RuntimeError("No PostgreSQL forward migrations found")
     return files
 
 
@@ -47,16 +49,8 @@ def _ensure_migration_table(conn: psycopg.Connection[object]) -> None:
 def _apply_migrations(conn: psycopg.Connection[object]) -> None:
     _ensure_migration_table(conn)
     for migration in _migration_files():
-        marker = f"file:{migration.name}"
-        if conn.execute(
-            "SELECT 1 FROM schema_migrations WHERE version = %s", (marker,)
-        ).fetchone():
-            continue
+        print(f"applying PostgreSQL migration {migration.name}", flush=True)
         conn.execute(migration.read_text(encoding="utf-8"))
-        conn.execute(
-            "INSERT INTO schema_migrations(version) VALUES (%s) ON CONFLICT DO NOTHING",
-            (marker,),
-        )
 
 
 def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
@@ -94,11 +88,15 @@ def _dsn() -> str:
 
 
 def main() -> None:
-    # Individual migration files contain their own BEGIN/COMMIT blocks. Autocommit
-    # lets each migration own its transaction instead of nesting transactions.
+    # A session-level advisory lock prevents Engineering and MCP from applying the
+    # same repair migrations concurrently against the shared database.
     with psycopg.connect(_dsn(), autocommit=True) as conn:
-        _apply_migrations(conn)
-        _seed_configured_mcp_token(conn)
+        conn.execute("select pg_advisory_lock(%s)", (MIGRATION_LOCK,))
+        try:
+            _apply_migrations(conn)
+            _seed_configured_mcp_token(conn)
+        finally:
+            conn.execute("select pg_advisory_unlock(%s)", (MIGRATION_LOCK,))
     print("complete owned PostgreSQL schema migration applied", flush=True)
 
 
