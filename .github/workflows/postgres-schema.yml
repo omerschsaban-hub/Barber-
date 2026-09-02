@@ -41,7 +41,7 @@ jobs:
         run: python -m pip install 'psycopg[binary]' pytest
       - name: Apply every forward migration to an empty PostgreSQL database
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fabrient_ci?sslmode=require
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fabrient_ci?sslmode=disable
         run: |
           python - <<'PY'
           import os
