@@ -18,7 +18,8 @@ def test_complete_migration_set_is_shipped_to_mcp():
     assert len(migration_files) >= 10
     assert "COPY db/migrations ./migrations" in dockerfile
     assert "glob(\"*.sql\")" in migrate
-    assert "sorted(" in migrate
+    assert "endswith(\"_down.sql\")" in migrate
+    assert "pg_advisory_lock" in migrate
     assert "schema_migrations" in migrate
 
 
