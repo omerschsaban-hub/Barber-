@@ -75,7 +75,15 @@ def _valid_redirect(uri: str) -> bool:
     return uri.startswith('https://') or uri.startswith('http://localhost') or uri.startswith('http://127.0.0.1') or uri.startswith('http://[::1]')
 
 async def health(_: Request):
-    return JSONResponse({'status': 'ok', 'service': 'fabrient-mcp-auth-wrapper', 'tool_count': 100})
+    try:
+        with _pool().connection() as db:
+            row = db.execute("SELECT COUNT(*) AS count FROM schema_migrations WHERE checksum IS NOT NULL").fetchone()
+            checksum_count = int(row['count'] if isinstance(row, dict) else row[0])
+        if checksum_count < 1:
+            raise RuntimeError('schema migration ledger is not initialized')
+        return JSONResponse({'status': 'ok', 'service': 'fabrient-mcp-auth-wrapper', 'tool_count': 100, 'database': 'ok', 'migration_checksums': checksum_count})
+    except Exception as exc:
+        return JSONResponse({'status': 'degraded', 'service': 'fabrient-mcp-auth-wrapper', 'database': 'error', 'error': str(exc)}, 503)
 
 async def caps(r: Request):
     u = user(r)
@@ -138,83 +146,3 @@ async def details(r: Request):
     return JSONResponse({'authorization_id': str(row['id']), 'client': {'client_id': row['client_id'], 'name': row['client_name']}, 'redirect_uri': row['redirect_uri'], 'scope': row['scope']})
 
 async def decide(r: Request):
-    u = user(r)
-    if not u:
-        return JSONResponse({'error': 'Unauthorized'}, 401)
-    rid, decision = r.path_params['id'], r.path_params['decision']
-    if decision not in {'approve', 'deny'}:
-        return JSONResponse({'error': 'invalid_request'}, 400)
-    with _pool().connection() as db:
-        with db.transaction():
-            row = db.execute('select * from oauth_authorization_requests where id=%s for update', (rid,)).fetchone()
-            if not row or row['expires_at'] <= datetime.now(timezone.utc) or row['approved_at'] or row['denied_at']:
-                return JSONResponse({'error': 'invalid_request'}, 400)
-            if decision == 'deny':
-                db.execute('update oauth_authorization_requests set denied_at=now(),user_id=%s where id=%s', (u['user_id'], rid))
-                target = row['redirect_uri'] + ('&' if '?' in row['redirect_uri'] else '?') + urlencode({'error': 'access_denied', 'state': row['state'] or ''})
-                return JSONResponse({'redirect_url': target})
-            code = secrets.token_urlsafe(48)
-            db.execute("insert into oauth_authorization_codes(code_hash,client_id,user_id,redirect_uri,code_challenge,code_challenge_method,scope,expires_at) values(%s,%s,%s,%s,%s,%s,%s,now()+interval '60 seconds')", (digest(code), row['client_id'], u['user_id'], row['redirect_uri'], row['code_challenge'], row['code_challenge_method'], row['scope']))
-            db.execute('update oauth_authorization_requests set approved_at=now(),user_id=%s where id=%s', (u['user_id'], rid))
-            target = row['redirect_uri'] + ('&' if '?' in row['redirect_uri'] else '?') + urlencode({'code': code, 'state': row['state'] or ''})
-            return JSONResponse({'redirect_url': target})
-
-async def token(r: Request):
-    f = form_body(await r.body())
-    cid, code, ru, ver = f.get('client_id',''), f.get('code',''), f.get('redirect_uri',''), f.get('code_verifier','')
-    if f.get('grant_type') != 'authorization_code' or not cid or not code or not ru:
-        return JSONResponse({'error': 'invalid_request'}, 400)
-    c = client(cid)
-    if not c:
-        return JSONResponse({'error': 'invalid_client'}, 401)
-    with _pool().connection() as db:
-        with db.transaction():
-            row = db.execute('select * from oauth_authorization_codes where code_hash=%s and client_id=%s for update', (digest(code), cid)).fetchone()
-            if not row or row['consumed_at'] or row['expires_at'] <= datetime.now(timezone.utc) or row['redirect_uri'] != ru:
-                return JSONResponse({'error': 'invalid_grant'}, 400)
-            if row['code_challenge'] and (not ver or not hmac.compare_digest(pkce(ver), row['code_challenge'])):
-                return JSONResponse({'error': 'invalid_grant'}, 400)
-            if not c['public_client']:
-                secret = f.get('client_secret','')
-                stored = bytes(c['client_secret_hash'] or b'')
-                if not secret or not hmac.compare_digest(digest(secret), stored):
-                    return JSONResponse({'error': 'invalid_client'}, 401)
-            tok = secrets.token_urlsafe(48)
-            db.execute('update oauth_authorization_codes set consumed_at=now() where code_hash=%s', (digest(code),))
-            db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (_hash(tok), cid, row['user_id'], row['scope']))
-            return JSONResponse({'access_token': tok, 'token_type': 'Bearer', 'expires_in': 3600, 'scope': row['scope']})
-
-async def revoke(r: Request):
-    f = form_body(await r.body())
-    t = f.get('token','')
-    if t:
-        with _pool().connection() as db:
-            db.execute('update oauth_access_tokens set revoked_at=now() where token_hash=%s', (_hash(t),))
-    return JSONResponse({})
-
-class Auth(BaseHTTPMiddleware):
-    async def dispatch(self, r, call_next):
-        public = {'/', '/health', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/oauth/register', '/oauth/authorize', '/oauth/token', '/oauth/revoke'}
-        if r.url.path in public or r.url.path.startswith('/oauth/details/') or r.url.path.startswith('/oauth/decide/') or r.url.path == '/capabilities':
-            return await call_next(r)
-        if r.url.path.startswith('/mcp'):
-            identity = user(r)
-            if not identity:
-                return JSONResponse({'error': 'Unauthorized'}, 401, headers={'WWW-Authenticate': f'Bearer resource_metadata="{ISSUER}/.well-known/oauth-protected-resource/mcp", scope="mcp:use"'})
-            if not has_scope(identity, 'mcp:use'):
-                return JSONResponse({'error': 'insufficient_scope'}, 403, headers={'WWW-Authenticate': 'Bearer error="insufficient_scope", scope="mcp:use"'})
-        return await call_next(r)
-
-routes = [Route('/', health), Route('/health', health), Route('/capabilities', caps), Route('/.well-known/oauth-protected-resource', protected), Route('/.well-known/oauth-protected-resource/mcp', protected), Route('/.well-known/oauth-authorization-server', metadata), Route('/oauth/register', register, methods=['POST']), Route('/oauth/authorize', authorize), Route('/oauth/token', token, methods=['POST']), Route('/oauth/revoke', revoke, methods=['POST']), Route('/oauth/details/{id}', details), Route('/oauth/decide/{id}/{decision}', decide, methods=['POST']), Mount('/', app=mcp_app)]
-
-@asynccontextmanager
-async def lifespan(_: Starlette):
-    child_lifespan = getattr(getattr(mcp_app, 'router', None), 'lifespan_context', None)
-    if child_lifespan is None:
-        yield
-        return
-    async with child_lifespan(mcp_app):
-        yield
-
-app = Starlette(lifespan=lifespan, routes=routes)
-app.add_middleware(Auth)
