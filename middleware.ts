@@ -31,7 +31,9 @@ function withSecurityHeaders(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   if (PRIVATE_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
-    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    const robots = 'noindex, nofollow, noarchive'
+    response.headers.set('X-Robots-Tag', robots)
+    requestHeaders.set('X-Robots-Tag', robots)
   }
   return { response, requestHeaders }
 }
