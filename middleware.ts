@@ -4,6 +4,7 @@ import { engineeringOrigin } from '@/lib/engineering-origin'
 const mutationWindowMs = 60_000
 const mutationLimit = 60
 const mutationCounts = new Map<string, { count: number; resetAt: number }>()
+const PRIVATE_PREFIXES = ['/api/', '/workspace', '/projects', '/engineering', '/geometry', '/calibration', '/import', '/records', '/risk-map', '/sim2real', '/machine-health', '/manufacturing', '/billing', '/oauth', '/login', '/integrations']
 
 function withSecurityHeaders(request: NextRequest) {
   const csp = [
@@ -29,6 +30,9 @@ function withSecurityHeaders(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  if (PRIVATE_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+  }
   return { response, requestHeaders }
 }
 
@@ -39,6 +43,8 @@ function withHeaders(response: NextResponse, requestHeaders: Headers) {
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  const robots = requestHeaders.get('X-Robots-Tag')
+  if (robots) response.headers.set('X-Robots-Tag', robots)
   return response
 }
 
