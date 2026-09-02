@@ -14,8 +14,7 @@ COPY services/mcp/env_bootstrap.py ./env_bootstrap.py
 COPY services/mcp/production_auth.py ./production_auth.py
 COPY services/mcp/auth_db.py ./auth_db.py
 COPY services/mcp/migrate.py ./migrate.py
-COPY db/migrations/001_owned_postgres.sql ./001_owned_postgres.sql
-COPY db/migrations/010_schema_reconciliation.sql ./010_schema_reconciliation.sql
+COPY db/migrations ./migrations
 
 EXPOSE 8000
 ENV PORT=8000
