@@ -1,5 +1,8 @@
 create extension if not exists pgcrypto;
 
+-- Agent execution is authorized by the application layer using the owned session
+-- and API-key system. This is plain Render PostgreSQL, not Supabase, so this
+-- migration must not depend on Supabase roles or auth.uid().
 create table if not exists public.agent_jobs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -65,17 +68,14 @@ $$;
 drop trigger if exists agent_job_touch on public.agent_jobs;
 create trigger agent_job_touch before update on public.agent_jobs for each row execute function public.touch_agent_job();
 
-alter table public.agent_jobs enable row level security;
-alter table public.agent_action_ledger enable row level security;
-alter table public.agent_artifacts enable row level security;
-
-grant select, insert, update, delete on public.agent_jobs to authenticated;
-grant select, insert on public.agent_action_ledger to authenticated;
-grant select, insert on public.agent_artifacts to authenticated;
-
- drop policy if exists "agent jobs own" on public.agent_jobs;
-create policy "agent jobs own" on public.agent_jobs for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-drop policy if exists "agent ledger own" on public.agent_action_ledger;
-create policy "agent ledger own" on public.agent_action_ledger for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-drop policy if exists "agent artifacts own" on public.agent_artifacts;
-create policy "agent artifacts own" on public.agent_artifacts for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+-- Repair a previously-created table that predates the project foreign key.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'agent_jobs_project_fk'
+  ) then
+    alter table public.agent_jobs
+      add constraint agent_jobs_project_fk
+      foreign key (project_id) references public.projects(id) on delete set null;
+  end if;
+end $$;
