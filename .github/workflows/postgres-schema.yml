@@ -1,0 +1,85 @@
+name: PostgreSQL schema
+
+on:
+  push:
+    paths:
+      - 'db/migrations/**'
+      - 'services/mcp/migrate.py'
+      - 'engineering/app/postgres.py'
+      - 'tests/owned-platform/**'
+      - '.github/workflows/postgres-schema.yml'
+  pull_request:
+    paths:
+      - 'db/migrations/**'
+      - 'services/mcp/migrate.py'
+      - 'engineering/app/postgres.py'
+      - 'tests/owned-platform/**'
+      - '.github/workflows/postgres-schema.yml'
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fabrient_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fabrient_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install 'psycopg[binary]' pytest
+      - name: Apply every forward migration to an empty PostgreSQL database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fabrient_ci?sslmode=require
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import psycopg
+
+          root = Path.cwd()
+          migrations = sorted(
+              p for p in (root / 'db/migrations').glob('*.sql')
+              if not p.name.endswith('_down.sql')
+          )
+          assert migrations, 'no forward migrations found'
+          with psycopg.connect(os.environ['DATABASE_URL'], autocommit=True) as conn:
+              for path in migrations:
+                  print(f'APPLY {path.name}')
+                  conn.execute(path.read_text(encoding='utf-8'))
+              required = {
+                  'users','sessions','otp_challenges','organizations','organization_members',
+                  'projects','project_members','permissions','role_permissions',
+                  'billing_customers','billing_events','billing_entitlements',
+                  'paypal_subscriptions','oauth_clients','oauth_authorization_codes',
+                  'oauth_access_tokens','oauth_authorization_requests','api_keys','audit_logs',
+                  'plan_usage_monthly','data_sources','data_observations','data_quality_checks',
+                  'agent_runs','agent_checkpoints','improvement_candidates','flywheel_checkpoints',
+                  'rate_limits','workspace_invitations','project_approvals','notifications',
+                  'webhook_subscriptions','organization_policies','agent_jobs',
+                  'agent_action_ledger','agent_artifacts','artifact_metadata','artifact_data',
+                  'integration_connections','integration_oauth_states'
+              }
+              rows = conn.execute("""
+                  select table_name from information_schema.tables
+                  where table_schema='public' and table_type='BASE TABLE'
+              """).fetchall()
+              actual = {r[0] for r in rows}
+              missing = sorted(required - actual)
+              assert not missing, f'missing required tables: {missing}'
+              assert conn.execute("select count(*) from schema_migrations").fetchone()[0] >= len(migrations)
+          print('EMPTY DATABASE MIGRATION TEST PASSED')
+          PY
+      - name: Run migration contract tests
+        run: pytest -q tests/owned-platform/test_migration_contract.py
