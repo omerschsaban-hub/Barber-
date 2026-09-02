@@ -11,14 +11,14 @@ This record maps the two uploaded videos to Fabrient. It separates things we can
 3. **Turn on row-level security for every database table.** Fabrient's production architecture is owned PostgreSQL rather than Supabase. The equivalent control is enforced at the server boundary with authenticated identity, organization/project membership, and owner-scoped queries. We do not claim PostgreSQL RLS exists where it does not.
 4. **Confirm each user can only reach their own records, not merely that they are logged in.** Artifact access is owner-scoped and workspace/project routes require membership/authorization.
 5. **Rate-limit the API, especially login and anything that costs money per call.** Browser mutations, OTP requests/verifications, and paid LLM usage have server-side limits.
-6. **Set billing caps and alerts on every paid service.** LLM runs have hard plan caps. Payment state is resolved server-side. A provider-wide monetary alert still depends on the billing/provider console and is not something the application can honestly claim to have configured without those external credentials/settings.
-7. **Use parameterized queries so user input cannot become a command.** Core owned-auth, artifact, billing, and workspace SQL uses parameter parameters rather than string interpolation.
+6. **Set billing caps and alerts on every paid service.** LLM runs have hard plan caps. Payment state is resolved server-side. Provider-wide monetary alerts still require the billing/provider console and its external configuration; the application must not claim those are configured without proof.
+7. **Use parameterized queries so user input cannot become a command.** Core owned-auth, artifact, billing, and workspace SQL uses parameterized queries rather than string interpolation.
 
 ### Full-checklist items visibly shown in the clip
 
 - Server-side secrets: implemented.
 - Secrets out of Git history: repository hygiene is implemented; historical-secret scanning/rotation is an operational requirement.
-- Sensitive-data encryption: integrations intentionally do not persist bearer credentials; sensitive values that must be persisted must use an encrypted server-side secret store.
+- Sensitive-data encryption: implemented for persisted integration OAuth secrets with AES-256-GCM; transient bearer credentials are not persisted by the connection-test route.
 - Server authentication: implemented with expiring, revocable sessions and server-side identity checks.
 
 ## Video 2 — SEO / production quality
