@@ -22,7 +22,6 @@ export default function Home() {
           <h1>Engineering software can simulate the product.<br /><em>It cannot build reality.</em></h1>
           <p>Fabrient is building the layer that connects engineering intent, deterministic checks, agents and real physical evidence — so what happens on the screen can be compared with what happens in the real world.</p>
           <div className="cad-actions"><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20presale`} className="cad-button cad-button-main">TALK TO US <span>→</span></a><a href={`tel:${CONTACT_PHONE}`} className="cad-button">CALL US <span>→</span></a><a href="#solution" className="cad-button">SEE HOW IT WORKS</a></div>
-          <div className="friendly-note"><span className="live-dot" /> We are pre-selling the first narrow version. The full platform stays archived until customers prove what deserves to be built.</div>
         </div>
         <div className="cad-stage friendly-stage" aria-label="Real manufacturing photograph">
           <Image src={REAL_PHOTO} alt="A real machine used for precision manufacturing" width={1600} height={1067} priority sizes="(max-width: 900px) 100vw, 50vw" />
