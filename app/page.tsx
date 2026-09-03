@@ -40,6 +40,19 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="cad-work launch-demo-section" aria-labelledby="launch-demo-title">
+        <div className="cad-section-head">
+          <div><span>FABRIENT IN ACTION</span><h2 id="launch-demo-title">See the engineering loop before you use it.</h2></div>
+          <p>A short walkthrough of how Fabrient connects engineering intent, computation and physical evidence into one traceable workflow.</p>
+        </div>
+        <div className="launch-demo-frame">
+          <video controls preload="metadata" playsInline aria-label="Fabrient launch demo">
+            <source src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4" type="video/mp4" />
+            Your browser does not support the video element. <a href="https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4">Watch the Fabrient launch demo</a>.
+          </video>
+        </div>
+      </section>
+
       <section id="problem" className="cad-work technical-section">
         <div className="cad-section-head">
           <div><span>THE PROBLEM</span><h2>Every physical build adds information to the engineering process.</h2></div>

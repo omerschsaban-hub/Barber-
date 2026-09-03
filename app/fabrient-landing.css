@@ -5,3 +5,10 @@
 .pricing-usage{margin:14px 0 0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(248,231,124,.18);font-size:12px;line-height:1.55;color:var(--green-deep)}
 .pricing-usage strong{font-size:14px}.pricing-comparison{margin-top:42px;padding-top:28px;border-top:2px solid var(--line)}.pricing-comparison h3{margin:0 0 16px;color:var(--green-deep);font-size:24px;letter-spacing:-.03em}.pricing-table{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.pricing-row{display:grid;grid-template-columns:minmax(240px,1.7fr) repeat(4,minmax(110px,1fr));min-width:790px;border-top:1px solid var(--line)}.pricing-row:first-child{border-top:0}.pricing-row>*{padding:11px 12px;font-size:11px;color:var(--muted)}.pricing-row>span:not(:first-child),.pricing-row>strong:not(:first-child){text-align:center;border-left:1px solid var(--line)}.pricing-row>span:first-child{color:var(--green-deep);font-weight:700}.pricing-row>span:not(:first-child){color:var(--green-deep)}.pricing-row-head{background:rgba(36,82,50,.07)}.pricing-row-head>*{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--green-deep)}
 @media(max-width:600px){.pricing-comparison{margin-top:30px}.pricing-row{grid-template-columns:minmax(210px,1.7fr) repeat(4,minmax(96px,1fr))}.pricing-row>*{padding:10px 8px;font-size:10px}}
+
+/* Launch demo video */
+.launch-demo-section{max-width:1240px;margin:0 auto;padding:0 30px 84px}
+.launch-demo-frame{overflow:hidden;border:2px solid var(--green);border-radius:18px;background:var(--green-deep);box-shadow:7px 7px 0 var(--line)}
+.launch-demo-frame video{display:block;width:100%;aspect-ratio:16 / 9;max-height:680px;background:#102b1c;object-fit:contain}
+@media(max-width:900px){.launch-demo-section{padding:0 18px 60px}}
+@media(max-width:560px){.launch-demo-section{padding-left:14px;padding-right:14px}.launch-demo-frame{border-radius:12px;box-shadow:4px 4px 0 var(--line)}}
