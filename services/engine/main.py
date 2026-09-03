@@ -14,6 +14,15 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from engineering.app import env_bootstrap as _env_bootstrap  # noqa: E402,F401
+
+# Production enablement must be decided before importing the composed app. The
+# composed module may start the graph scheduler at import time, so leaving an
+# independently supplied FLYWHEEL_SCHEDULER_ENABLED=true in the environment
+# must never bypass the explicit production opt-in.
+_flywheel_explicitly_enabled = os.getenv("FLYWHEEL_ENABLE_PRODUCTION", "false").strip().lower() == "true"
+if not _flywheel_explicitly_enabled:
+    os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
+
 from engineering.app.composed import app  # noqa: E402
 from engineering.app.postgres import ensure_schema, fetch_one  # noqa: E402
 from engineering.app.owned_auth import _bearer, user_from_token  # noqa: E402
@@ -30,10 +39,6 @@ else:
     os.environ.setdefault("FLYWHEEL_SCHEDULER_ENABLED", "false")
 
 MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
-
-_flywheel_explicitly_enabled = os.getenv("FLYWHEEL_ENABLE_PRODUCTION", "false").strip().lower() == "true"
-if not _flywheel_explicitly_enabled:
-    os.environ["FLYWHEEL_SCHEDULER_ENABLED"] = "false"
 
 @app.get("/")
 def service_root():
@@ -75,9 +80,12 @@ def mcp_access(request: Request):
     return {"user": {"id": identity["id"], "email": identity["email"], "display_name": identity.get("display_name"), "role": identity.get("role")}, **access}
 
 @app.get("/internal/data-flywheel/run")
-def manual_flywheel_run(token: str | None = None):
+def manual_flywheel_run(request: Request):
+    # Do not accept operational credentials in query strings: URLs can be
+    # retained by proxies, access logs, browser history, and observability tools.
     expected = os.getenv("DATA_FLYWHEEL_RUN_TOKEN")
-    if not expected or not token or not hmac.compare_digest(token, expected):
+    supplied = request.headers.get("x-data-flywheel-token", "")
+    if not expected or not supplied or not hmac.compare_digest(supplied, expected):
         return JSONResponse(status_code=401, content={"status": "unauthorized"})
     try:
         return run_graph_cycle()
@@ -147,6 +155,6 @@ async def cors_origin_guard(request: Request, call_next):
     return response
 
 if allowed:
-    app.add_middleware(CORSMiddleware, allow_origins=allowed, allow_credentials=True, allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Request-ID"], max_age=600)
+    app.add_middleware(CORSMiddleware, allow_origins=allowed, allow_credentials=True, allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Data-Flywheel-Token"], max_age=600)
 
 __all__ = ["app"]
