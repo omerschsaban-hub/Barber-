@@ -52,7 +52,7 @@ check('Internal links', /<Link href=/.test(landing) && /<Link href=/.test(read('
 check('Breadcrumbs', /Breadcrumbs/.test(read('app/changelog/page.tsx')) && exists('components/breadcrumbs.tsx'), 'public secondary page has accessible breadcrumbs')
 check('Local-business schema not fabricated', !/LocalBusiness/.test(layout), 'Fabrient is not a local business; adding fake LocalBusiness markup would be misleading')
 check('Social share images', exists('app/opengraph-image.tsx') && exists('app/twitter-image.tsx') && /opengraph-image/.test(layout), 'Open Graph and Twitter images are generated')
-check('Image alt text', /<img[^>]+alt=/.test(landing), 'visible landing image has descriptive alt text')
+check('Image alt text', /<(?:img|Image)\b[^>]*\balt\s*=/.test(landing), 'visible landing image has descriptive alt text')
 check('Production source maps disabled', /productionBrowserSourceMaps:\s*false/.test(nextConfig), 'browser production source maps are explicitly disabled')
 check('llms.txt', exists('app/llms.txt/route.ts'), 'machine-readable public product summary exists')
 check('No placeholder marketing text', !/Lorem ipsum|Jane Doe|John Doe|Customer Name|Your Company/i.test(landing), 'landing page has no obvious placeholder claims')
