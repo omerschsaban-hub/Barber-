@@ -19,7 +19,7 @@ export default function Home() {
           <div className="cad-kicker"><span className="live-dot" /> FABRIENT / SIM → REAL</div>
           <h1>Engineering software can simulate the product.<br /><em>It cannot build reality.</em></h1>
           <p>Fabrient is building the layer that connects engineering intent, deterministic checks, agents and real physical evidence — so what happens on the screen can be compared with what happens in the real world.</p>
-          <div className="cad-actions"><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20presale`} className="cad-button cad-button-main">TALK TO US <span>→</span></a><a href="#solution" className="cad-button">SEE HOW IT WORKS</a></div>
+          <div className="cad-actions"><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20presale`} className="cad-button cad-button-main">TALK TO US <span>→</span></a><a href={`tel:${CONTACT_PHONE}`} className="cad-button">CALL US <span>→</span></a><a href="#solution" className="cad-button">SEE HOW IT WORKS</a></div>
           <div className="friendly-note"><span className="live-dot" /> We are pre-selling the first narrow version. The full platform stays archived until customers prove what deserves to be built.</div>
         </div>
         <div className="presale-hero-visual" aria-hidden="true"><div className="sim-card"><span>DIGITAL</span><strong>SIMULATE</strong><small>expected result</small></div><div className="sim-arrow">→</div><div className="real-card"><span>PHYSICAL</span><strong>MEASURE</strong><small>observed result</small></div><div className="gap-label">THE GAP FABRIENT CLOSES</div></div>
@@ -54,13 +54,13 @@ export default function Home() {
                 <h3>{plan.tagline}</h3>
                 <p className="pricing-usage"><strong>{planUsageLabel(key)}</strong><br />{plan.limits.projects === -1 ? 'Unlimited projects' : `${plan.limits.projects} project${plan.limits.projects === 1 ? '' : 's'}`} · {plan.limits.storageGb === -1 ? 'Unlimited storage' : `${plan.limits.storageGb} GB storage`}</p>
                 <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
-                <a className="cad-button" href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20${encodeURIComponent(plan.name)}%20plan`}>CONTACT FABRIENT</a>
+                <div className="pricing-contact-actions"><a className="cad-button" href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20${encodeURIComponent(plan.name)}%20plan`}>EMAIL FABRIENT</a><a className="cad-button" href={`tel:${CONTACT_PHONE}`}>CALL FABRIENT</a></div>
               </article>
             )
           })}
         </div>
       </section>
-      <section className="cad-work final-cta-section"><div><span>WE ARE TALKING TO EARLY USERS NOW</span><h2>Have a real sim-to-real problem?<br /><em>Show us the gap.</em></h2><p>We want the ugly cases: where the simulation looked right, the build did not, and you need to understand why.</p></div><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20sim-to-real%20problem`} className="cad-button cad-button-main">CONTACT FABRIENT <span>→</span></a></section>
+      <section className="cad-work final-cta-section"><div><span>WE ARE TALKING TO EARLY USERS NOW</span><h2>Have a real sim-to-real problem?<br /><em>Show us the gap.</em></h2><p>We want the ugly cases: where the simulation looked right, the build did not, and you need to understand why.</p></div><div className="cad-actions"><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20sim-to-real%20problem`} className="cad-button cad-button-main">EMAIL FABRIENT <span>→</span></a><a href={`tel:${CONTACT_PHONE}`} className="cad-button">CALL FABRIENT <span>→</span></a></div></section>
       <footer className="presale-footer"><strong>FABRIENT</strong><div><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><a href={`tel:${CONTACT_PHONE}`}>{CONTACT_PHONE}</a></div></footer>
     </main>
   )
