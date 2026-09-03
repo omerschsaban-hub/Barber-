@@ -54,7 +54,7 @@ export default function Home() {
                 <h3>{plan.tagline}</h3>
                 <p className="pricing-usage"><strong>{planUsageLabel(key)}</strong><br />{plan.limits.projects === -1 ? 'Unlimited projects' : `${plan.limits.projects} project${plan.limits.projects === 1 ? '' : 's'}`} · {plan.limits.storageGb === -1 ? 'Unlimited storage' : `${plan.limits.storageGb} GB storage`}</p>
                 <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
-                {enterprise ? <div className="pricing-contact"><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><a href={`tel:${CONTACT_PHONE}`}>{CONTACT_PHONE}</a></div> : <Link className="cad-button" href="/login?redirect=/workspace">START WITH {plan.name.toUpperCase()}</Link>}
+                <a className="cad-button" href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20${encodeURIComponent(plan.name)}%20plan`}>CONTACT FABRIENT</a>
               </article>
             )
           })}
