@@ -23,9 +23,6 @@ export default function AppHeader() {
         <Link href="/integrations">Integrations</Link>
         <Link href="/changelog">Changelog</Link>
       </div>
-      <div>
-        <Link href="/login" className="button">Sign in</Link>
-      </div>
     </header>
   );
 }
