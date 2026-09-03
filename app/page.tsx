@@ -1,9 +1,11 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { ENTERPRISE_CONTACT, FABRINAT_PLANS, planUsageLabel } from '@/lib/fabrinat-plans'
 
 const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 const CONTACT_EMAIL = ENTERPRISE_CONTACT.email
 const CONTACT_PHONE = ENTERPRISE_CONTACT.phone
+const REAL_PHOTO = 'https://images.pexels.com/photos/22491107/pexels-photo-22491107.jpeg?auto=compress&cs=tinysrgb&w=1600'
 
 export default function Home() {
   return (
@@ -22,7 +24,12 @@ export default function Home() {
           <div className="cad-actions"><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20presale`} className="cad-button cad-button-main">TALK TO US <span>→</span></a><a href={`tel:${CONTACT_PHONE}`} className="cad-button">CALL US <span>→</span></a><a href="#solution" className="cad-button">SEE HOW IT WORKS</a></div>
           <div className="friendly-note"><span className="live-dot" /> We are pre-selling the first narrow version. The full platform stays archived until customers prove what deserves to be built.</div>
         </div>
-        <div className="presale-hero-visual" aria-hidden="true"><div className="sim-card"><span>DIGITAL</span><strong>SIMULATE</strong><small>expected result</small></div><div className="sim-arrow">→</div><div className="real-card"><span>PHYSICAL</span><strong>MEASURE</strong><small>observed result</small></div><div className="gap-label">THE GAP FABRIENT CLOSES</div></div>
+        <div className="cad-stage friendly-stage" aria-label="Real manufacturing photograph">
+          <Image src={REAL_PHOTO} alt="A real machine used for precision manufacturing" width={1600} height={1067} priority sizes="(max-width: 900px) 100vw, 50vw" />
+          <div className="photo-credit">Physical products do not stay on a screen.</div>
+          <div className="cad-tag tag-pass">REAL-WORLD ENGINEERING</div>
+          <div className="cad-tag tag-rev">SIMULATE → MEASURE</div>
+        </div>
       </section>
       <section id="problem" className="cad-work technical-section">
         <div className="cad-section-head"><div><span>THE PROBLEM</span><h2>Simulation is not reality.</h2></div><p>Physical products introduce manufacturing variation, fit issues, process behavior, measurement error and assumptions that were never tested.</p></div>
@@ -49,7 +56,7 @@ export default function Home() {
             const enterprise = key === 'enterprise'
             return (
               <article className={`pricing-card${key === 'startup' ? ' featured' : ''}`} key={key}>
-                <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price ?? 0}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
+                <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
                 <p className="pricing-audience">{plan.audience} · {plan.teamSize}</p>
                 <h3>{plan.tagline}</h3>
                 <p className="pricing-usage"><strong>{planUsageLabel(key)}</strong><br />{plan.limits.projects === -1 ? 'Unlimited projects' : `${plan.limits.projects} project${plan.limits.projects === 1 ? '' : 's'}`} · {plan.limits.storageGb === -1 ? 'Unlimited storage' : `${plan.limits.storageGb} GB storage`}</p>
