@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { ENTERPRISE_CONTACT, FABRINAT_PLANS, planUsageLabel } from '@/lib/fabrinat-plans'
 
-const CONTACT_EMAIL = 'omerschsaban@gmail.com'
-const CONTACT_PHONE = '0509220082'
+const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
+const CONTACT_EMAIL = ENTERPRISE_CONTACT.email
+const CONTACT_PHONE = ENTERPRISE_CONTACT.phone
 
 export default function Home() {
   return (
@@ -39,9 +41,24 @@ export default function Home() {
         <div className="cad-section-head"><div><span>WHY FABRIENT</span><h2>Not another AI wrapper around engineering software.</h2></div></div>
         <div className="intelligence-stack"><div><span>01</span><strong>Reality stays separate</strong><p>A simulation or model does not become physical evidence just because an AI produced it.</p></div><div><span>02</span><strong>Engineering stays deterministic</strong><p>Where a repeatable calculation is possible, the engineering layer—not the language model—owns the answer.</p></div><div><span>03</span><strong>Agents get structure</strong><p>MCP exposes engineering capabilities as bounded tools instead of forcing agents to scrape a UI or invent their own workflow.</p></div><div><span>04</span><strong>Evidence compounds</strong><p>Prediction, build results and measurements can stay connected across revisions so the system can learn from reality.</p></div></div>
       </section>
-      <section id="pricing" className="cad-work pricing-section presale-pricing">
-        <div className="cad-section-head"><div><span>PRE-SALE</span><h2>Start with the problem. Pay for the outcome.</h2></div><p>We are intentionally selling a narrow, hands-on version first. If customers pay for the workflow, we build the software around what they repeatedly need.</p></div>
-        <div className="pricing-grid"><article className="pricing-card featured"><div className="pricing-card-head"><span>EARLY ACCESS</span><strong>$39</strong><small>/ month</small></div><p className="pricing-audience">For hardware and robotics teams validating physical products</p><h3>Sim → real validation, delivered with us.</h3><ul><li>Define the engineering question and expected result</li><li>Review the relevant design and manufacturing evidence</li><li>Compare prediction with physical observations</li><li>Get a clear result, limitations and next action</li><li>Early access as the workflow becomes software</li></ul><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20early%20access`} className="cad-button cad-button-main">REQUEST EARLY ACCESS</a><div className="pricing-contact"><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><a href={`tel:${CONTACT_PHONE}`}>{CONTACT_PHONE}</a></div></article></div>
+      <section id="pricing" className="cad-work pricing-section">
+        <div className="cad-section-head"><div><span>PLANS THAT MATCH THE WORK</span><h2>Start small. Add the control you need.</h2></div><p>Every plan keeps the engineering state and evidence visible. Free is useful on purpose, Hobby gives one builder every individual feature, Startup adds team execution, and Enterprise adds organization-wide control.</p></div>
+        <div className="pricing-grid">
+          {PLAN_ORDER.map((key) => {
+            const plan = FABRINAT_PLANS[key]
+            const enterprise = key === 'enterprise'
+            return (
+              <article className={`pricing-card${key === 'startup' ? ' featured' : ''}`} key={key}>
+                <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price ?? 0}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
+                <p className="pricing-audience">{plan.audience} · {plan.teamSize}</p>
+                <h3>{plan.tagline}</h3>
+                <p className="pricing-usage"><strong>{planUsageLabel(key)}</strong><br />{plan.limits.projects === -1 ? 'Unlimited projects' : `${plan.limits.projects} project${plan.limits.projects === 1 ? '' : 's'}`} · {plan.limits.storageGb === -1 ? 'Unlimited storage' : `${plan.limits.storageGb} GB storage`}</p>
+                <ul>{plan.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>
+                {enterprise ? <div className="pricing-contact"><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><a href={`tel:${CONTACT_PHONE}`}>{CONTACT_PHONE}</a></div> : <Link className="cad-button" href="/login?redirect=/workspace">START WITH {plan.name.toUpperCase()}</Link>}
+              </article>
+            )
+          })}
+        </div>
       </section>
       <section className="cad-work final-cta-section"><div><span>WE ARE TALKING TO EARLY USERS NOW</span><h2>Have a real sim-to-real problem?<br /><em>Show us the gap.</em></h2><p>We want the ugly cases: where the simulation looked right, the build did not, and you need to understand why.</p></div><a href={`mailto:${CONTACT_EMAIL}?subject=Fabrient%20sim-to-real%20problem`} className="cad-button cad-button-main">CONTACT FABRIENT <span>→</span></a></section>
       <footer className="presale-footer"><strong>FABRIENT</strong><div><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><a href={`tel:${CONTACT_PHONE}`}>{CONTACT_PHONE}</a></div></footer>
