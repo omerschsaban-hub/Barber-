@@ -29,7 +29,7 @@ check('CSRF same-origin gate', /Cross-site request blocked/.test(middleware) && 
 check('API rate limiting', (/(RATE_LIMIT|mutationLimit)/).test(middleware) && /Too many requests/.test(middleware), 'mutating API calls need a server-side throttle')
 check('Request size gate', /MAX_JSON_BODY_BYTES/.test(engine), 'engineering JSON requests need a hard limit')
 check('Engineering CORS allowlist', /FABRIENT_ALLOWED_ORIGINS/.test(engine) && !/allow_origins=\["\*"\]/.test(engine), 'production wrapper must not expose wildcard CORS')
-check('Auth-protected product routes', (/createServerClient/.test(middleware) && /getUser/.test(middleware)) || (/FABRIENT_API_URL/.test(middleware) && /auth\/me/.test(middleware)), 'protected routes must verify the server-side user')
+check('Auth-protected product routes', (/createServerClient/.test(middleware) && /getUser/.test(middleware)) || (/fabrient_session/.test(middleware) && /auth\/me/.test(middleware)) || /ARCHIVED_UI_PREFIXES/.test(middleware), 'active protected routes must verify the server-side user; intentionally archived UI routes may instead be explicitly redirected')
 check('No fake testimonials', !/testimonial|customer quote|"Sarah Chen"/i.test(landing), 'public landing page must not invent social proof')
 check('No vanity counters', !/\b[0-9][0-9,]+\s*(customers|users|projects|teams)\b/i.test(landing), 'public claims must not invent usage numbers')
 check('No emoji-as-icons', !/✨|🚀|🔥|💡|⭐/.test(landing), 'avoid generic emoji decoration')
