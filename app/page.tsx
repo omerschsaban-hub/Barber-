@@ -59,12 +59,9 @@ export default function Home() {
           <p>Real builds create real data. Keep it connected to the decisions behind the part.</p>
         </div>
         <div className="reality-flow three-d-rail">
-          <div><small>01</small><strong>Design</strong><p>Set geometry and intent.</p></div>
-          <i>→</i>
-          <div><small>02</small><strong>Build</strong><p>Make the physical part.</p></div>
-          <i>→</i>
-          <div><small>03</small><strong>Measure</strong><p>Capture what changed.</p></div>
-          <i>→</i>
+          <div><small>01</small><strong>Design</strong><p>Set geometry and intent.</p></div><i>→</i>
+          <div><small>02</small><strong>Build</strong><p>Make the physical part.</p></div><i>→</i>
+          <div><small>03</small><strong>Measure</strong><p>Capture what changed.</p></div><i>→</i>
           <div><small>04</small><strong>Improve</strong><p>Make the next call better.</p></div>
         </div>
       </section>
@@ -74,10 +71,11 @@ export default function Home() {
           <div><span>THE SOLUTION</span><h2>One loop from design to proof.</h2></div>
           <p>Connect computation, production and measurement to every revision.</p>
         </div>
-        <div className="capability-grid presale-grid three-d-modules">
-          <article><span>DEFINE</span><h3>Set the baseline.</h3><p>Capture geometry, constraints and intent.</p></article>
-          <article><span>MEASURE</span><h3>Bring reality back in.</h3><p>Keep inspection and production data with the part.</p></article>
-          <article><span>IMPROVE</span><h3>Make the next call better.</h3><p>Compare expected and measured results.</p></article>
+        <div className="solution-constellation">
+          <div className="constellation-core" aria-hidden="true"><span>SIM</span><b>↔</b><span>REAL</span></div>
+          <div className="constellation-label constellation-label-one"><span>DEFINE</span><h3>Set the baseline.</h3><p>Capture geometry, constraints and intent.</p></div>
+          <div className="constellation-label constellation-label-two"><span>MEASURE</span><h3>Bring reality back in.</h3><p>Keep inspection and production data with the part.</p></div>
+          <div className="constellation-label constellation-label-three"><span>IMPROVE</span><h3>Make the next call better.</h3><p>Compare expected and measured results.</p></div>
         </div>
       </section>
 
@@ -86,12 +84,11 @@ export default function Home() {
           <div><span>FOR AI AGENTS</span><h2>Give agents tools they can trust.</h2></div>
           <p>Authenticated operations. Structured results. Engineering context.</p>
         </div>
-        <div className="agent-story three-d-stack">
-          <div className="agent-node"><span>AGENT</span><strong>Reads the engineering task and selects the required operation.</strong></div>
-          <div className="agent-arrow">↓</div>
-          <div className="agent-node"><span>FABRIENT MCP</span><strong>Executes authenticated tools and returns structured engineering results.</strong></div>
-          <div className="agent-arrow">↓</div>
-          <div className="agent-node"><span>ENGINEERING STATE</span><strong>Stores computation, validation results, observations and the decisions that depend on them.</strong></div>
+        <div className="agent-constellation">
+          <div className="agent-core" aria-hidden="true">MCP<br /><span>↕</span></div>
+          <div className="agent-label agent-label-one"><span>AGENT</span><strong>Reads the engineering task and selects the required operation.</strong></div>
+          <div className="agent-label agent-label-two"><span>FABRIENT MCP</span><strong>Executes authenticated tools and returns structured engineering results.</strong></div>
+          <div className="agent-label agent-label-three"><span>ENGINEERING STATE</span><strong>Stores computation, validation results, observations and the decisions that depend on them.</strong></div>
         </div>
         <div className="prohibition-strip"><span>DETERMINISTIC COMPUTATION</span><span>PHYSICAL OBSERVATIONS</span><span>STRUCTURED TOOLS</span><span>TRACEABLE RESULTS</span></div>
       </section>
@@ -101,7 +98,7 @@ export default function Home() {
           <div><span>THE TECHNOLOGY</span><h2>Use the right tool for the job.</h2></div>
           <p>Algorithms, physics, ML and vision—connected to the product.</p>
         </div>
-        <div className="intelligence-stack three-d-modules">
+        <div className="technology-constellation">
           <div><span>01</span><strong>Algorithms</strong><p>Repeatable engineering math.</p></div>
           <div><span>02</span><strong>Physics</strong><p>Models for real behavior.</p></div>
           <div><span>03</span><strong>Machine Learning</strong><p>Patterns in your production data.</p></div>
@@ -130,12 +127,12 @@ export default function Home() {
           <div><span>PLANS</span><h2>Start where you are.</h2></div>
           <p>Choose the workflow that fits your team.</p>
         </div>
-        <div className="pricing-grid three-d-pricing">
+        <div className="pricing-constellation">
           {PLAN_ORDER.map((key) => {
             const plan = FABRINAT_PLANS[key]
             const enterprise = key === 'enterprise'
             return (
-              <article className={`pricing-card${key === 'startup' ? ' featured' : ''}`} key={key}>
+              <article className={`pricing-node${key === 'startup' ? ' featured' : ''}`} key={key}>
                 <div className="pricing-card-head"><span>{plan.name.toUpperCase()}</span><strong>{enterprise ? 'Contact' : plan.price === 0 ? 'Free' : `$${plan.price}`} </strong>{!enterprise && (plan.price ?? 0) > 0 && <small>/ month</small>}</div>
                 <p className="pricing-audience">{plan.audience} · {plan.teamSize}</p>
                 <h3>{plan.tagline}</h3>
