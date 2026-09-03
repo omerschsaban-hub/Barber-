@@ -36,10 +36,12 @@ def _dsn() -> str:
 def pool() -> ConnectionPool:
     global _POOL
     if _POOL is None:
+        configured_min = max(1, int(os.getenv("DB_POOL_MIN", "1")))
+        configured_max = max(configured_min, int(os.getenv("DB_POOL_MAX", "8")))
         _POOL = ConnectionPool(
             conninfo=_dsn(),
-            min_size=max(1, int(os.getenv("DB_POOL_MIN", "1"))),
-            max_size=max(1, int(os.getenv("DB_POOL_MAX", "8"))),
+            min_size=configured_min,
+            max_size=configured_max,
             kwargs={"row_factory": dict_row},
             open=True,
         )
@@ -86,31 +88,33 @@ def _verify_schema(conn: Any, migration_count: int) -> None:
 def ensure_schema() -> None:
     migrations = _migration_files()
     with pool().connection() as conn:
-        conn.execute("select pg_advisory_lock(%s)", (MIGRATION_LOCK,))
-        try:
-            conn.execute("""CREATE TABLE IF NOT EXISTS schema_migrations (
-                version TEXT PRIMARY KEY,
-                applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            )""")
-            conn.execute("ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT")
-            for migration in migrations:
-                version = migration.name
-                checksum = _checksum(migration)
-                row = conn.execute("SELECT checksum FROM schema_migrations WHERE version=%s", (version,)).fetchone()
-                if row is not None:
-                    recorded = row["checksum"]
-                    if recorded is None:
-                        conn.execute("UPDATE schema_migrations SET checksum=%s WHERE version=%s", (checksum, version))
-                    elif not hmac.compare_digest(str(recorded), checksum):
-                        raise RuntimeError(f"PostgreSQL migration checksum mismatch for {version}: an already-applied migration was modified")
-                    continue
-                print(f"applying PostgreSQL migration {version}", flush=True)
-                conn.execute(migration.read_text(encoding="utf-8"))
-                conn.execute("""INSERT INTO schema_migrations(version, checksum)
-                   VALUES(%s, %s) ON CONFLICT(version) DO UPDATE SET checksum=excluded.checksum""", (version, checksum))
-            _verify_schema(conn, len(migrations))
-        finally:
-            conn.execute("select pg_advisory_unlock(%s)", (MIGRATION_LOCK,))
+        # Transaction-scoped locking is deliberate: if a migration fails and
+        # PostgreSQL aborts the transaction, the lock is released automatically.
+        # A session-level lock here would otherwise survive a failed migration
+        # when the connection is returned to the pool and could deadlock later
+        # startup attempts.
+        conn.execute("select pg_advisory_xact_lock(%s)", (MIGRATION_LOCK,))
+        conn.execute("""CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )""")
+        conn.execute("ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT")
+        for migration in migrations:
+            version = migration.name
+            checksum = _checksum(migration)
+            row = conn.execute("SELECT checksum FROM schema_migrations WHERE version=%s", (version,)).fetchone()
+            if row is not None:
+                recorded = row["checksum"]
+                if recorded is None:
+                    conn.execute("UPDATE schema_migrations SET checksum=%s WHERE version=%s", (checksum, version))
+                elif not hmac.compare_digest(str(recorded), checksum):
+                    raise RuntimeError(f"PostgreSQL migration checksum mismatch for {version}: an already-applied migration was modified")
+                continue
+            print(f"applying PostgreSQL migration {version}", flush=True)
+            conn.execute(migration.read_text(encoding="utf-8"))
+            conn.execute("""INSERT INTO schema_migrations(version, checksum)
+               VALUES(%s, %s) ON CONFLICT(version) DO UPDATE SET checksum=excluded.checksum""", (version, checksum))
+        _verify_schema(conn, len(migrations))
 
 
 def fetch_all(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
