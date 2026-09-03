@@ -72,7 +72,7 @@ export default function Home() {
           <p>Connect computation, production and measurement to every revision.</p>
         </div>
         <div className="solution-constellation">
-          <div className="constellation-core" aria-hidden="true"><span>SIM</span><b>↔</b><span>REAL</span></div>
+          <div className="constellation-core"><span>SIM</span><b>↔</b><span>REAL</span><small>CONNECTED LOOP</small></div>
           <div className="constellation-label constellation-label-one"><span>DEFINE</span><h3>Set the baseline.</h3><p>Capture geometry, constraints and intent.</p></div>
           <div className="constellation-label constellation-label-two"><span>MEASURE</span><h3>Bring reality back in.</h3><p>Keep inspection and production data with the part.</p></div>
           <div className="constellation-label constellation-label-three"><span>IMPROVE</span><h3>Make the next call better.</h3><p>Compare expected and measured results.</p></div>
@@ -85,7 +85,7 @@ export default function Home() {
           <p>Authenticated operations. Structured results. Engineering context.</p>
         </div>
         <div className="agent-constellation">
-          <div className="agent-core" aria-hidden="true">MCP<br /><span>↕</span></div>
+          <div className="agent-core">MCP<br /><span>↕</span><small>TRUSTED TOOLS</small></div>
           <div className="agent-label agent-label-one"><span>AGENT</span><strong>Reads the engineering task and selects the required operation.</strong></div>
           <div className="agent-label agent-label-two"><span>FABRIENT MCP</span><strong>Executes authenticated tools and returns structured engineering results.</strong></div>
           <div className="agent-label agent-label-three"><span>ENGINEERING STATE</span><strong>Stores computation, validation results, observations and the decisions that depend on them.</strong></div>
