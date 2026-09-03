@@ -72,10 +72,12 @@ export default function Home() {
           <p>Connect computation, production and measurement to every revision.</p>
         </div>
         <div className="solution-constellation">
-          <div className="constellation-core"><span>SIM</span><b>↔</b><span>REAL</span><small>CONNECTED LOOP</small></div>
-          <div className="constellation-label constellation-label-one"><span>DEFINE</span><h3>Set the baseline.</h3><p>Capture geometry, constraints and intent.</p></div>
-          <div className="constellation-label constellation-label-two"><span>MEASURE</span><h3>Bring reality back in.</h3><p>Keep inspection and production data with the part.</p></div>
-          <div className="constellation-label constellation-label-three"><span>IMPROVE</span><h3>Make the next call better.</h3><p>Compare expected and measured results.</p></div>
+          <div className="solution-cube" aria-label="Connected engineering loop">
+            <div className="cube-face cube-face-front"><span>DEFINE</span><h3>Set the baseline.</h3><p>Capture geometry, constraints and intent.</p></div>
+            <div className="cube-face cube-face-right"><span>MEASURE</span><h3>Bring reality back in.</h3><p>Keep inspection and production data with the part.</p></div>
+            <div className="cube-face cube-face-top"><span>IMPROVE</span><h3>Make the next call better.</h3><p>Compare expected and measured results.</p></div>
+            <div className="cube-core">SIM <b>↔</b> REAL<small>CONNECTED LOOP</small></div>
+          </div>
         </div>
       </section>
 
@@ -85,10 +87,12 @@ export default function Home() {
           <p>Authenticated operations. Structured results. Engineering context.</p>
         </div>
         <div className="agent-constellation">
-          <div className="agent-core">MCP<br /><span>↕</span><small>TRUSTED TOOLS</small></div>
-          <div className="agent-label agent-label-one"><span>AGENT</span><strong>Reads the engineering task and selects the required operation.</strong></div>
-          <div className="agent-label agent-label-two"><span>FABRIENT MCP</span><strong>Executes authenticated tools and returns structured engineering results.</strong></div>
-          <div className="agent-label agent-label-three"><span>ENGINEERING STATE</span><strong>Stores computation, validation results, observations and the decisions that depend on them.</strong></div>
+          <div className="agent-cube" aria-label="Trusted agent tools">
+            <div className="cube-face agent-face-front"><span>AGENT</span><strong>Reads the engineering task and selects the required operation.</strong></div>
+            <div className="cube-face agent-face-right"><span>FABRIENT MCP</span><strong>Executes authenticated tools and returns structured engineering results.</strong></div>
+            <div className="cube-face agent-face-top"><span>ENGINEERING STATE</span><strong>Stores computation, validation results, observations and the decisions that depend on them.</strong></div>
+            <div className="cube-core">MCP <b>↕</b><small>TRUSTED TOOLS</small></div>
+          </div>
         </div>
         <div className="prohibition-strip"><span>DETERMINISTIC COMPUTATION</span><span>PHYSICAL OBSERVATIONS</span><span>STRUCTURED TOOLS</span><span>TRACEABLE RESULTS</span></div>
       </section>
