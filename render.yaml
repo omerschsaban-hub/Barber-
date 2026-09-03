@@ -87,11 +87,15 @@ services:
         value: https://fabrient-engineering.onrender.com
       - key: FABRIENT_WEB_ORIGIN
         value: https://getfabrient.com
-      - key: DATABASE_URL
-        fromDatabase:
-          name: fabrient-postgres
-          property: connectionString
+      # Must match the engineering service's AUTH_SECRET. MCP validates the
+      # same Postgres-backed session/OAuth token hashes as the shared engine.
+      - key: AUTH_SECRET
+        sync: false
       - key: FABRIENT_MCP_OAUTH_ISSUER
         value: https://fabrient-mcp.onrender.com
       - key: FABRIENT_MCP_RESOURCE_URL
         value: https://fabrient-mcp.onrender.com/mcp
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fabrient-postgres
+          property: connectionString
