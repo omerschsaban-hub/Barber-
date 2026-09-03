@@ -58,7 +58,7 @@ export default function Home() {
           <div><span>THE PROBLEM</span><h2>Design files do not tell the whole story.</h2></div>
           <p>Real builds create real data. Keep it connected to the decisions behind the part.</p>
         </div>
-        <div className="reality-flow">
+        <div className="reality-flow three-d-rail">
           <div><small>01</small><strong>Design</strong><p>Set geometry and intent.</p></div>
           <i>→</i>
           <div><small>02</small><strong>Build</strong><p>Make the physical part.</p></div>
@@ -74,7 +74,7 @@ export default function Home() {
           <div><span>THE SOLUTION</span><h2>One loop from design to proof.</h2></div>
           <p>Connect computation, production and measurement to every revision.</p>
         </div>
-        <div className="capability-grid presale-grid">
+        <div className="capability-grid presale-grid three-d-modules">
           <article><span>DEFINE</span><h3>Set the baseline.</h3><p>Capture geometry, constraints and intent.</p></article>
           <article><span>MEASURE</span><h3>Bring reality back in.</h3><p>Keep inspection and production data with the part.</p></article>
           <article><span>IMPROVE</span><h3>Make the next call better.</h3><p>Compare expected and measured results.</p></article>
@@ -86,7 +86,7 @@ export default function Home() {
           <div><span>FOR AI AGENTS</span><h2>Give agents tools they can trust.</h2></div>
           <p>Authenticated operations. Structured results. Engineering context.</p>
         </div>
-        <div className="agent-story">
+        <div className="agent-story three-d-stack">
           <div className="agent-node"><span>AGENT</span><strong>Reads the engineering task and selects the required operation.</strong></div>
           <div className="agent-arrow">↓</div>
           <div className="agent-node"><span>FABRIENT MCP</span><strong>Executes authenticated tools and returns structured engineering results.</strong></div>
@@ -101,7 +101,7 @@ export default function Home() {
           <div><span>THE TECHNOLOGY</span><h2>Use the right tool for the job.</h2></div>
           <p>Algorithms, physics, ML and vision—connected to the product.</p>
         </div>
-        <div className="intelligence-stack">
+        <div className="intelligence-stack three-d-modules">
           <div><span>01</span><strong>Algorithms</strong><p>Repeatable engineering math.</p></div>
           <div><span>02</span><strong>Physics</strong><p>Models for real behavior.</p></div>
           <div><span>03</span><strong>Machine Learning</strong><p>Patterns in your production data.</p></div>
@@ -114,7 +114,7 @@ export default function Home() {
           <div><span>SIM-TO-REAL</span><h2>Every build makes the next one smarter.</h2></div>
           <p>Predict. Produce. Observe. Calibrate.</p>
         </div>
-        <div className="reality-flow">
+        <div className="reality-flow three-d-rail">
           <div><small>01</small><strong>Predict</strong><p>Know what to expect.</p></div>
           <i>→</i>
           <div><small>02</small><strong>Produce</strong><p>Make the part.</p></div>
@@ -130,7 +130,7 @@ export default function Home() {
           <div><span>PLANS</span><h2>Start where you are.</h2></div>
           <p>Choose the workflow that fits your team.</p>
         </div>
-        <div className="pricing-grid">
+        <div className="pricing-grid three-d-pricing">
           {PLAN_ORDER.map((key) => {
             const plan = FABRINAT_PLANS[key]
             const enterprise = key === 'enterprise'

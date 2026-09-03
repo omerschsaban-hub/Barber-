@@ -14,3 +14,23 @@
 .launch-demo-link:hover,.launch-demo-link:focus-visible{color:#fff;background:rgba(255,255,255,.08)}
 @media(max-width:900px){.launch-demo-section{padding:0 18px 60px}}
 @media(max-width:560px){.launch-demo-section{padding-left:14px;padding-right:14px}.launch-demo-frame{border-radius:12px;box-shadow:4px 4px 0 var(--line)}}
+
+/* CSS-only 3D engineering surfaces: no runtime, canvas, or bundle dependency. */
+.three-d-modules,.three-d-pricing{perspective:1100px}
+.three-d-modules article,.three-d-pricing .pricing-card{position:relative;isolation:isolate;overflow:visible;border:2px solid var(--green);border-radius:4px;background:linear-gradient(145deg,#fffef0 0%,var(--surface) 58%,#e5edc0 100%);box-shadow:10px 10px 0 var(--green-deep),16px 16px 0 rgba(36,82,50,.12);transform:rotateX(3deg) rotateY(-4deg);transition:transform .22s ease,box-shadow .22s ease}
+.three-d-modules article:nth-child(2),.three-d-pricing .pricing-card:nth-child(2){transform:translateY(-14px) rotateX(3deg) rotateY(2deg)}
+.three-d-modules article:nth-child(3),.three-d-pricing .pricing-card:nth-child(3){transform:rotateX(3deg) rotateY(4deg)}
+.three-d-modules article:hover,.three-d-modules article:focus-within,.three-d-pricing .pricing-card:hover,.three-d-pricing .pricing-card:focus-within{transform:translateY(-8px) rotateX(0) rotateY(0);box-shadow:4px 4px 0 var(--green-deep),9px 9px 0 rgba(36,82,50,.15)}
+.three-d-modules article::before,.three-d-pricing .pricing-card::before{content:"";position:absolute;z-index:-1;inset:8px -8px -8px 8px;border-right:2px solid var(--green);border-bottom:2px solid var(--green);background:rgba(36,82,50,.08);transform:translateZ(-12px);pointer-events:none}
+.three-d-rail{perspective:1000px}
+.three-d-rail>div{border-radius:4px!important;background:linear-gradient(145deg,#fffef0,#e9f0c6)!important;box-shadow:8px 8px 0 var(--green-deep)!important;transform:rotateX(5deg) rotateY(-3deg);transition:transform .2s ease}
+.three-d-rail>div:nth-of-type(even){transform:translateY(-10px) rotateX(5deg) rotateY(3deg)}
+.three-d-rail>div:hover{transform:translateY(-7px) rotateX(0) rotateY(0)}
+.three-d-rail>i{font-size:30px!important;text-shadow:3px 3px 0 var(--yellow);transform:translateZ(18px)}
+.three-d-stack{perspective:1000px}
+.three-d-stack .agent-node{border-radius:4px!important;box-shadow:9px 9px 0 var(--green-deep)!important;transform:rotateX(4deg) rotateY(-3deg);transition:transform .2s ease}
+.three-d-stack .agent-node:nth-of-type(3){transform:translateY(-8px) rotateX(4deg) rotateY(3deg)}
+.three-d-stack .agent-node:hover{transform:translateY(-6px) rotateX(0) rotateY(0)}
+.three-d-pricing .pricing-card-featured{background:linear-gradient(145deg,var(--green-deep),#163b27)!important;box-shadow:10px 10px 0 var(--yellow),16px 16px 0 rgba(36,82,50,.15)!important}
+@media(max-width:900px){.three-d-modules article,.three-d-pricing .pricing-card,.three-d-rail>div,.three-d-stack .agent-node{transform:none!important}.three-d-modules article:hover,.three-d-modules article:focus-within,.three-d-pricing .pricing-card:hover,.three-d-pricing .pricing-card:focus-within,.three-d-rail>div:hover,.three-d-stack .agent-node:hover{transform:translateY(-4px)!important}}
+@media(prefers-reduced-motion:reduce){.three-d-modules article,.three-d-pricing .pricing-card,.three-d-rail>div,.three-d-stack .agent-node{transition:none}}
