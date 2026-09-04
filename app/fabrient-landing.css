@@ -67,3 +67,36 @@
 .pricing-node{border:2px solid var(--green-deep)!important;border-bottom:7px solid var(--green-deep)!important;padding:18px 16px!important;background:linear-gradient(145deg,#fffef0,#d4e2a5)!important;box-shadow:7px 8px 0 var(--green)!important;transform:skewY(-3deg)!important}.pricing-node:nth-child(2n){transform:skewY(3deg)!important}.pricing-node>*{transform:skewY(3deg)}.pricing-node:nth-child(2n)>*{transform:skewY(-3deg)}
 @media(max-width:900px){.solution-cube,.agent-cube{width:94%;min-height:330px}.cube-face{padding:16px}.cube-face h3{font-size:18px}.cube-face p,.cube-face strong{font-size:11px}}
 @media(max-width:560px){.solution-cube,.agent-cube{position:relative;left:auto;top:auto;width:100%;min-height:0;transform:none;filter:none;display:flex;flex-direction:column;gap:10px}.cube-face,.cube-face-front,.cube-face-right,.cube-face-top{transform:none;min-height:120px;padding:16px}.cube-core{position:relative;left:auto;top:auto;transform:none;order:-1;align-self:center}.technology-constellation>div:nth-child(2n){text-align:left}.technology-constellation>div,.technology-constellation>div:nth-child(2n),.technology-constellation>div>*,.technology-constellation>div:nth-child(2n)>*{transform:none}.pricing-node,.pricing-node:nth-child(2n),.pricing-node>*,.pricing-node:nth-child(2n)>*{transform:none!important}}
+
+
+/* Final no-card pass: open diagram, typography, and geometry only. */
+.solution-constellation,.agent-constellation,.technology-constellation,.pricing-constellation{background:transparent!important;border:0!important;box-shadow:none!important}
+.solution-constellation::before,.agent-constellation::before,.technology-constellation::before,.pricing-constellation::before,.technology-constellation::after,.pricing-constellation::after{display:none!important}
+.three-d-rail>div{border:0!important;border-bottom:2px solid var(--green)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:14px 0!important;transform:none!important}
+.three-d-rail>div:nth-of-type(even){transform:translateY(-8px)!important}
+.three-d-rail>i{background:transparent!important;box-shadow:none!important}
+.solution-cube,.agent-cube{width:min(700px,90%);min-height:250px;filter:none;transform:translate(-50%,-50%) rotate(-4deg);background:transparent}
+.cube-face,.cube-face-front,.cube-face-right,.cube-face-top{border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible;transform:none!important;padding:20px!important}
+.cube-face::after{display:none}
+.cube-face h3{font-size:24px;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:7px}
+.cube-face p,.cube-face strong{max-width:220px}
+.cube-face-front{grid-column:1;grid-row:1 / 3;justify-content:center;border-left:3px solid var(--green-deep)!important}
+.cube-face-right{grid-column:2;grid-row:1;justify-content:end;border-top:3px solid var(--green-deep)!important}
+.cube-face-top{grid-column:2;grid-row:2;justify-content:start;border-bottom:3px solid var(--green-deep)!important}
+.cube-core{width:116px;height:116px;border-radius:50%;padding:0;place-content:center;text-align:center;background:radial-gradient(circle at 35% 25%,#f8f3a6,#99bc63 58%,#245232 60%,#173c27 100%);box-shadow:inset -9px -10px 0 rgba(0,0,0,.15),7px 9px 0 var(--green-deep);transform:translate(-50%,-50%) rotate(4deg)}
+.agent-cube{width:min(760px,92%)}
+.agent-cube .cube-face-front,.agent-cube .cube-face-right,.agent-cube .cube-face-top{border-left:0!important;border-top:0!important;border-bottom:0!important}
+.agent-cube .cube-face-front{border-right:3px solid var(--green-deep)!important;text-align:right;align-items:end}
+.agent-cube .cube-face-right{border-left:3px solid var(--green-deep)!important}
+.agent-cube .cube-face-top{grid-column:1 / 3;border-top:3px solid var(--green-deep)!important;align-items:center;text-align:center}
+.agent-cube .cube-face-top strong{max-width:420px}
+.technology-constellation{gap:0 35%;background:transparent!important}
+.technology-constellation>div,.technology-constellation>div:nth-child(2n){border:0!important;border-bottom:1px solid var(--green)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:18px 0!important;margin:0;transform:none!important;text-align:initial!important}
+.technology-constellation>div>* ,.technology-constellation>div:nth-child(2n)>*{transform:none!important}
+.technology-constellation>div strong{font-size:18px;text-decoration:underline;text-underline-offset:5px}
+.pricing-node,.pricing-node:nth-child(2n){border:0!important;border-bottom:2px solid var(--green)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:16px 0!important;transform:none!important}
+.pricing-node>*,.pricing-node:nth-child(2n)>*{transform:none!important}
+.pricing-node::after{display:none}
+.pricing-node .pricing-card-head{border:0;padding:0}.pricing-node .pricing-card-head strong{font-size:34px}.pricing-node h3{font-size:20px;text-decoration:underline;text-underline-offset:5px}.pricing-node .pricing-usage{padding:6px 0}.pricing-node ul{padding-left:18px}.pricing-node .cad-button{background:transparent!important;border:0!important;padding:4px 0!important;justify-content:flex-start;text-decoration:underline;color:var(--green-deep)}
+@media(max-width:900px){.solution-cube,.agent-cube{width:96%;min-height:300px}.cube-face h3{font-size:20px}.three-d-rail>div:nth-of-type(even){transform:none!important}}
+@media(max-width:560px){.solution-cube,.agent-cube{width:100%;min-height:0;display:flex;filter:none;transform:none;gap:12px}.cube-face,.cube-face-front,.cube-face-right,.cube-face-top{display:block;min-height:0;padding:12px 0!important;border:0!important;border-bottom:1px solid var(--green)!important}.cube-face h3{font-size:19px}.cube-face p,.cube-face strong{max-width:none}.cube-core{position:relative;left:auto;top:auto;transform:none;order:-1;margin:0 auto 16px}.agent-cube .cube-face-front{text-align:left;align-items:initial}.agent-cube .cube-face-top{text-align:left}.technology-constellation{display:block;min-height:0}.pricing-constellation{display:block;min-height:0;padding:0}.pricing-node{margin:0 0 22px}.pricing-constellation::after{display:none}}
