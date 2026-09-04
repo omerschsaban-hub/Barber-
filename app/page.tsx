@@ -52,6 +52,7 @@ export default function Home() {
             loading="eager"
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
+            style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '16 / 9', border: 0, background: '#102b1c' }}
           />
           <a className="launch-demo-link" href={DEMO_VIDEO_URL} target="_blank" rel="noreferrer">VIDEO NOT PLAYING? OPEN THE DEMO ↗</a>
         </div>
