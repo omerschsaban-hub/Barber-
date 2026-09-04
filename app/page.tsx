@@ -6,6 +6,7 @@ const PLAN_ORDER = ['free', 'hobbyist', 'startup', 'enterprise'] as const
 const CONTACT_EMAIL = ENTERPRISE_CONTACT.email
 const CONTACT_PHONE = ENTERPRISE_CONTACT.phone
 const REAL_PHOTO = 'https://images.pexels.com/photos/22491107/pexels-photo-22491107.jpeg?auto=compress&cs=tinysrgb&w=1600'
+const DEMO_VIDEO_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4'
 
 export default function Home() {
   return (
@@ -45,11 +46,14 @@ export default function Home() {
           <p>Two minutes. One connected engineering loop.</p>
         </div>
         <div className="launch-demo-frame">
-          <video controls autoPlay muted preload="auto" playsInline aria-label="Fabrient launch demo">
-            <source src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4" type="video/mp4" />
-            Your browser does not support the video element. <a href="https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4">Watch the Fabrient launch demo</a>.
-          </video>
-          <a className="launch-demo-link" href="https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4" target="_blank" rel="noreferrer">VIDEO NOT PLAYING? OPEN THE DEMO ↗</a>
+          <iframe
+            src={DEMO_VIDEO_URL}
+            title="Fabrient launch demo"
+            loading="eager"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+          <a className="launch-demo-link" href={DEMO_VIDEO_URL} target="_blank" rel="noreferrer">VIDEO NOT PLAYING? OPEN THE DEMO ↗</a>
         </div>
       </section>
 
