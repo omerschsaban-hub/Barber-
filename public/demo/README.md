@@ -1,0 +1,1 @@
+The production demo video belongs in this directory as `fabrient-launch-demo.mp4`. Keep the landing page video self-hosted; do not use temporary external CDN URLs.
