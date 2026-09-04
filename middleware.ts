@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { engineeringOrigin } from '@/lib/engineering-origin'
 
 const mutationWindowMs = 60_000
 const mutationLimit = 60
 const mutationCounts = new Map<string, { count: number; resetAt: number }>()
-const PRIVATE_PREFIXES = ['/api/', '/workspace', '/projects', '/engineering', '/geometry', '/calibration', '/import', '/records', '/risk-map', '/sim2real', '/machine-health', '/manufacturing', '/billing', '/oauth', '/login', '/integrations']
-const ARCHIVED_UI_PREFIXES = ['/workspace', '/projects', '/engineering', '/geometry', '/calibration', '/import', '/records', '/risk-map', '/sim2real', '/machine-health', '/manufacturing', '/billing', '/login', '/integrations', '/changelog']
+const PRIVATE_PREFIXES = ['/api/']
+
+// Retired product UI routes stay in the repository for recovery/history, but
+// are deliberately not part of the shipped product surface. Requests are
+// redirected to the public landing page rather than returning a 404.
+const RETIRED_UI_PREFIXES = [
+  '/workspace',
+  '/projects',
+  '/engineering',
+  '/geometry',
+  '/calibration',
+  '/import',
+  '/records',
+  '/risk-map',
+  '/sim2real',
+  '/machine-health',
+  '/manufacturing',
+  '/billing',
+  '/login',
+  '/integrations',
+  '/changelog',
+]
 
 function withSecurityHeaders(request: NextRequest) {
   const csp = [
@@ -82,30 +101,10 @@ export async function middleware(request: NextRequest) {
     return withHeaders(NextResponse.json({ error: 'Too many requests' }, { status: 429 }), requestHeaders)
   }
 
-  // The product UI is intentionally reduced to the public presale landing page.
-  // The implementation is preserved in Git and can be restored from archive/full-product-2026-09-03.
-  // API/MCP/OAuth surfaces are not redirected so machine-to-machine integrations remain available.
-  if (ARCHIVED_UI_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
-    return withHeaders(NextResponse.redirect(new URL('/', request.url)), requestHeaders)
+  if (RETIRED_UI_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
+    return withHeaders(NextResponse.redirect(new URL('/', request.url), 308), requestHeaders)
   }
 
-  if (!request.nextUrl.pathname.startsWith('/projects')) return response
-
-  const token = request.cookies.get('fabrient_session')?.value
-  const api = engineeringOrigin()
-  if (!token) {
-    return withHeaders(NextResponse.redirect(new URL('/login', request.url)), requestHeaders)
-  }
-
-  try {
-    const check = await fetch(`${api}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
-    if (!check.ok) return withHeaders(NextResponse.redirect(new URL('/login', request.url)), requestHeaders)
-  } catch {
-    return withHeaders(NextResponse.redirect(new URL('/login?error=auth_unavailable', request.url)), requestHeaders)
-  }
   return response
 }
 
