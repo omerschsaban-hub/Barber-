@@ -1,57 +1,43 @@
 import { test, expect } from '@playwright/test'
 
-const productionEngine = process.env.PLAYWRIGHT_ENGINEERING_URL || 'https://fabrient-engineering.onrender.com'
+const RETIRED_UI_ROUTES = [
+  '/workspace',
+  '/projects',
+  '/manufacturing',
+  '/import',
+  '/geometry',
+  '/calibration',
+  '/records',
+  '/integrations',
+  '/changelog',
+  '/engineering',
+  '/risk-map',
+  '/sim2real',
+  '/machine-health',
+  '/billing',
+  '/login',
+]
 
-test.describe('workspace production resilience', () => {
-  test('never renders a blank workspace and always exposes a next action', async ({ page }) => {
-    const consoleErrors: string[] = []
-    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()) })
-    page.on('pageerror', error => consoleErrors.push(error.message))
+test.describe('retired product UI surface', () => {
+  test('landing page exposes no navigation into retired product routes', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-    await page.goto('/workspace', { waitUntil: 'domcontentloaded' })
-    if (page.url().includes('/login')) {
-      await expect(page.locator('main')).not.toBeEmpty()
-      await expect(page.getByText(/sign in|verification|email/i).first()).toBeVisible()
-      return
+    const hrefs = await page.locator('a[href]').evaluateAll((links) =>
+      links.map((link) => (link as HTMLAnchorElement).getAttribute('href') || ''),
+    )
+
+    for (const route of RETIRED_UI_ROUTES) {
+      expect(hrefs.some((href) => href === route || href.startsWith(`${route}/`))).toBeFalsy()
     }
-    await expect(page.locator('h1')).toContainText('Your engineering command center.')
-    await expect(page.getByText('TODAY / NEXT BEST ACTION')).toBeVisible()
-    await expect(page.getByRole('button', { name: /deterministic prediction/i })).toBeVisible()
-    await expect(page.getByText(/NO-BLANK RULE/i)).toBeVisible()
-    await expect(page.locator('main')).not.toBeEmpty()
-    expect(consoleErrors.filter(message => !message.includes('favicon'))).toEqual([])
   })
 
-  test('does not silently route production browser requests to localhost', async ({ page }) => {
-    const requests: string[] = []
-    page.on('request', request => {
-      if (request.url().includes('/v1/') || request.url().includes('/health')) requests.push(request.url())
-    })
-    await page.goto('/workspace', { waitUntil: 'domcontentloaded' })
-    if (page.url().includes('/login')) {
+  test('retired product routes redirect to the public landing page instead of 404', async ({ page }) => {
+    for (const route of RETIRED_UI_ROUTES) {
+      const response = await page.goto(route, { waitUntil: 'domcontentloaded' })
+      expect(response).not.toBeNull()
+      expect(response!.status()).toBe(200)
+      expect(new URL(page.url()).pathname).toBe('/')
       await expect(page.locator('main')).not.toBeEmpty()
-      return
     }
-    await expect(page.getByText(/ENGINE (READY|ACTION NEEDED|CONNECTING)/i)).toBeVisible()
-    await page.getByRole('button', { name: /retry connection/i }).click().catch(() => {})
-    expect(requests.every(url => !url.startsWith('http://localhost:8000'))).toBeTruthy()
-    expect(requests.every(url => !url.startsWith('http://127.0.0.1:8000'))).toBeTruthy()
-  })
-
-  test('production engineering health endpoint is reachable', async ({ request }) => {
-    const response = await request.get(`${productionEngine}/health`, { timeout: 60_000 })
-    expect(response.ok()).toBeTruthy()
-    expect(response.status()).toBe(200)
-  })
-
-  test('invalid engineering response becomes an explicit failure, never a blank page', async ({ page }) => {
-    await page.route('**/v1/predict', route => route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ detail: 'upstream unavailable' }) }))
-    await page.goto('/workspace', { waitUntil: 'domcontentloaded' })
-    if (page.url().includes('/login')) {
-      await expect(page.locator('main')).not.toBeEmpty()
-      return
-    }
-    await expect(page.getByText(/Run your first deterministic check|Review the verified prediction/i)).toBeVisible()
-    await expect(page.locator('main')).not.toBeEmpty()
   })
 })
