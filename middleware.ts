@@ -102,7 +102,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (RETIRED_UI_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
-    return withHeaders(NextResponse.redirect(new URL('/', request.url), 308), requestHeaders)
+    return withHeaders(NextResponse.redirect(new URL('/', request.url), 307), requestHeaders)
   }
 
   return response
