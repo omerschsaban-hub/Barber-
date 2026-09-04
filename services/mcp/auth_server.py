@@ -9,11 +9,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
-try:
-    from .migrate import main as _apply_owned_schema
-except ImportError:
-    from migrate import main as _apply_owned_schema
-_apply_owned_schema()
+# Database migrations run explicitly in the production container entrypoint
+# (`python migrate.py && uvicorn ...`).  Do not run them during module import:
+# importing the ASGI app for health checks, tooling, or CI must not require a
+# live PostgreSQL connection.
 try:
     from .server import CAPABILITY_REGISTRY, app as mcp_app
     from .auth_db import user_from_bearer, _pool, _hash

@@ -39,7 +39,12 @@ _current_token: ContextVar[str | None] = ContextVar("fabrient_mcp_bearer", defau
 # proven core to MCP clients. Additional tools are promoted after semantic E2E tests.
 for _tool in list(mcp_server.mcp._tool_manager.list_tools()):
     if _tool.name not in CORE_TOOLS:
-        mcp_server.mcp.remove_tool(_tool.name)
+        remove_tool = getattr(mcp_server.mcp, "remove_tool", None)
+        if remove_tool is not None:
+            remove_tool(_tool.name)
+        else:
+            # FastMCP 1.13 exposes ToolManager._tools but not FastMCP.remove_tool.
+            mcp_server.mcp._tool_manager._tools.pop(_tool.name, None)
 
 
 async def _engine_get(path: str, token: str) -> dict[str, Any] | None:
