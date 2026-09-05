@@ -16,9 +16,6 @@ const middleware = exists('middleware.ts') ? read('middleware.ts') : ''
 const engine = exists('services/engine/main.py') ? read('services/engine/main.py') : ''
 const landing = exists('app/page.tsx') ? read('app/page.tsx') : ''
 const videoRoute = exists('app/api/demo-video/route.ts') ? read('app/api/demo-video/route.ts') : ''
-const videoPath = 'public/demo/fabrient-launch-demo.mp4'
-const videoExists = exists(videoPath)
-const videoBytes = videoExists ? fs.statSync(path.join(root, videoPath)).size : 0
 
 check('HSTS', /Strict-Transport-Security/.test(middleware), 'production middleware must emit HSTS')
 check('MIME sniffing protection', /X-Content-Type-Options/.test(middleware), 'nosniff header must exist')
@@ -32,12 +29,12 @@ check('No fake testimonials', !/testimonial|customer quote|"Sarah Chen"/i.test(l
 check('No vanity counters', !/\b[0-9][0-9,]+\s*(customers|users|projects|teams)\b/i.test(landing), 'public claims must not invent usage numbers')
 check('No emoji-as-icons', !/✨|🚀|🔥|💡|⭐/.test(landing), 'avoid generic emoji decoration')
 check('Human copy', !/in conclusion|leverage|delve into|unlock the power of/i.test(landing), 'avoid generic assistant phrasing')
-check('First-party video URL', /DEMO_VIDEO_URL\s*=\s*['"]\/api\/demo-video['"]/.test(landing), 'landing page must reference the first-party video endpoint')
+check('First-party video URL', /DEMO_VIDEO_URL\s*=\s*['"]\/api\/demo-video['"]/.test(landing), 'landing page must use the server video endpoint')
 check('Native video element', /<video[\s\S]*<source src=\{DEMO_VIDEO_URL\} type="video\/mp4"/.test(landing) && !/<iframe[\s\S]*DEMO_VIDEO_URL/.test(landing), 'use the browser video element rather than embedding an external player')
-check('No Manus CDN dependency', !/manuscdn\.com/i.test(landing + videoRoute), 'the landing video path must not depend on Manus CDN')
-check('Production video asset exists', videoExists, `${videoPath} must be committed`)
-check('Production video is not placeholder', videoBytes > 1024, `${videoPath} must contain the real video, not the repository placeholder`)
-check('Video route supports byte ranges', /Content-Range/.test(videoRoute) && /Accept-Ranges/.test(videoRoute) && /status: range \? 206 : 200/.test(videoRoute), 'video delivery must support seekable HTTP range requests')
+check('Manus CDN configured', /files\.manuscdn\.com/i.test(videoRoute), 'demo video endpoint must proxy the configured Manus CDN source')
+check('Manus CDN range forwarding', /headers\.Range\s*=\s*range/.test(videoRoute) && /content-range/.test(videoRoute), 'video seeking must forward and return byte-range headers')
+check('Upstream media validation', /video\/mp4/.test(videoRoute) && /invalid media type/.test(videoRoute), 'reject upstream responses that are not MP4 media')
+check('Video response hardening', /X-Content-Type-Options/.test(videoRoute) && /Accept-Ranges/.test(videoRoute), 'proxied video must retain response hardening headers')
 
 const failures = checks.filter((x) => !x.pass)
 for (const item of checks) console.log(`${item.pass ? 'PASS' : 'FAIL'}  ${item.name} — ${item.detail}`)
