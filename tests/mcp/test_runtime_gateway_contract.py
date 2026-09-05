@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[2]
 GATEWAY = ROOT / "services" / "mcp" / "runtime_gateway.py"
 DOCKERFILE = ROOT / "services" / "mcp" / "Dockerfile"
@@ -41,5 +40,6 @@ def test_render_runs_gateway_and_checks_backend_readiness():
 
 def test_live_catalog_is_not_the_full_100_tool_registry():
     source = GATEWAY.read_text(encoding="utf-8")
-    assert "mcp_server.mcp.remove_tool" in source
+    assert 'getattr(mcp_server.mcp, "remove_tool", None)' in source
+    assert "mcp_server.mcp._tool_manager._tools.pop(_tool.name, None)" in source
     assert "reliable_core_first" in source
