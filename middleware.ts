@@ -5,10 +5,7 @@ const mutationLimit = 60
 const mutationCounts = new Map<string, { count: number; resetAt: number }>()
 const PRIVATE_PREFIXES = ['/api/']
 
-// Retired product UI routes stay in the repository for recovery/history, but
-// are deliberately not part of the shipped product surface. Requests are
-// redirected to the public landing page rather than returning a 404.
-const RETIRED_UI_PREFIXES = [
+const ARCHIVED_UI_PREFIXES = [
   '/workspace',
   '/projects',
   '/engineering',
@@ -101,7 +98,7 @@ export async function middleware(request: NextRequest) {
     return withHeaders(NextResponse.json({ error: 'Too many requests' }, { status: 429 }), requestHeaders)
   }
 
-  if (RETIRED_UI_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
+  if (ARCHIVED_UI_PREFIXES.some((prefix) => request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`))) {
     return withHeaders(NextResponse.redirect(new URL('/', request.url), 307), requestHeaders)
   }
 
