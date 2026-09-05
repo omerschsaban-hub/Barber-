@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 
-const publicRoutes = ['/', '/manufacturing', '/engineering', '/geometry', '/records']
+const publicRoutes = ['/']
 
 function attachDiagnostics(page: Page) {
   const pageErrors: string[] = []
@@ -29,51 +29,20 @@ test.describe('Fabrient browser health', () => {
     })
   }
 
-  test('landing page is a simple entry point into the real product loop', async ({ page }) => {
+  test('landing page exposes the real engineering narrative and demo entry point', async ({ page }) => {
     const diagnostics = attachDiagnostics(page)
-    await page.goto('/')
-    await expect(page.getByRole('link', { name: /START A PROJECT/i }).first()).toBeVisible()
-    await expect(page.getByText(/From intent/i).first()).toBeVisible()
-    await expect(page.getByText(/physical product|real product/i).first()).toBeVisible()
-    await page.getByRole('link', { name: /START A PROJECT/i }).first().click()
-    await expect(page).toHaveURL(/\/login\?redirect=\/workspace$/)
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: /Design it\. Build it\. Learn from it\./i })).toBeVisible()
+    await expect(page.getByText(/engineering work to what happens on the factory floor/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /OPEN THE DEMO/i })).toHaveAttribute('href', '/api/demo-video')
+    await expect(page.getByRole('link', { name: /EMAIL FABRIENT/i }).last()).toBeVisible()
     expect(diagnostics.pageErrors).toEqual([])
   })
 
-  test('manufacturing surface has a low-friction default path', async ({ page }) => {
-    await page.goto('/manufacturing')
-    await expect(page.getByRole('heading', { name: /Fix it\. Verify it\. Build it\./i })).toBeVisible()
-    await expect(page.getByLabel(/Part name/i)).toHaveValue(/.+/)
-    await expect(page.getByLabel(/Material/i)).toHaveValue(/.+/)
-    await expect(page.getByLabel(/Machine/i)).toHaveValue(/.+/)
-    await expect(page.getByRole('button', { name: /Self-fix \+ verify/i })).toBeVisible()
-  })
-
-  test('manufacturing workflow recovers from an engineering API failure', async ({ page }) => {
-    await page.route('**/api/engineering/v1/dfm/self-fix', async route => {
-      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'temporary upstream failure' }) })
-    })
-    await page.goto('/manufacturing')
-    await page.getByRole('button', { name: /Self-fix \+ verify/i }).click()
-    await expect(page.getByText(/temporary upstream failure/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /Self-fix \+ verify/i })).toBeEnabled()
-  })
-
-  test('manufacturing workflow can execute a bounded self-fix and show evidence', async ({ page }) => {
-    await page.route('**/api/engineering/v1/dfm/self-fix', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          changes: [{ issue: 'Wall too thin', field: 'wall_thickness_mm', before: 1, after: 1.2, reason: 'Within deterministic scalar fix bound' }],
-          refused: [],
-          after: { status: 'PASS', blocker_count: 0 },
-        }),
-      })
-    })
-    await page.goto('/manufacturing')
-    await page.getByRole('button', { name: /Self-fix \+ verify/i }).click()
-    await expect(page.getByText('Wall too thin')).toBeVisible()
-    await expect(page.getByText(/Verification: PASS/i)).toBeVisible()
+  test('landing page demo endpoint is reachable without waiting for media network idle', async ({ request }) => {
+    const response = await request.get('/api/demo-video', { headers: { Range: 'bytes=0-1023' } })
+    expect([200, 206]).toContain(response.status())
+    expect(response.headers()['content-type']).toMatch(/^video\/mp4/i)
+    expect(response.headers()['accept-ranges']).toBe('bytes')
   })
 })

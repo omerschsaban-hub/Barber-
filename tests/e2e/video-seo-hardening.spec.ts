@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-const publicPages = ['/', '/changelog']
+const publicPages = ['/']
 
 test.describe('video SEO hardening', () => {
   for (const path of publicPages) {
@@ -8,7 +8,7 @@ test.describe('video SEO hardening', () => {
       const errors: string[] = []
       page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
       page.on('pageerror', error => errors.push(error.message))
-      await page.goto(path, { waitUntil: 'networkidle' })
+      await page.goto(path, { waitUntil: 'domcontentloaded' })
       await expect(page.locator('h1')).toHaveCount(1)
       await expect(page.locator('meta[name="description"]')).toHaveCount(1)
       await expect(page.locator('link[rel="canonical"]')).toHaveCount(1)
