@@ -1,0 +1,104 @@
+name: Strip source comments once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  strip:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install comment stripper
+        run: npm install --no-save --ignore-scripts @repomix/strip-comments@2.4.2
+
+      - name: Strip explanatory source comments
+        run: |
+          cat > /tmp/strip-source-comments.mjs <<'EOF'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import strip from '@repomix/strip-comments';
+
+          const roots = ['app','apps','components','engineering','services','lib','scripts','tests','tools','db','supabase'];
+          const extensions = new Set(['.ts','.tsx','.js','.jsx','.mjs','.cjs','.css','.scss','.sass','.less','.py','.sql','.sh','.bash','.zsh','.kt','.kts','.swift','.yml','.yaml']);
+          const preserveLine = /^(\\s*)(#!|\\/\\/\\s*(?:@ts-|@jsx|@flow|eslint-|prettier-|istanbul|coverage)|\\/\\/\\/\\s*<reference\\b)/;
+          const protectedToken = '__FABRIENT_PRESERVE_COMMENT_LINE__';
+
+          function walk(dir, out = []) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              if (['.git','node_modules','.next','dist','build','coverage'].includes(entry.name)) continue;
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(full, out);
+              else out.push(full);
+            }
+            return out;
+          }
+
+          let changed = 0;
+          const skipped = [];
+          for (const root of roots) {
+            if (!fs.existsSync(root)) continue;
+            for (const file of walk(root)) {
+              const ext = path.extname(file).toLowerCase();
+              if (!extensions.has(ext) && path.basename(file).toLowerCase() !== 'dockerfile') continue;
+              const original = fs.readFileSync(file, 'utf8');
+              const lines = original.split('\\n');
+              const preserved = [];
+              const protectedText = lines.map(line => {
+                if (preserveLine.test(line)) {
+                  const id = `${protectedToken}${preserved.length}__`;
+                  preserved.push(line);
+                  return id;
+                }
+                return line;
+              }).join('\\n');
+              let output;
+              try {
+                output = strip(protectedText, { preserveNewlines: true, keepProtected: false });
+              } catch (error) {
+                skipped.push(`${file}: ${error.message}`);
+                continue;
+              }
+              output = output.replace(new RegExp(`${protectedToken}(\\\\d+)__`, 'g'), (_, n) => preserved[Number(n)]);
+              output = output.replace(/\\n{3,}/g, '\\n\\n');
+              if (output !== original) {
+                fs.writeFileSync(file, output);
+                changed++;
+              }
+            }
+          }
+          console.log(`changed=${changed}`);
+          if (skipped.length) {
+            console.error(`skipped=${skipped.length}`);
+            for (const item of skipped) console.error(item);
+            process.exitCode = 2;
+          }
+          EOF
+          node /tmp/strip-source-comments.mjs
+
+      - name: Validate
+        run: |
+          npm run lint --if-present
+          npx tsc --noEmit --pretty false
+          python -m compileall -q app engineering services tests scripts tools
+
+      - name: Commit cleanup and remove one-time workflow
+        run: |
+          rm -f .github/workflows/strip-source-comments-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No source-comment cleanup changes were necessary.'
+            exit 0
+          fi
+          git commit -m 'chore: remove explanatory source comments'
+          git push
