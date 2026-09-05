@@ -1,50 +1,48 @@
+import { createReadStream, existsSync, statSync } from 'node:fs'
+import { Readable } from 'node:stream'
+import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const VIDEO_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663321590917/uilhFdzHJgyMSihq.mp4'
+const VIDEO_PATH = path.join(process.cwd(), 'public', 'demo', 'fabrient-launch-demo.mp4')
+const MIN_VIDEO_BYTES = 1024
+
+function parseRange(value: string | null, size: number) {
+  if (!value?.startsWith('bytes=')) return null
+  const [startText, endText] = value.slice(6).split('-', 2)
+  const start = startText ? Number(startText) : Math.max(0, size - Number(endText || 0))
+  const end = endText ? Number(endText) : size - 1
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= size) return null
+  return { start, end: Math.min(end, size - 1) }
+}
 
 export async function GET(request: NextRequest) {
-  const range = request.headers.get('range')
-  const headers: HeadersInit = {
-    Accept: 'video/mp4,application/octet-stream;q=0.9,*/*;q=0.8',
+  if (!existsSync(VIDEO_PATH)) {
+    return NextResponse.json({ error: 'Demo video unavailable' }, { status: 503 })
   }
-  if (range) headers.Range = range
 
-  try {
-    const upstream = await fetch(VIDEO_URL, {
-      headers,
-      redirect: 'follow',
-      cache: 'no-store',
-    })
-
-    if (!upstream.ok && upstream.status !== 206) {
-      return NextResponse.json({ error: 'Demo video unavailable' }, { status: 502 })
-    }
-
-    const contentType = upstream.headers.get('content-type') || ''
-    if (!/^video\/mp4(?:\s*;|$)/i.test(contentType)) {
-      return NextResponse.json({ error: 'Demo video returned an invalid media type' }, { status: 502 })
-    }
-
-    const responseHeaders = new Headers()
-    responseHeaders.set('Content-Type', 'video/mp4')
-    responseHeaders.set('Accept-Ranges', 'bytes')
-    responseHeaders.set('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600')
-    responseHeaders.set('X-Content-Type-Options', 'nosniff')
-    responseHeaders.set('Content-Disposition', 'inline; filename="fabrient-launch-demo.mp4"')
-
-    for (const name of ['content-length', 'content-range']) {
-      const value = upstream.headers.get(name)
-      if (value) responseHeaders.set(name, value)
-    }
-
-    return new NextResponse(upstream.body, {
-      status: upstream.status,
-      headers: responseHeaders,
-    })
-  } catch {
-    return NextResponse.json({ error: 'Demo video unavailable' }, { status: 502 })
+  const size = statSync(VIDEO_PATH).size
+  if (size <= MIN_VIDEO_BYTES) {
+    return NextResponse.json({ error: 'Demo video asset is not installed' }, { status: 503 })
   }
+
+  const range = parseRange(request.headers.get('range'), size)
+  const start = range?.start ?? 0
+  const end = range?.end ?? size - 1
+  const contentLength = end - start + 1
+  const stream = Readable.toWeb(createReadStream(VIDEO_PATH, { start, end })) as ReadableStream
+  const headers = new Headers({
+    'Content-Type': 'video/mp4',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600',
+    'Content-Disposition': 'inline; filename="fabrient-launch-demo.mp4"',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Length': String(contentLength),
+  })
+
+  if (range) headers.set('Content-Range', `bytes ${start}-${end}/${size}`)
+
+  return new NextResponse(stream, { status: range ? 206 : 200, headers })
 }
