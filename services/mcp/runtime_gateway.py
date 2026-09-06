@@ -175,7 +175,10 @@ class MCPGatewayAuth(BaseHTTPMiddleware):
                 return JSONResponse({"error": "unauthorized", "request_id": request.headers.get("x-request-id")}, 401, headers={"WWW-Authenticate": f'Bearer resource_metadata="{RESOURCE_METADATA}", scope="mcp:use"'})
             if "mcp:use" not in set(str(identity.get("scope") or "").split()):
                 return JSONResponse({"error": "insufficient_scope", "scope": "mcp:use"}, 403)
-            allowed, retry = _allow_rate(f"user:{identity['id']}")
+            user_key = identity.get("user_id") or identity.get("id")
+            if not user_key:
+                return JSONResponse({"error": "invalid_identity"}, 401)
+            allowed, retry = _allow_rate(f"user:{user_key}")
             if not allowed:
                 return JSONResponse({"error": "rate_limited", "retry_after_seconds": retry}, 429, headers={"Retry-After": str(retry)})
             token = identity["access_token"]
