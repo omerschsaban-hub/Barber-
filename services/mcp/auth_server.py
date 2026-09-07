@@ -187,7 +187,7 @@ async def token(r: Request):
                     return JSONResponse({'error': 'invalid_client'}, 401)
             tok = secrets.token_urlsafe(48)
             db.execute('update oauth_authorization_codes set consumed_at=now() where code_hash=%s', (digest(code),))
-            db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (_hash(tok), row['user_id'], row['client_id'], row['scope']))
+            db.execute("insert into oauth_access_tokens(token_hash, client_id, user_id, scope, expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (_hash(tok), cid, row['user_id'], row['scope']))
             return JSONResponse({'access_token': tok, 'token_type': 'Bearer', 'expires_in': 3600, 'scope': row['scope']})
 
 async def revoke(r: Request):
