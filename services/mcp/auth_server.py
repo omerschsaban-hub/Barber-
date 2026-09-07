@@ -23,6 +23,8 @@ except ImportError:
 MCP_HOST = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'fabrient-mcp.onrender.com')
 RESOURCE = os.getenv('FABRIENT_MCP_RESOURCE_URL', f'https://{MCP_HOST}/mcp').rstrip('/')
 ISSUER = os.getenv('FABRIENT_MCP_OAUTH_ISSUER', f'https://{MCP_HOST}').rstrip('/')
+PUBLIC_WEB_URL = os.getenv('FABRIENT_WEB_URL', os.getenv('NEXT_PUBLIC_FABRIENT_WEB_URL', 'https://fabrinat-omega.vercel.app')).rstrip('/')
+FABRIENT_WEB_ORIGIN = os.getenv('FABRIENT_WEB_ORIGIN', PUBLIC_WEB_URL).rstrip('/')
 SCOPES = {'openid', 'email', 'profile', 'mcp:use'}
 FREE = {'inspect_part','analyze_dfm','verify_fixes','validate_material','validate_machine_envelope','validate_dimension','check_wall_thickness','check_clearances','check_holes','check_overhangs','check_orientation','check_tolerances','check_fit','check_first_layer','check_bed_adhesion','check_revision_consistency','compare_revisions','trace_provenance','build_inspection_plan','estimate_risk','next_experiment'}
 if len(CAPABILITY_REGISTRY) != 100 or len({x[0] for x in CAPABILITY_REGISTRY}) != 100:
@@ -132,7 +134,7 @@ async def authorize(r: Request):
         return JSONResponse({'error': 'invalid_request', 'error_description': 'PKCE is required for public clients'}, 400)
     with _pool().connection() as db:
         row = db.execute("insert into oauth_authorization_requests(client_id,redirect_uri,scope,state,code_challenge,code_challenge_method,expires_at) values(%s,%s,%s,%s,%s,%s,now()+interval '10 minutes') returning id", (cid, ru, ' '.join(sorted(requested)), state, ch, cm)).fetchone()
-    return RedirectResponse(f"{os.getenv('FABRIENT_WEB_ORIGIN','https://fabrient.com').rstrip('/')}/oauth/consent?authorization_id={row['id']}", 302)
+    return RedirectResponse(f"{FABRIENT_WEB_ORIGIN}/oauth/consent?authorization_id={row['id']}", 302)
 
 async def details(r: Request):
     with _pool().connection() as db:
@@ -185,7 +187,7 @@ async def token(r: Request):
                     return JSONResponse({'error': 'invalid_client'}, 401)
             tok = secrets.token_urlsafe(48)
             db.execute('update oauth_authorization_codes set consumed_at=now() where code_hash=%s', (digest(code),))
-            db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (_hash(tok), cid, row['user_id'], row['scope']))
+            db.execute("insert into oauth_access_tokens(token_hash,client_id,user_id,scope,expires_at) values(%s,%s,%s,%s,now()+interval '1 hour')", (_hash(tok), row['user_id'], row['client_id'], row['scope']))
             return JSONResponse({'access_token': tok, 'token_type': 'Bearer', 'expires_in': 3600, 'scope': row['scope']})
 
 async def revoke(r: Request):
