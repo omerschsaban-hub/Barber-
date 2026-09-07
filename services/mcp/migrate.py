@@ -88,7 +88,10 @@ def _seed_configured_mcp_token(conn: psycopg.Connection[object]) -> None:
     if not token or len(secret) < 32:
         return
     token_hash = hmac.new(secret.encode(), token.encode(), hashlib.sha256).digest()
-    web_origin = os.environ.get("FABRIENT_WEB_ORIGIN", "https://fabrient.com").rstrip("/")
+    web_origin = os.environ.get(
+        "FABRIENT_WEB_ORIGIN",
+        os.environ.get("FABRIENT_WEB_URL", os.environ.get("NEXT_PUBLIC_FABRIENT_WEB_URL", "https://fabrinat-omega.vercel.app")),
+    ).rstrip("/")
     user = conn.execute("""INSERT INTO users(email, display_name, email_verified_at, role)
        VALUES('mcp-smoke@fabrient.local', 'MCP smoke service', now(), 'admin')
        ON CONFLICT (email) DO UPDATE SET email_verified_at=coalesce(users.email_verified_at, now())
