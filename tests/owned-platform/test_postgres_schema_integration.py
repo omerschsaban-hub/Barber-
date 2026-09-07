@@ -17,6 +17,7 @@ def test_legacy_platform_schema_reconciles_to_owned_auth_contract():
             apply(conn, "db/migrations/0001_platform_auth.sql")
             apply(conn, "db/migrations/001_owned_postgres.sql")
             apply(conn, "db/migrations/010_schema_reconciliation.sql")
+            apply(conn, "db/migrations/011_postgres_artifacts.sql")
 
         rows = conn.execute(
             """select table_name, column_name

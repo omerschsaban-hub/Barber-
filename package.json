@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "audit:videos": "node scripts/video-checklist-audit.mjs",
     "test:deep": "npm run agent:preflight && npm run test:unit && npm run test:e2e",
-    "test:all": "npm run audit:videos && npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python -m pytest -q tests/mcp",
+    "test:all": "npm run audit:videos && npm run agent:preflight && npm run lint && npm run build && npm run test:deep && python scripts/run_mcp_surface_tests.py",
     "agent:preflight": "node scripts/agent-preflight.mjs",
     "agent:loop": "node scripts/agent-loop.mjs"
   },

@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
+from pathlib import Path
 
 import pytest
 
 pytestmark = pytest.mark.integration
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_postgres_artifact_round_trip():
@@ -15,6 +17,11 @@ def test_postgres_artifact_round_trip():
 
     from engineering.app.postgres_artifacts import get_bytes, get_metadata, put_bytes
     from engineering.app.postgres import get_conn
+
+    with get_conn() as conn:
+        with conn.transaction():
+            for migration in ("0001_platform_auth.sql", "001_owned_postgres.sql", "010_schema_reconciliation.sql", "011_postgres_artifacts.sql"):
+                conn.execute((ROOT / "db/migrations" / migration).read_text(encoding="utf-8"))
 
     owner_id = str(uuid.uuid4())
     email = f"artifact-test-{owner_id}@example.invalid"

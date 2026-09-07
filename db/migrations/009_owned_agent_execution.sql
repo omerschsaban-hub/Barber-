@@ -1,8 +1,7 @@
 create extension if not exists pgcrypto;
 
 -- Agent execution is authorized by the application layer using the owned session
--- and API-key system. This is plain Render PostgreSQL, not Supabase, so this
--- migration must not depend on Supabase roles or auth.uid().
+-- and API-key system. This migration uses only the owned PostgreSQL schema.
 create table if not exists public.agent_jobs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,

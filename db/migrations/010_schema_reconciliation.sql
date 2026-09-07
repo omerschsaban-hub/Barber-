@@ -37,6 +37,7 @@ ALTER TABLE public.billing_entitlements ALTER COLUMN source SET DEFAULT 'legacy'
 ALTER TABLE public.billing_entitlements ALTER COLUMN source SET NOT NULL;
 ALTER TABLE public.billing_events ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ;
 ALTER TABLE public.billing_events ADD COLUMN IF NOT EXISTS sequence_number BIGINT;
+CREATE INDEX IF NOT EXISTS billing_active_idx ON public.billing_entitlements(user_id) WHERE active;
 CREATE INDEX IF NOT EXISTS users_role_idx ON public.users(role);
 CREATE INDEX IF NOT EXISTS oauth_access_tokens_active_idx ON public.oauth_access_tokens(expires_at) WHERE revoked_at IS NULL;
 

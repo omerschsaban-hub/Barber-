@@ -46,7 +46,15 @@ def get_metadata(artifact_id: str, owner_id: str) -> Artifact | None:
                 (UUID(artifact_id), UUID(owner_id)),
             )
             row = cur.fetchone()
-    return Artifact(*row) if row else None
+    return Artifact(
+        id=row["id"],
+        owner_id=row["owner_id"],
+        project_id=row["project_id"],
+        filename=row["filename"],
+        content_type=row["content_type"],
+        size_bytes=row["size_bytes"],
+        sha256=row["sha256"],
+    ) if row else None
 
 
 def stream_bytes(artifact_id: str, owner_id: str, chunk_size: int = 1024 * 1024) -> tuple[Artifact, Iterator[bytes]] | None:
@@ -61,14 +69,23 @@ def stream_bytes(artifact_id: str, owner_id: str, chunk_size: int = 1024 * 1024)
             with conn.cursor() as cur:
                 while offset <= metadata.size_bytes:
                     cur.execute(
-                        "SELECT substring(data FROM %s FOR %s) FROM artifact_data WHERE artifact_id=%s",
+                        "SELECT substring(data FROM %s FOR %s) AS chunk FROM artifact_data WHERE artifact_id=%s",
                         (offset, chunk_size, UUID(artifact_id)),
                     )
                     row = cur.fetchone()
-                    piece = bytes(row[0]) if row and row[0] is not None else b""
+                    piece = bytes(row["chunk"]) if row and row["chunk"] is not None else b""
                     if not piece:
                         break
                     yield piece
                     offset += len(piece)
 
     return metadata, chunks()
+
+
+def get_bytes(artifact_id: str, owner_id: str) -> tuple[Artifact, bytes] | None:
+    """Return a bounded artifact payload for callers that need an in-memory value."""
+    streamed = stream_bytes(artifact_id, owner_id)
+    if streamed is None:
+        return None
+    metadata, chunks = streamed
+    return metadata, b"".join(chunks)

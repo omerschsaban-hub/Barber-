@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS billing_entitlements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY(user_id, entitlement_id)
 );
-CREATE INDEX IF NOT EXISTS billing_active_idx ON billing_entitlements(user_id) WHERE active;
 
 CREATE TABLE IF NOT EXISTS data_sources (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

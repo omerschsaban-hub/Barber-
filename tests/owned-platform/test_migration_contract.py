@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -6,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_owned_schema_contains_core_security_tables():
     sql = (ROOT / "db/migrations/001_owned_postgres.sql").read_text()
     for table in ("users", "sessions", "otp_challenges", "oauth_clients", "oauth_authorization_codes", "oauth_access_tokens", "billing_events", "billing_entitlements", "data_sources", "data_observations", "agent_runs"):
-        assert f"CREATE TABLE IF NOT EXISTS {table}" in sql
+        assert re.search(rf"CREATE TABLE IF NOT EXISTS (?:public\.)?{table}\b", sql, re.IGNORECASE)
 
 
 def test_complete_migration_set_is_shipped_to_mcp():
@@ -55,7 +56,7 @@ def test_required_platform_tables_are_defined_across_migrations():
         "integration_connections",
         "integration_oauth_states",
     ):
-        assert f"CREATE TABLE IF NOT EXISTS {table}" in migration_sql
+        assert re.search(rf"CREATE TABLE IF NOT EXISTS (?:public\.)?{table}\b", migration_sql, re.IGNORECASE)
 
 
 def test_render_postgres_migrations_do_not_depend_on_supabase_auth():
