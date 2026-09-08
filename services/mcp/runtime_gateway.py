@@ -16,8 +16,12 @@ from starlette.routing import Mount, Route
 # billing, or authorization. The engineering service is the source of truth.
 os.environ["FABRIENT_DISABLE_PRODUCTION_AUTH"] = "true"
 
-from . import auth_server as oauth  # noqa: E402
-from . import server as mcp_server  # noqa: E402
+try:
+    from . import auth_server as oauth  # noqa: E402
+    from . import server as mcp_server  # noqa: E402
+except ImportError:  # Docker runs this module as top-level `runtime_gateway`
+    import auth_server as oauth  # type: ignore[no-redef]  # noqa: E402
+    import server as mcp_server  # type: ignore[no-redef]  # noqa: E402
 
 ENGINE_URL = os.getenv("FABRIENT_ENGINE_URL", "https://fabrient-engineering.onrender.com").rstrip("/")
 MCP_HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME", "fabrient-mcp.onrender.com")
